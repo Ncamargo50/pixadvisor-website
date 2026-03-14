@@ -1,0 +1,2266 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Pixadvisor - Agricultura de Precisión. Soluciones avanzadas con IA, drones y análisis de datos para optimizar operaciones agrícolas. Bolivia y Brasil.">
+    <meta name="keywords" content="agricultura de precisión, precision agriculture, IA agrícola, drones agrícolas, NDVI, fertilización variable, Pixadvisor">
+    <meta property="og:title" content="Pixadvisor - Agricultura de Precisión">
+    <meta property="og:description" content="Soluciones avanzadas de agricultura de precisión que optimizan tus operaciones y maximizan rendimientos.">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="img/Logo.png">
+    <link rel="icon" type="image/png" href="img/Logo.png">
+    <link rel="canonical" href="https://pixadvisor.network">
+    <title>Pixadvisor - Agricultura de Precisión</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --teal: #00BFA5;
+            --teal-dark: #00a890;
+            --dark: #0F1B2D;
+            --light: #F8FAFB;
+            --gray: #E8ECEF;
+            --gray-100: #F3F4F6;
+            --text: #1A2332;
+            --text-light: #566577;
+            --gradient-brand: linear-gradient(135deg, #00BFA5 0%, #1565C0 100%);
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            color: var(--text);
+            background: white;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* ===== SKIP TO CONTENT ===== */
+        .skip-link {
+            position: absolute;
+            top: -100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--teal);
+            color: white;
+            padding: 0.8rem 1.5rem;
+            border-radius: 0 0 8px 8px;
+            z-index: 10000;
+            font-weight: 600;
+            transition: top 0.3s;
+        }
+        .skip-link:focus {
+            top: 0;
+            color: white;
+        }
+
+        /* ===== LANGUAGE TOGGLE ===== */
+        [data-lang-pt] { display: none; }
+        html[lang="pt"] [data-lang-es] { display: none; }
+        html[lang="pt"] [data-lang-pt] { display: revert; }
+
+        .lang-switcher {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(0, 191, 165, 0.1);
+            border: 1px solid rgba(0, 191, 165, 0.2);
+            border-radius: 50px;
+            padding: 3px;
+        }
+        .lang-btn {
+            padding: 5px 12px;
+            border: none;
+            border-radius: 50px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            background: transparent;
+            color: var(--text-light);
+            font-family: 'Inter', sans-serif;
+        }
+        .lang-btn.active {
+            background: var(--teal);
+            color: white;
+        }
+
+        /* ===== TYPOGRAPHY ===== */
+        h1 {
+            font-family: 'Open Sans', sans-serif;
+            font-size: clamp(2.5rem, 6vw, 4.5rem);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            line-height: 1.15;
+        }
+
+        h2 {
+            font-family: 'Open Sans', sans-serif;
+            font-size: clamp(1.8rem, 4vw, 2.8rem);
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            margin-bottom: 1rem;
+        }
+
+        h3 {
+            font-family: 'Open Sans', sans-serif;
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        p {
+            font-size: 1rem;
+            color: var(--text-light);
+            margin-bottom: 1rem;
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        a:hover {
+            color: var(--dark);
+        }
+
+        /* ===== UTILS ===== */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        .teal-line {
+            width: 4px;
+            height: 60px;
+            background: var(--teal);
+            margin-bottom: 2rem;
+        }
+
+        .section-divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--gray), transparent);
+            margin: 4rem 0;
+        }
+
+        .fade-in {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+
+        .fade-in.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* ===== NAVIGATION ===== */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(0, 191, 165, 0.1);
+            transition: var(--transition);
+        }
+
+        nav.scrolled {
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1.2rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+        }
+
+        .logo img {
+            height: 70px;
+            width: auto;
+            transition: transform 0.3s ease;
+        }
+
+        .logo img:hover {
+            transform: scale(1.05);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .nav-links a {
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: var(--text);
+            position: relative;
+        }
+
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--teal);
+            transition: width 0.3s ease;
+        }
+
+        .nav-links a:hover::after {
+            width: 100%;
+        }
+
+        .nav-links a:hover {
+            color: var(--teal);
+        }
+
+        .nav-cta {
+            background: var(--teal);
+            color: white !important;
+            padding: 0.6rem 1.4rem;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: background 0.3s ease;
+        }
+
+        .nav-cta::after { display: none; }
+
+        .nav-cta:hover {
+            background: var(--teal-dark);
+            color: white !important;
+        }
+
+        .hamburger {
+            display: none;
+            flex-direction: column;
+            gap: 6px;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 4px;
+        }
+
+        .hamburger span {
+            width: 24px;
+            height: 2px;
+            background: var(--dark);
+            border-radius: 1px;
+            transition: var(--transition);
+        }
+
+        .hamburger.open span:nth-child(1) {
+            transform: rotate(45deg) translate(5px, 5px);
+        }
+        .hamburger.open span:nth-child(2) {
+            opacity: 0;
+        }
+        .hamburger.open span:nth-child(3) {
+            transform: rotate(-45deg) translate(6px, -6px);
+        }
+
+        /* ===== HERO SECTION ===== */
+        .hero {
+            margin-top: 70px;
+            padding: 6rem 0;
+            min-height: calc(100vh - 70px);
+        }
+
+        .hero-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            align-items: center;
+        }
+
+        .hero-content {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .hero-title {
+            margin-bottom: 2rem;
+            color: var(--dark);
+        }
+
+        .hero-subtitle {
+            font-size: 1.1rem;
+            color: var(--text-light);
+            margin-bottom: 3rem;
+            max-width: 90%;
+            line-height: 1.8;
+        }
+
+        .hero-pillars {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        .pillar-card {
+            background: rgba(0, 191, 165, 0.05);
+            border: 1px solid rgba(0, 191, 165, 0.1);
+            border-radius: 8px;
+            padding: 1.5rem;
+            transition: var(--transition);
+        }
+
+        .pillar-card:hover {
+            border-color: var(--teal);
+            background: rgba(0, 191, 165, 0.08);
+        }
+
+        .pillar-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--teal);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.5rem;
+        }
+
+        .pillar-text {
+            font-size: 0.95rem;
+            color: var(--text-light);
+            line-height: 1.6;
+        }
+
+        .hero-visual {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .hero-logo-showcase {
+            position: relative;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 400px;
+        }
+
+        .hero-logo-showcase img {
+            width: 90%;
+            max-width: 500px;
+            height: auto;
+            filter: drop-shadow(0 20px 60px rgba(0, 191, 165, 0.15));
+            animation: logoFloat 4s ease-in-out infinite;
+        }
+
+        .hero-logo-ring {
+            position: absolute;
+            width: 420px;
+            height: 420px;
+            border: 2px solid rgba(0, 191, 165, 0.12);
+            border-radius: 50%;
+            animation: ringPulse 3s ease-in-out infinite;
+        }
+
+        .hero-logo-ring-2 {
+            position: absolute;
+            width: 500px;
+            height: 500px;
+            border: 1px solid rgba(0, 191, 165, 0.06);
+            border-radius: 50%;
+            animation: ringPulse 3s ease-in-out infinite 0.5s;
+        }
+
+        @keyframes logoFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-12px); }
+        }
+
+        @keyframes ringPulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.5; }
+        }
+
+        /* ===== ABOUT SECTION ===== */
+        .about-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            align-items: center;
+        }
+
+        .about {
+            padding: 6rem 0;
+        }
+
+        .about-content {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .about-text {
+            font-size: 1.15rem;
+            line-height: 1.9;
+            color: var(--text-light);
+            margin-bottom: 3rem;
+            max-width: 90%;
+        }
+
+        .about-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 2rem;
+        }
+
+        .stat {
+            border-left: 3px solid var(--teal);
+            padding-left: 1.5rem;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--teal);
+            margin-bottom: 0.3rem;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .about-image {
+            width: 100%;
+            height: 500px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e8ecef 100%);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .about-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* ===== SERVICES SECTION ===== */
+        .services {
+            padding: 6rem 0;
+        }
+
+        .services-header {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .services-header h2 {
+            color: var(--dark);
+            margin-bottom: 1rem;
+        }
+
+        .services-header p {
+            font-size: 1.05rem;
+            color: var(--text-light);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Service cards grid - detailed services */
+        .services-detail-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .service-detail-card {
+            border: 1px solid var(--gray);
+            border-radius: 10px;
+            padding: 1.8rem;
+            background: white;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+
+        .service-detail-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--teal);
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+            transform-origin: left;
+        }
+
+        .service-detail-card:hover {
+            border-color: var(--teal);
+            box-shadow: 0 10px 40px rgba(0, 191, 165, 0.1);
+            color: inherit;
+            transform: translateY(-4px);
+        }
+
+        .service-detail-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .service-detail-card .service-icon {
+            width: 48px;
+            height: 48px;
+            background: rgba(0, 191, 165, 0.1);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+        }
+
+        .service-detail-card .service-icon svg {
+            width: 24px;
+            height: 24px;
+            stroke: var(--teal);
+            fill: none;
+            stroke-width: 2;
+        }
+
+        .service-detail-card h3 {
+            font-size: 1.1rem;
+            color: var(--dark);
+            margin-bottom: 0.5rem;
+        }
+
+        .service-detail-card p {
+            font-size: 0.9rem;
+            color: var(--text-light);
+            line-height: 1.6;
+            margin: 0;
+        }
+
+        .service-detail-card .card-arrow {
+            position: absolute;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            color: var(--teal);
+            opacity: 0;
+            transform: translateX(-8px);
+            transition: var(--transition);
+            font-size: 1.2rem;
+        }
+
+        .service-detail-card:hover .card-arrow {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        /* Packages */
+        .packages-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 2rem;
+        }
+
+        .package-card {
+            border: 1px solid var(--gray);
+            border-radius: 10px;
+            padding: 2rem;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.5) 0%, rgba(248, 250, 251, 0.8) 100%);
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .package-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--teal);
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+            transform-origin: left;
+        }
+
+        .package-card:hover {
+            border-color: var(--teal);
+            box-shadow: 0 10px 40px rgba(0, 191, 165, 0.1);
+        }
+
+        .package-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .package-number {
+            display: inline-block;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--teal);
+            letter-spacing: 1px;
+            margin-bottom: 0.8rem;
+        }
+
+        .package-card h3 {
+            color: var(--dark);
+            margin-bottom: 1rem;
+        }
+
+        .service-price {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 0.5rem;
+        }
+
+        .service-price span {
+            font-size: 0.9rem;
+            color: var(--text-light);
+        }
+
+        .service-description {
+            font-size: 0.95rem;
+            color: var(--text-light);
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+
+        .service-features {
+            list-style: none;
+            margin-bottom: 2rem;
+        }
+
+        .service-features li {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            margin-bottom: 0.8rem;
+            font-size: 0.95rem;
+            color: var(--text);
+        }
+
+        .service-features li::before {
+            content: '';
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            background: rgba(0, 191, 165, 0.1);
+            border-radius: 50%;
+            flex-shrink: 0;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2300BFA5' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+
+        .service-cta {
+            display: inline-block;
+            background: white;
+            border: 2px solid var(--teal);
+            color: var(--teal);
+            padding: 0.8rem 1.8rem;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: var(--transition);
+            width: 100%;
+            text-align: center;
+            text-decoration: none;
+        }
+
+        .service-cta:hover {
+            background: var(--teal);
+            color: white;
+        }
+
+        /* ===== TECHNOLOGY SECTION ===== */
+        .technology {
+            padding: 6rem 0;
+            background: var(--light);
+        }
+
+        .tech-header {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .tech-header h2 {
+            color: var(--dark);
+        }
+
+        .tech-tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 3rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .tech-tab {
+            padding: 0.8rem 1.6rem;
+            background: white;
+            border: 2px solid var(--gray);
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 500;
+            color: var(--text);
+            transition: var(--transition);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.95rem;
+        }
+
+        .tech-tab[aria-selected="true"] {
+            border-color: var(--teal);
+            background: var(--teal);
+            color: white;
+        }
+
+        .tech-content {
+            display: none;
+        }
+
+        .tech-content.active {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+            align-items: center;
+        }
+
+        .tech-text h3 {
+            color: var(--dark);
+            margin-bottom: 1rem;
+        }
+
+        .tech-text p {
+            margin-bottom: 1.5rem;
+        }
+
+        .tech-features {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tech-feature {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-start;
+        }
+
+        .tech-feature-icon {
+            width: 32px;
+            height: 32px;
+            background: rgba(0, 191, 165, 0.1);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--teal);
+            font-weight: 700;
+            flex-shrink: 0;
+            font-size: 0.8rem;
+        }
+
+        .tech-feature-text h4 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 0.3rem;
+        }
+
+        .tech-feature-text p {
+            font-size: 0.9rem;
+            margin: 0;
+        }
+
+        .tech-visual {
+            height: 400px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e8ecef 100%);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .tech-visual img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* ===== CTA SECTION ===== */
+        .cta-section {
+            padding: 8rem 2rem;
+            background: var(--dark);
+            text-align: center;
+            color: white;
+        }
+
+        .cta-motto {
+            font-family: 'Open Sans', sans-serif;
+            font-size: clamp(1.8rem, 5vw, 3.5rem);
+            font-style: italic;
+            font-weight: 300;
+            line-height: 1.4;
+            margin-bottom: 2rem;
+            max-width: 900px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .cta-subtext {
+            font-size: 1.05rem;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        /* ===== ON FARM SECTION ===== */
+        .onfarm {
+            padding: 6rem 0;
+        }
+
+        .onfarm-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            align-items: center;
+        }
+
+        .onfarm-image {
+            width: 100%;
+            height: 500px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e8ecef 100%);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .onfarm-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .onfarm-content h2 {
+            color: var(--dark);
+        }
+
+        .onfarm-content p {
+            margin-bottom: 2rem;
+        }
+
+        .onfarm-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        .onfarm-stat {
+            padding: 1.5rem;
+            background: var(--light);
+            border-radius: 8px;
+            border-left: 3px solid var(--teal);
+        }
+
+        .onfarm-stat-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--teal);
+            margin-bottom: 0.3rem;
+        }
+
+        .onfarm-stat-label {
+            font-size: 0.9rem;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* ===== GALLERY SECTION ===== */
+        .gallery {
+            padding: 6rem 0;
+            background: var(--light);
+        }
+
+        .gallery-header {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .gallery-header h2 {
+            color: var(--dark);
+        }
+
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .gallery-item {
+            aspect-ratio: 4 / 3;
+            background: var(--gray);
+            border-radius: 10px;
+            overflow: hidden;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .gallery-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.4s ease;
+        }
+
+        .gallery-item:hover img {
+            transform: scale(1.08);
+        }
+
+        .gallery-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 191, 165, 0.2);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .gallery-item:hover .gallery-overlay {
+            opacity: 1;
+        }
+
+        .gallery-caption {
+            color: white;
+            font-weight: 600;
+            font-size: 1rem;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        /* ===== CONTACT SECTION ===== */
+        .contact {
+            padding: 6rem 0;
+        }
+
+        .contact-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            align-items: flex-start;
+        }
+
+        .contact-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .contact-info h2 {
+            color: var(--dark);
+        }
+
+        .contact-card {
+            background: var(--light);
+            border-radius: 10px;
+            padding: 1.8rem;
+            border: 1px solid var(--gray);
+            transition: var(--transition);
+        }
+
+        .contact-card:hover {
+            border-color: var(--teal);
+            box-shadow: 0 10px 30px rgba(0, 191, 165, 0.1);
+        }
+
+        .contact-card h4 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 0.5rem;
+        }
+
+        .contact-card p {
+            margin: 0;
+            font-size: 0.95rem;
+        }
+
+        .contact-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: var(--text);
+            font-size: 0.95rem;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            padding: 1rem;
+            border: 1px solid var(--gray);
+            border-radius: 6px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.95rem;
+            color: var(--text);
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--teal);
+            box-shadow: 0 0 0 3px rgba(0, 191, 165, 0.1);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 150px;
+        }
+
+        .form-submit {
+            background: var(--teal);
+            color: white;
+            padding: 1rem;
+            border: none;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.3s ease;
+            margin-top: 0.5rem;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .form-submit:hover {
+            background: var(--teal-dark);
+        }
+
+        /* ===== FOOTER ===== */
+        footer {
+            padding: 3rem 2rem;
+            background: var(--dark);
+            color: white;
+        }
+
+        .footer-grid {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 2fr 1fr;
+            gap: 3rem;
+            align-items: start;
+        }
+
+        .footer-logo img {
+            height: 50px;
+            width: auto;
+            filter: brightness(0) invert(1);
+            margin-bottom: 1rem;
+        }
+
+        .footer-tagline {
+            font-size: 0.85rem;
+            color: rgba(255,255,255,0.5);
+            font-style: italic;
+        }
+
+        .footer-links {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .footer-links h4 {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--teal);
+            margin-bottom: 0.8rem;
+        }
+
+        .footer-links a {
+            display: block;
+            color: rgba(255,255,255,0.6);
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+            transition: color 0.3s;
+        }
+
+        .footer-links a:hover {
+            color: var(--teal);
+        }
+
+        .footer-social {
+            display: flex;
+            gap: 1.5rem;
+            justify-content: flex-end;
+        }
+
+        .footer-social a {
+            color: rgba(255, 255, 255, 0.7);
+            transition: color 0.3s ease;
+        }
+
+        .footer-social a:hover {
+            color: var(--teal);
+        }
+
+        .footer-bottom {
+            max-width: 1200px;
+            margin: 2rem auto 0;
+            padding-top: 2rem;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.8rem;
+            color: rgba(255,255,255,0.4);
+        }
+
+        /* ===== WHATSAPP BUTTON ===== */
+        .whatsapp-btn {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 56px;
+            height: 56px;
+            background: #25D366;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: var(--transition);
+            box-shadow: 0 4px 12px rgba(37, 211, 102, 0.4);
+            z-index: 999;
+            text-decoration: none;
+        }
+
+        .whatsapp-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(37, 211, 102, 0.6);
+        }
+
+        /* ===== MOBILE NAV ===== */
+        .mobile-nav {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            flex-direction: column;
+            padding: 1rem 2rem;
+            border-bottom: 1px solid var(--gray);
+            border-radius: 0 0 10px 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            gap: 0.8rem;
+        }
+
+        .mobile-nav.open {
+            display: flex;
+        }
+
+        .mobile-nav a {
+            padding: 0.6rem 0;
+            color: var(--text);
+            font-weight: 500;
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+
+            .hamburger {
+                display: flex;
+            }
+
+            .hero-grid,
+            .about-grid,
+            .onfarm-grid,
+            .contact-grid {
+                grid-template-columns: 1fr;
+                padding: 0;
+            }
+
+            .hero {
+                padding: 4rem 0;
+                min-height: auto;
+            }
+
+            .about, .onfarm, .contact {
+                padding: 4rem 0;
+            }
+
+            .hero-pillars,
+            .about-stats,
+            .onfarm-stats {
+                grid-template-columns: 1fr;
+            }
+
+            .tech-content.active {
+                grid-template-columns: 1fr;
+            }
+
+            .services-detail-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .packages-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .logo img {
+                height: 50px;
+            }
+
+            .hero-subtitle {
+                font-size: 1rem;
+                max-width: 100%;
+            }
+
+            .hero-logo-showcase img {
+                max-width: 300px;
+            }
+
+            .hero-logo-ring {
+                width: 280px;
+                height: 280px;
+            }
+
+            .hero-logo-ring-2 {
+                width: 340px;
+                height: 340px;
+            }
+
+            .cta-motto {
+                font-size: 1.8rem;
+            }
+
+            .about-image,
+            .onfarm-image,
+            .tech-visual {
+                height: 300px;
+            }
+
+            .footer-grid {
+                grid-template-columns: 1fr;
+                text-align: center;
+            }
+
+            .footer-social {
+                justify-content: center;
+            }
+
+            .footer-bottom {
+                flex-direction: column;
+                gap: 0.5rem;
+                text-align: center;
+            }
+
+            .gallery-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .lang-switcher {
+                position: absolute;
+                top: 1rem;
+                right: 4rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 0 1rem;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            h2 {
+                font-size: 1.5rem;
+            }
+
+            .gallery-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .tech-tabs {
+                gap: 0.5rem;
+            }
+
+            .tech-tab {
+                padding: 0.6rem 1rem;
+                font-size: 0.9rem;
+            }
+
+            .whatsapp-btn {
+                width: 48px;
+                height: 48px;
+            }
+
+            .cta-motto {
+                font-size: 1.3rem;
+            }
+        }
+
+        /* ===== ANIMATIONS ===== */
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-slide-in {
+            animation: slideInUp 0.8s ease-out;
+        }
+    </style>
+
+    <!-- Schema.org structured data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Pixadvisor",
+        "description": "Agricultura de Precisión - Soluciones avanzadas con IA, drones y análisis de datos",
+        "url": "https://pixadvisor.network",
+        "email": "contacto@pixadvisor.network",
+        "telephone": "+59172149171",
+        "areaServed": ["Bolivia", "Brasil"],
+        "founder": {
+            "@type": "Person",
+            "name": "Ing. Agr. Nilton Camargo"
+        },
+        "sameAs": []
+    }
+    </script>
+</head>
+<body>
+    <a href="#main" class="skip-link">Ir al contenido principal</a>
+
+    <!-- NAVIGATION -->
+    <nav>
+        <div class="nav-container">
+            <a href="#" class="logo">
+                <img src="img/Logo-negro.png" alt="Pixadvisor - Agricultura de Precisión" width="210" height="70">
+            </a>
+
+            <div class="nav-links">
+                <a href="#about">
+                    <span data-lang-es>Nosotros</span>
+                    <span data-lang-pt>Sobre Nós</span>
+                </a>
+                <a href="#services">
+                    <span data-lang-es>Servicios</span>
+                    <span data-lang-pt>Serviços</span>
+                </a>
+                <a href="#technology">
+                    <span data-lang-es>Tecnología</span>
+                    <span data-lang-pt>Tecnologia</span>
+                </a>
+                <a href="#contact">
+                    <span data-lang-es>Contacto</span>
+                    <span data-lang-pt>Contato</span>
+                </a>
+                <div class="lang-switcher">
+                    <button class="lang-btn active" data-lang="es" aria-label="Español">ES</button>
+                    <button class="lang-btn" data-lang="pt" aria-label="Português">PT</button>
+                </div>
+                <a href="https://wa.me/59172149171" target="_blank" rel="noopener" class="nav-cta">WhatsApp</a>
+            </div>
+
+            <button class="hamburger" aria-label="Abrir menú" aria-expanded="false" aria-controls="mobileNav">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+
+        <div class="mobile-nav" id="mobileNav" role="navigation">
+            <a href="#about">
+                <span data-lang-es>Nosotros</span>
+                <span data-lang-pt>Sobre Nós</span>
+            </a>
+            <a href="#services">
+                <span data-lang-es>Servicios</span>
+                <span data-lang-pt>Serviços</span>
+            </a>
+            <a href="#technology">
+                <span data-lang-es>Tecnología</span>
+                <span data-lang-pt>Tecnologia</span>
+            </a>
+            <a href="#contact">
+                <span data-lang-es>Contacto</span>
+                <span data-lang-pt>Contato</span>
+            </a>
+            <div class="lang-switcher" style="margin: 0.5rem 0;">
+                <button class="lang-btn active" data-lang="es" aria-label="Español">ES</button>
+                <button class="lang-btn" data-lang="pt" aria-label="Português">PT</button>
+            </div>
+            <a href="https://wa.me/59172149171" target="_blank" rel="noopener" class="nav-cta" style="text-align:center;">WhatsApp</a>
+        </div>
+    </nav>
+
+    <!-- HERO SECTION -->
+    <section class="hero" id="main">
+        <div class="container">
+            <div class="hero-grid">
+                <div class="hero-content">
+                    <div class="teal-line"></div>
+                    <h1 class="hero-title animate-slide-in">
+                        <span data-lang-es>Donde la Tecnología Cultiva la Transformación</span>
+                        <span data-lang-pt>Onde a Tecnologia Cultiva a Transformação</span>
+                    </h1>
+                    <p class="hero-subtitle animate-slide-in">
+                        <span data-lang-es>Soluciones avanzadas de agricultura de precisión que optimizan tus operaciones, maximizan rendimientos y transforman tus datos en decisiones inteligentes.</span>
+                        <span data-lang-pt>Soluções avançadas de agricultura de precisão que otimizam suas operações, maximizam rendimentos e transformam seus dados em decisões inteligentes.</span>
+                    </p>
+
+                    <div class="hero-pillars">
+                        <div class="pillar-card fade-in">
+                            <div class="pillar-title">
+                                <span data-lang-es>Eficiencia</span>
+                                <span data-lang-pt>Eficiência</span>
+                            </div>
+                            <div class="pillar-text">
+                                <span data-lang-es>Optimización de recursos y operaciones</span>
+                                <span data-lang-pt>Otimização de recursos e operações</span>
+                            </div>
+                        </div>
+                        <div class="pillar-card fade-in">
+                            <div class="pillar-title">
+                                <span data-lang-es>Rendimiento</span>
+                                <span data-lang-pt>Desempenho</span>
+                            </div>
+                            <div class="pillar-text">
+                                <span data-lang-es>Máximo rendimiento en cada cultivo</span>
+                                <span data-lang-pt>Máximo rendimento em cada cultivo</span>
+                            </div>
+                        </div>
+                        <div class="pillar-card fade-in">
+                            <div class="pillar-title">
+                                <span data-lang-es>Rentabilidad</span>
+                                <span data-lang-pt>Rentabilidade</span>
+                            </div>
+                            <div class="pillar-text">
+                                <span data-lang-es>Retorno de inversión garantizado</span>
+                                <span data-lang-pt>Retorno de investimento garantido</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="hero-visual">
+                    <div class="hero-logo-showcase">
+                        <div class="hero-logo-ring"></div>
+                        <div class="hero-logo-ring-2"></div>
+                        <img src="img/Logo-negro.png" alt="Pixadvisor Logo" width="500" height="auto" loading="eager">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="section-divider"></div>
+
+    <!-- ABOUT SECTION -->
+    <section class="about" id="about">
+        <div class="container">
+            <div class="about-grid">
+                <div class="about-content fade-in">
+                    <h2>
+                        <span data-lang-es>Transformando la Agricultura Moderna</span>
+                        <span data-lang-pt>Transformando a Agricultura Moderna</span>
+                    </h2>
+                    <p class="about-text">
+                        <span data-lang-es>Pixadvisor es una plataforma integral de agricultura de precisión que integra datos, análisis avanzado e inteligencia artificial para ayudarte a tomar decisiones más informadas. Con presencia en múltiples países, trabajamos con datos 100% reales para ofrecerte soluciones que realmente funcionan en el campo.</span>
+                        <span data-lang-pt>Pixadvisor é uma plataforma integral de agricultura de precisão que integra dados, análise avançada e inteligência artificial para ajudá-lo a tomar decisões mais informadas. Com presença em múltiplos países, trabalhamos com dados 100% reais para oferecer soluções que realmente funcionam no campo.</span>
+                    </p>
+
+                    <div class="about-stats">
+                        <div class="stat fade-in">
+                            <div class="stat-number">2</div>
+                            <div class="stat-label">
+                                <span data-lang-es>Países</span>
+                                <span data-lang-pt>Países</span>
+                            </div>
+                        </div>
+                        <div class="stat fade-in">
+                            <div class="stat-number">100%</div>
+                            <div class="stat-label">
+                                <span data-lang-es>Datos Reales</span>
+                                <span data-lang-pt>Dados Reais</span>
+                            </div>
+                        </div>
+                        <div class="stat fade-in">
+                            <div class="stat-number">IA</div>
+                            <div class="stat-label">
+                                <span data-lang-es>Propia</span>
+                                <span data-lang-pt>Própria</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="about-image fade-in">
+                    <img src="img/Agricultura de precisão com drone.jpg" alt="Drone realizando monitoreo de cultivos con agricultura de precisión" loading="lazy" width="600" height="500">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="section-divider"></div>
+
+    <!-- SERVICES SECTION -->
+    <section class="services" id="services">
+        <div class="container">
+            <div class="services-header fade-in">
+                <h2>
+                    <span data-lang-es>Nuestros Servicios</span>
+                    <span data-lang-pt>Nossos Serviços</span>
+                </h2>
+                <p>
+                    <span data-lang-es>Soluciones integrales de agricultura de precisión para cada etapa de tu operación.</span>
+                    <span data-lang-pt>Soluções integrais de agricultura de precisão para cada etapa da sua operação.</span>
+                </p>
+            </div>
+
+            <!-- Service Cards -->
+            <div class="services-detail-grid">
+                <a href="img/servicios/geoland-advisor.html" class="service-detail-card fade-in">
+                    <div class="service-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
+                    <h3>GeoLand Advisor</h3>
+                    <p>
+                        <span data-lang-es>Georreferenciación y digitalización integral de áreas productivas.</span>
+                        <span data-lang-pt>Georreferenciamento e digitalização integral de áreas produtivas.</span>
+                    </p>
+                    <span class="card-arrow">&rarr;</span>
+                </a>
+
+                <a href="img/servicios/smartsoil-advisor.html" class="service-detail-card fade-in">
+                    <div class="service-icon"><svg viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></div>
+                    <h3>SmartSoil Advisor</h3>
+                    <p>
+                        <span data-lang-es>Mapeo de zonas y ambientes productivos para manejo sitio-específico.</span>
+                        <span data-lang-pt>Mapeamento de zonas e ambientes produtivos para manejo sítio-específico.</span>
+                    </p>
+                    <span class="card-arrow">&rarr;</span>
+                </a>
+
+                <a href="img/servicios/checksoil-advisor.html" class="service-detail-card fade-in">
+                    <div class="service-icon"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+                    <h3>CheckSoil Advisor</h3>
+                    <p>
+                        <span data-lang-es>Muestreo dirigido y análisis de suelo georreferenciado.</span>
+                        <span data-lang-pt>Amostragem dirigida e análise de solo georreferenciada.</span>
+                    </p>
+                    <span class="card-arrow">&rarr;</span>
+                </a>
+
+                <a href="img/servicios/nutribank-advisor.html" class="service-detail-card fade-in">
+                    <div class="service-icon"><svg viewBox="0 0 24 24"><path d="M12 20V10M18 20V4M6 20v-4"/></svg></div>
+                    <h3>NutriBank Advisor</h3>
+                    <p>
+                        <span data-lang-es>Fertilización en tasa variable con prescripciones inteligentes.</span>
+                        <span data-lang-pt>Fertilização em taxa variável com prescrições inteligentes.</span>
+                    </p>
+                    <span class="card-arrow">&rarr;</span>
+                </a>
+
+                <a href="img/servicios/bioindex-advisor.html" class="service-detail-card fade-in">
+                    <div class="service-icon"><svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>
+                    <h3>BioIndex Advisor</h3>
+                    <p>
+                        <span data-lang-es>Detección de anomalías y estrés mediante índices biológicos.</span>
+                        <span data-lang-pt>Detecção de anomalias e estresse mediante índices biológicos.</span>
+                    </p>
+                    <span class="card-arrow">&rarr;</span>
+                </a>
+
+                <a href="img/servicios/watersoil-advisor.html" class="service-detail-card fade-in">
+                    <div class="service-icon"><svg viewBox="0 0 24 24"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg></div>
+                    <h3>WaterSoil Advisor</h3>
+                    <p>
+                        <span data-lang-es>Monitoreo hídrico y detección de estrés para gestión del agua.</span>
+                        <span data-lang-pt>Monitoramento hídrico e detecção de estresse para gestão da água.</span>
+                    </p>
+                    <span class="card-arrow">&rarr;</span>
+                </a>
+
+                <a href="img/servicios/checkleaf-advisor.html" class="service-detail-card fade-in">
+                    <div class="service-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+                    <h3>CheckLeaf Advisor</h3>
+                    <p>
+                        <span data-lang-es>Análisis foliar avanzado para diagnóstico nutricional directo.</span>
+                        <span data-lang-pt>Análise foliar avançada para diagnóstico nutricional direto.</span>
+                    </p>
+                    <span class="card-arrow">&rarr;</span>
+                </a>
+
+                <a href="img/servicios/onfarm-biofabricas.html" class="service-detail-card fade-in">
+                    <div class="service-icon"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+                    <h3>
+                        <span data-lang-es>OnFarm - Biofábricas</span>
+                        <span data-lang-pt>OnFarm - Biofábricas</span>
+                    </h3>
+                    <p>
+                        <span data-lang-es>Multiplicación de microorganismos en su finca. Ahorro de 60-75%.</span>
+                        <span data-lang-pt>Multiplicação de microrganismos na sua fazenda. Economia de 60-75%.</span>
+                    </p>
+                    <span class="card-arrow">&rarr;</span>
+                </a>
+            </div>
+
+            <div class="section-divider"></div>
+
+            <!-- Packages -->
+            <div class="services-header fade-in">
+                <h2>
+                    <span data-lang-es>Paquetes de Soluciones</span>
+                    <span data-lang-pt>Pacotes de Soluções</span>
+                </h2>
+                <p>
+                    <span data-lang-es>Elige el plan que mejor se adapte a tus necesidades.</span>
+                    <span data-lang-pt>Escolha o plano que melhor se adapta às suas necessidades.</span>
+                </p>
+            </div>
+
+            <div class="packages-grid">
+                <div class="package-card fade-in">
+                    <div class="package-number">
+                        <span data-lang-es>Paquete 1 - Básico</span>
+                        <span data-lang-pt>Pacote 1 - Básico</span>
+                    </div>
+                    <h3>Basic</h3>
+                    <div class="service-price">
+                        <span data-lang-es>Contactar <span>por precio</span></span>
+                        <span data-lang-pt>Consultar <span>preço</span></span>
+                    </div>
+                    <p class="service-description">
+                        <span data-lang-es>Ideal para productores que inician en agricultura de precisión con las herramientas fundamentales.</span>
+                        <span data-lang-pt>Ideal para produtores que iniciam na agricultura de precisão com as ferramentas fundamentais.</span>
+                    </p>
+                    <ul class="service-features">
+                        <li>GeoLand Advisor</li>
+                        <li>SmartSoil Advisor</li>
+                        <li>
+                            <span data-lang-es>Reportes Mensuales</span>
+                            <span data-lang-pt>Relatórios Mensais</span>
+                        </li>
+                        <li>
+                            <span data-lang-es>Soporte Email</span>
+                            <span data-lang-pt>Suporte Email</span>
+                        </li>
+                    </ul>
+                    <a href="https://wa.me/59172149171?text=Hola%2C%20me%20interesa%20el%20Paquete%20Basic%20de%20Pixadvisor" target="_blank" rel="noopener" class="service-cta">
+                        <span data-lang-es>Solicitar Demo</span>
+                        <span data-lang-pt>Solicitar Demo</span>
+                    </a>
+                </div>
+
+                <div class="package-card fade-in">
+                    <div class="package-number">
+                        <span data-lang-es>Paquete 2 - Plus</span>
+                        <span data-lang-pt>Pacote 2 - Plus</span>
+                    </div>
+                    <h3>Plus</h3>
+                    <div class="service-price">
+                        <span data-lang-es>Contactar <span>por precio</span></span>
+                        <span data-lang-pt>Consultar <span>preço</span></span>
+                    </div>
+                    <p class="service-description">
+                        <span data-lang-es>Análisis avanzado y recomendaciones con IA para productores que buscan mayor precisión.</span>
+                        <span data-lang-pt>Análise avançada e recomendações com IA para produtores que buscam maior precisão.</span>
+                    </p>
+                    <ul class="service-features">
+                        <li>GeoLand + SmartSoil + CheckSoil</li>
+                        <li>NutriBank + BioIndex + WaterSoil</li>
+                        <li>
+                            <span data-lang-es>IA Predictiva</span>
+                            <span data-lang-pt>IA Preditiva</span>
+                        </li>
+                        <li>
+                            <span data-lang-es>Reportes Semanales</span>
+                            <span data-lang-pt>Relatórios Semanais</span>
+                        </li>
+                        <li>
+                            <span data-lang-es>Soporte Prioritario</span>
+                            <span data-lang-pt>Suporte Prioritário</span>
+                        </li>
+                    </ul>
+                    <a href="https://wa.me/59172149171?text=Hola%2C%20me%20interesa%20el%20Paquete%20Plus%20de%20Pixadvisor" target="_blank" rel="noopener" class="service-cta">
+                        <span data-lang-es>Solicitar Demo</span>
+                        <span data-lang-pt>Solicitar Demo</span>
+                    </a>
+                </div>
+
+                <div class="package-card fade-in">
+                    <div class="package-number">
+                        <span data-lang-es>Paquete 3 - Premium</span>
+                        <span data-lang-pt>Pacote 3 - Premium</span>
+                    </div>
+                    <h3>Premium</h3>
+                    <div class="service-price">
+                        <span data-lang-es>Contactar <span>por precio</span></span>
+                        <span data-lang-pt>Consultar <span>preço</span></span>
+                    </div>
+                    <p class="service-description">
+                        <span data-lang-es>Control total con la suite completa de herramientas, CheckLeaf, IA propia y soporte dedicado.</span>
+                        <span data-lang-pt>Controle total com a suite completa de ferramentas, CheckLeaf, IA própria e suporte dedicado.</span>
+                    </p>
+                    <ul class="service-features">
+                        <li>
+                            <span data-lang-es>Suite Completa (todos los servicios)</span>
+                            <span data-lang-pt>Suite Completa (todos os serviços)</span>
+                        </li>
+                        <li>CheckLeaf Advisor</li>
+                        <li>FieldPlanning + FieldMetrics + FieldControl</li>
+                        <li>
+                            <span data-lang-es>IA 100% Propia</span>
+                            <span data-lang-pt>IA 100% Própria</span>
+                        </li>
+                        <li>
+                            <span data-lang-es>Soporte 24/7</span>
+                            <span data-lang-pt>Suporte 24/7</span>
+                        </li>
+                    </ul>
+                    <a href="https://wa.me/59172149171?text=Hola%2C%20me%20interesa%20el%20Paquete%20Premium%20de%20Pixadvisor" target="_blank" rel="noopener" class="service-cta">
+                        <span data-lang-es>Solicitar Demo</span>
+                        <span data-lang-pt>Solicitar Demo</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="section-divider"></div>
+
+    <!-- TECHNOLOGY SECTION -->
+    <section class="technology" id="technology">
+        <div class="container">
+            <div class="tech-header fade-in">
+                <h2>
+                    <span data-lang-es>Nuestra Plataforma Tecnológica</span>
+                    <span data-lang-pt>Nossa Plataforma Tecnológica</span>
+                </h2>
+                <p>
+                    <span data-lang-es>Tres pilares de tecnología avanzada diseñados para maximizar tu productividad</span>
+                    <span data-lang-pt>Três pilares de tecnologia avançada projetados para maximizar sua produtividade</span>
+                </p>
+            </div>
+
+            <div class="tech-tabs" role="tablist" aria-label="Plataforma tecnológica">
+                <button class="tech-tab" role="tab" aria-selected="true" aria-controls="panel-fieldplanning" id="tab-fieldplanning">FieldPlanning</button>
+                <button class="tech-tab" role="tab" aria-selected="false" aria-controls="panel-fieldmetrics" id="tab-fieldmetrics">FieldMetrics</button>
+                <button class="tech-tab" role="tab" aria-selected="false" aria-controls="panel-fieldcontrol" id="tab-fieldcontrol">FieldControl</button>
+            </div>
+
+            <div id="panel-fieldplanning" class="tech-content active fade-in" role="tabpanel" aria-labelledby="tab-fieldplanning">
+                <div class="tech-text">
+                    <h3>FieldPlanning</h3>
+                    <p>
+                        <span data-lang-es>Planifica con precisión cada metro de tus cultivos utilizando análisis de datos históricos, condiciones climáticas y recomendaciones de IA.</span>
+                        <span data-lang-pt>Planeje com precisão cada metro dos seus cultivos utilizando análise de dados históricos, condições climáticas e recomendações de IA.</span>
+                    </p>
+                    <div class="tech-features">
+                        <div class="tech-feature">
+                            <div class="tech-feature-icon">01</div>
+                            <div class="tech-feature-text">
+                                <h4><span data-lang-es>Planificación Inteligente</span><span data-lang-pt>Planejamento Inteligente</span></h4>
+                                <p><span data-lang-es>Mapeo y zonificación automática de campos</span><span data-lang-pt>Mapeamento e zonificação automática de campos</span></p>
+                            </div>
+                        </div>
+                        <div class="tech-feature">
+                            <div class="tech-feature-icon">02</div>
+                            <div class="tech-feature-text">
+                                <h4><span data-lang-es>Análisis Predictivo</span><span data-lang-pt>Análise Preditiva</span></h4>
+                                <p><span data-lang-es>Previsiones precisas basadas en IA</span><span data-lang-pt>Previsões precisas baseadas em IA</span></p>
+                            </div>
+                        </div>
+                        <div class="tech-feature">
+                            <div class="tech-feature-icon">03</div>
+                            <div class="tech-feature-text">
+                                <h4><span data-lang-es>Optimización de Recursos</span><span data-lang-pt>Otimização de Recursos</span></h4>
+                                <p><span data-lang-es>Máximo ROI con mínimo desperdicio</span><span data-lang-pt>Máximo ROI com mínimo desperdício</span></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="tech-visual">
+                    <img src="img/Fazenda inteligente por meio de tecnologia.jpg" alt="FieldPlanning - Planificación inteligente de campos agrícolas" loading="lazy" width="600" height="400">
+                </div>
+            </div>
+
+            <div id="panel-fieldmetrics" class="tech-content fade-in" role="tabpanel" aria-labelledby="tab-fieldmetrics">
+                <div class="tech-text">
+                    <h3>FieldMetrics</h3>
+                    <p>
+                        <span data-lang-es>Analiza la calidad post-plantación con IA: restitución de líneas, detección de fallas, paralelismo y conteo de plantas.</span>
+                        <span data-lang-pt>Analise a qualidade pós-plantio com IA: restituição de linhas, detecção de falhas, paralelismo e contagem de plantas.</span>
+                    </p>
+                    <div class="tech-features">
+                        <div class="tech-feature">
+                            <div class="tech-feature-icon">01</div>
+                            <div class="tech-feature-text">
+                                <h4><span data-lang-es>Restitución de Líneas</span><span data-lang-pt>Restituição de Linhas</span></h4>
+                                <p><span data-lang-es>Reconstrucción digital para cosecha mecanizada</span><span data-lang-pt>Reconstrução digital para colheita mecanizada</span></p>
+                            </div>
+                        </div>
+                        <div class="tech-feature">
+                            <div class="tech-feature-icon">02</div>
+                            <div class="tech-feature-text">
+                                <h4><span data-lang-es>Detección de Fallas</span><span data-lang-pt>Detecção de Falhas</span></h4>
+                                <p><span data-lang-es>Cuantificación automática de fallas de plantío</span><span data-lang-pt>Quantificação automática de falhas de plantio</span></p>
+                            </div>
+                        </div>
+                        <div class="tech-feature">
+                            <div class="tech-feature-icon">03</div>
+                            <div class="tech-feature-text">
+                                <h4><span data-lang-es>Conteo de Plantas</span><span data-lang-pt>Contagem de Plantas</span></h4>
+                                <p><span data-lang-es>Estimación precisa de población por hectárea</span><span data-lang-pt>Estimativa precisa de população por hectare</span></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="tech-visual">
+                    <img src="img/Paisagem agrícola com mapa NDVI.jpg" alt="FieldMetrics - Análisis de métricas de cultivos" loading="lazy" width="600" height="400">
+                </div>
+            </div>
+
+            <div id="panel-fieldcontrol" class="tech-content fade-in" role="tabpanel" aria-labelledby="tab-fieldcontrol">
+                <div class="tech-text">
+                    <h3>FieldControl</h3>
+                    <p>
+                        <span data-lang-es>Monitoreo continuo con visión por computadora y deep learning para detectar problemas de forma temprana.</span>
+                        <span data-lang-pt>Monitoramento contínuo com visão computacional e deep learning para detectar problemas de forma precoce.</span>
+                    </p>
+                    <div class="tech-features">
+                        <div class="tech-feature">
+                            <div class="tech-feature-icon">01</div>
+                            <div class="tech-feature-text">
+                                <h4><span data-lang-es>Detección de Malezas</span><span data-lang-pt>Detecção de Plantas Daninhas</span></h4>
+                                <p><span data-lang-es>IA entrenada para mapear infestaciones</span><span data-lang-pt>IA treinada para mapear infestações</span></p>
+                            </div>
+                        </div>
+                        <div class="tech-feature">
+                            <div class="tech-feature-icon">02</div>
+                            <div class="tech-feature-text">
+                                <h4><span data-lang-es>Clasificación Espectral</span><span data-lang-pt>Classificação Espectral</span></h4>
+                                <p><span data-lang-es>Diferenciación de estrés hídrico, nutricional y sanitario</span><span data-lang-pt>Diferenciação de estresse hídrico, nutricional e sanitário</span></p>
+                            </div>
+                        </div>
+                        <div class="tech-feature">
+                            <div class="tech-feature-icon">03</div>
+                            <div class="tech-feature-text">
+                                <h4><span data-lang-es>Deep Learning Adaptativo</span><span data-lang-pt>Deep Learning Adaptativo</span></h4>
+                                <p><span data-lang-es>Modelos que mejoran con cada análisis</span><span data-lang-pt>Modelos que melhoram a cada análise</span></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="tech-visual">
+                    <img src="img/Analisando a saúde da vegetação.jpg" alt="FieldControl - Control y monitoreo inteligente de cultivos" loading="lazy" width="600" height="400">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA SECTION -->
+    <section class="cta-section fade-in">
+        <p class="cta-motto">
+            <span data-lang-es>Medir para comprender, controlar para mejorar</span>
+            <span data-lang-pt>Medir para compreender, controlar para melhorar</span>
+        </p>
+        <p class="cta-subtext">
+            <span data-lang-es>Tu éxito es nuestra misión. Comienza hoy tu transformación digital agrícola.</span>
+            <span data-lang-pt>Seu sucesso é nossa missão. Comece hoje sua transformação digital agrícola.</span>
+        </p>
+    </section>
+
+    <!-- ON FARM SECTION -->
+    <section class="onfarm" id="onfarm">
+        <div class="container">
+            <div class="onfarm-grid">
+                <div class="onfarm-image fade-in">
+                    <img src="img/Agricultura de precisão e tecnologia inteligente.jpg" alt="Resultados de agricultura de precisión en campo" loading="lazy" width="600" height="500">
+                </div>
+
+                <div class="onfarm-content fade-in">
+                    <h2>
+                        <span data-lang-es>Resultados en el Campo</span>
+                        <span data-lang-pt>Resultados no Campo</span>
+                    </h2>
+                    <p>
+                        <span data-lang-es>Nuestros clientes reportan mejoras significativas en eficiencia, rendimiento y rentabilidad desde los primeros meses de implementación.</span>
+                        <span data-lang-pt>Nossos clientes reportam melhorias significativas em eficiência, rendimento e rentabilidade desde os primeiros meses de implementação.</span>
+                    </p>
+                    <p>
+                        <span data-lang-es>Con datos reales y tecnología propia, garantizamos que cada métrica que ves está validada en operaciones reales.</span>
+                        <span data-lang-pt>Com dados reais e tecnologia própria, garantimos que cada métrica que você vê está validada em operações reais.</span>
+                    </p>
+
+                    <div class="onfarm-stats">
+                        <div class="onfarm-stat fade-in">
+                            <div class="onfarm-stat-value">+35%</div>
+                            <div class="onfarm-stat-label">
+                                <span data-lang-es>Eficiencia</span>
+                                <span data-lang-pt>Eficiência</span>
+                            </div>
+                        </div>
+                        <div class="onfarm-stat fade-in">
+                            <div class="onfarm-stat-value">+28%</div>
+                            <div class="onfarm-stat-label">
+                                <span data-lang-es>Rendimiento</span>
+                                <span data-lang-pt>Rendimento</span>
+                            </div>
+                        </div>
+                        <div class="onfarm-stat fade-in">
+                            <div class="onfarm-stat-value">-22%</div>
+                            <div class="onfarm-stat-label">
+                                <span data-lang-es>Costos</span>
+                                <span data-lang-pt>Custos</span>
+                            </div>
+                        </div>
+                        <div class="onfarm-stat fade-in">
+                            <div class="onfarm-stat-value">+18</div>
+                            <div class="onfarm-stat-label">
+                                <span data-lang-es>Meses ROI</span>
+                                <span data-lang-pt>Meses ROI</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="section-divider"></div>
+
+    <!-- GALLERY SECTION -->
+    <section class="gallery">
+        <div class="container">
+            <div class="gallery-header fade-in">
+                <h2>
+                    <span data-lang-es>Galería de Soluciones</span>
+                    <span data-lang-pt>Galeria de Soluções</span>
+                </h2>
+                <p>
+                    <span data-lang-es>Conoce cómo Pixadvisor transforma operaciones agrícolas</span>
+                    <span data-lang-pt>Conheça como Pixadvisor transforma operações agrícolas</span>
+                </p>
+            </div>
+
+            <div class="gallery-grid">
+                <div class="gallery-item fade-in">
+                    <img src="img/Mapeamento de fertilidade do solo.jpg" alt="Mapeo de fertilidad del suelo con agricultura de precisión" loading="lazy" width="400" height="300">
+                    <div class="gallery-overlay">
+                        <span class="gallery-caption">
+                            <span data-lang-es>Mapeo de Fertilidad</span>
+                            <span data-lang-pt>Mapeamento de Fertilidade</span>
+                        </span>
+                    </div>
+                </div>
+                <div class="gallery-item fade-in">
+                    <img src="img/Mapa agrícola com sobreposição de NDVI.jpg" alt="Mapa NDVI para monitoreo de vegetación" loading="lazy" width="400" height="300">
+                    <div class="gallery-overlay">
+                        <span class="gallery-caption">
+                            <span data-lang-es>Análisis NDVI</span>
+                            <span data-lang-pt>Análise NDVI</span>
+                        </span>
+                    </div>
+                </div>
+                <div class="gallery-item fade-in">
+                    <img src="img/Mapa de aplicação de cal na fazenda.jpg" alt="Mapa de prescripción de aplicación variable" loading="lazy" width="400" height="300">
+                    <div class="gallery-overlay">
+                        <span class="gallery-caption">
+                            <span data-lang-es>Prescripción Variable</span>
+                            <span data-lang-pt>Prescrição Variável</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="section-divider"></div>
+
+    <!-- CONTACT SECTION -->
+    <section class="contact" id="contact">
+        <div class="container">
+            <div class="contact-grid">
+                <div class="contact-info fade-in">
+                    <h2>
+                        <span data-lang-es>Ponte en Contacto</span>
+                        <span data-lang-pt>Entre em Contato</span>
+                    </h2>
+                    <p>
+                        <span data-lang-es>¿Listo para transformar tu operación agrícola? Contáctanos hoy para una consulta personalizada.</span>
+                        <span data-lang-pt>Pronto para transformar sua operação agrícola? Entre em contato hoje para uma consultoria personalizada.</span>
+                    </p>
+
+                    <div class="contact-card fade-in">
+                        <h4>WhatsApp</h4>
+                        <p><a href="https://wa.me/59172149171" target="_blank" rel="noopener">+591 7214 9171</a></p>
+                    </div>
+
+                    <div class="contact-card fade-in">
+                        <h4>Email</h4>
+                        <p><a href="mailto:contacto@pixadvisor.network">contacto@pixadvisor.network</a></p>
+                    </div>
+
+                    <div class="contact-card fade-in">
+                        <h4>
+                            <span data-lang-es>Respuesta Rápida</span>
+                            <span data-lang-pt>Resposta Rápida</span>
+                        </h4>
+                        <p>
+                            <span data-lang-es>Nos ponemos en contacto dentro de 24 horas</span>
+                            <span data-lang-pt>Entramos em contato em até 24 horas</span>
+                        </p>
+                    </div>
+                </div>
+
+                <form class="contact-form fade-in" id="contactForm" novalidate>
+                    <div class="form-group">
+                        <label for="name">
+                            <span data-lang-es>Nombre</span>
+                            <span data-lang-pt>Nome</span>
+                        </label>
+                        <input type="text" id="name" name="name" required autocomplete="name">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" name="email" required autocomplete="email">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="phone">
+                            <span data-lang-es>Teléfono</span>
+                            <span data-lang-pt>Telefone</span>
+                        </label>
+                        <input type="tel" id="phone" name="phone" required autocomplete="tel">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="message">
+                            <span data-lang-es>Mensaje</span>
+                            <span data-lang-pt>Mensagem</span>
+                        </label>
+                        <textarea id="message" name="message" required></textarea>
+                    </div>
+
+                    <button type="submit" class="form-submit">
+                        <span data-lang-es>Enviar por WhatsApp</span>
+                        <span data-lang-pt>Enviar por WhatsApp</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer>
+        <div class="footer-grid">
+            <div>
+                <div class="footer-logo"><img src="img/Logo-negro.png" alt="Pixadvisor" width="150" height="50"></div>
+                <p class="footer-tagline">
+                    <span data-lang-es>Medir para comprender, controlar para mejorar</span>
+                    <span data-lang-pt>Medir para compreender, controlar para melhorar</span>
+                </p>
+            </div>
+
+            <div class="footer-links">
+                <div>
+                    <h4>
+                        <span data-lang-es>Servicios</span>
+                        <span data-lang-pt>Serviços</span>
+                    </h4>
+                    <a href="img/servicios/geoland-advisor.html">GeoLand Advisor</a>
+                    <a href="img/servicios/smartsoil-advisor.html">SmartSoil Advisor</a>
+                    <a href="img/servicios/checksoil-advisor.html">CheckSoil Advisor</a>
+                    <a href="img/servicios/nutribank-advisor.html">NutriBank Advisor</a>
+                    <a href="img/servicios/bioindex-advisor.html">BioIndex Advisor</a>
+                </div>
+                <div>
+                    <h4>
+                        <span data-lang-es>Más Servicios</span>
+                        <span data-lang-pt>Mais Serviços</span>
+                    </h4>
+                    <a href="img/servicios/watersoil-advisor.html">WaterSoil Advisor</a>
+                    <a href="img/servicios/checkleaf-advisor.html">CheckLeaf Advisor</a>
+                    <a href="img/servicios/fieldplanning.html">FieldPlanning</a>
+                    <a href="img/servicios/fieldmetrics.html">FieldMetrics</a>
+                    <a href="img/servicios/fieldcontrol.html">FieldControl</a>
+                </div>
+            </div>
+
+            <div style="text-align: right;">
+                <div class="footer-social">
+                    <a href="https://wa.me/59172149171" target="_blank" rel="noopener" aria-label="WhatsApp"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg></a>
+                    <a href="mailto:contacto@pixadvisor.network" aria-label="Email"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 4l-10 8L2 4"/></svg></a>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer-bottom">
+            <span>&copy; 2026 Pixadvisor Agricultura de Precisión — Ing. Agr. Nilton Camargo</span>
+            <span>contacto@pixadvisor.network</span>
+        </div>
+    </footer>
+
+    <!-- WHATSAPP BUTTON -->
+    <a href="https://wa.me/59172149171" target="_blank" rel="noopener" class="whatsapp-btn" aria-label="Contactar por WhatsApp">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+    </a>
+
+    <script>
+        // ===== LANGUAGE SWITCHER =====
+        function setLanguage(lang) {
+            document.documentElement.lang = lang;
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.lang === lang);
+            });
+            localStorage.setItem('pixadvisor-lang', lang);
+        }
+
+        document.querySelectorAll('.lang-btn').forEach(btn => {
+            btn.addEventListener('click', () => setLanguage(btn.dataset.lang));
+        });
+
+        // Restore saved language
+        const savedLang = localStorage.getItem('pixadvisor-lang');
+        if (savedLang) setLanguage(savedLang);
+
+        // ===== INTERSECTION OBSERVER FOR ANIMATIONS =====
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+
+        document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+
+        // ===== TECHNOLOGY TABS (ARIA) =====
+        const tabs = document.querySelectorAll('[role="tab"]');
+        const panels = document.querySelectorAll('[role="tabpanel"]');
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.setAttribute('aria-selected', 'false'));
+                panels.forEach(p => p.classList.remove('active'));
+
+                tab.setAttribute('aria-selected', 'true');
+                const panel = document.getElementById(tab.getAttribute('aria-controls'));
+                panel.classList.add('active');
+                panel.classList.add('visible');
+            });
+        });
+
+        // ===== CONTACT FORM WHATSAPP =====
+        document.getElementById('contactForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            const name = document.getElementById('name').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const phone = document.getElementById('phone').value.trim();
+            const message = document.getElementById('message').value.trim();
+
+            if (!name || !email || !message) return;
+
+            const whatsappMessage = `Hola Pixadvisor, soy ${name}.\nCorreo: ${email}\nTeléfono: ${phone}\nMensaje: ${message}`;
+            window.open(`https://wa.me/59172149171?text=${encodeURIComponent(whatsappMessage)}`, '_blank');
+            document.getElementById('contactForm').reset();
+        });
+
+        // ===== SMOOTH SCROLL =====
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                const href = this.getAttribute('href');
+                if (href !== '#' && document.querySelector(href)) {
+                    e.preventDefault();
+                    document.querySelector(href).scrollIntoView({ behavior: 'smooth' });
+                    // Close mobile nav if open
+                    document.getElementById('mobileNav').classList.remove('open');
+                    document.querySelector('.hamburger').classList.remove('open');
+                    document.querySelector('.hamburger').setAttribute('aria-expanded', 'false');
+                }
+            });
+        });
+
+        // ===== HAMBURGER MENU =====
+        const hamburger = document.querySelector('.hamburger');
+        const mobileNav = document.getElementById('mobileNav');
+
+        hamburger.addEventListener('click', () => {
+            const isOpen = mobileNav.classList.toggle('open');
+            hamburger.classList.toggle('open');
+            hamburger.setAttribute('aria-expanded', isOpen);
+        });
+
+        // Close mobile nav when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('nav') && mobileNav.classList.contains('open')) {
+                mobileNav.classList.remove('open');
+                hamburger.classList.remove('open');
+                hamburger.setAttribute('aria-expanded', 'false');
+            }
+        });
+
+        // ===== SCROLL NAV EFFECT =====
+        window.addEventListener('scroll', () => {
+            document.querySelector('nav').classList.toggle('scrolled', window.scrollY > 50);
+        });
+    </script>
+</body>
+</html>
