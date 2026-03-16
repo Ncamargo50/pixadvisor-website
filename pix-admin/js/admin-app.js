@@ -621,7 +621,7 @@ class PixAdmin {
       try {
         const data = JSON.parse(await file.text());
         if (data.samples) {
-          // PIX Recolección backup format
+          // PIX Muestreo backup format
           for (const s of data.samples) {
             this.samples.push({
               id: this.samples.length + 1,
@@ -1065,7 +1065,7 @@ class PixAdmin {
   renderSamplesTable() {
     const container = document.getElementById('samplesTable');
     if (this.samples.length === 0) {
-      container.innerHTML = '<div class="empty-state"><h3>Sin muestras</h3><p>Importá datos desde PIX Recolección o cargá resultados de laboratorio</p></div>';
+      container.innerHTML = '<div class="empty-state"><h3>Sin muestras</h3><p>Importá datos desde PIX Muestreo o cargá resultados de laboratorio</p></div>';
       return;
     }
 
