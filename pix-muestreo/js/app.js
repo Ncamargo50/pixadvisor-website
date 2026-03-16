@@ -14,26 +14,16 @@ class PixApp {
     // Init IndexedDB
     await pixDB.init();
 
-    // Register Service Worker (path relative to deployment subdirectory)
-    if ('serviceWorker' in navigator) {
-      try {
-        const swPath = location.pathname.includes('/pix-muestreo/') ? '/pix-muestreo/sw.js' : '/sw.js';
-        await navigator.serviceWorker.register(swPath, { scope: location.pathname.includes('/pix-muestreo/') ? '/pix-muestreo/' : '/' });
-        console.log('SW registered:', swPath);
-      } catch (e) { console.log('SW not registered:', e); }
+    // PWA Install - use global prompt captured before login
+    if (deferredInstallPrompt) {
+      this.deferredInstallPrompt = deferredInstallPrompt;
+      this.showInstallBanner();
     }
-
-    // PWA Install prompt
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       this.deferredInstallPrompt = e;
+      deferredInstallPrompt = e;
       this.showInstallBanner();
-    });
-
-    window.addEventListener('appinstalled', () => {
-      this.deferredInstallPrompt = null;
-      this.hideInstallBanner();
-      this.toast('App instalada correctamente', 'success');
     });
 
     // Online/offline detection
@@ -1077,6 +1067,32 @@ class PixApp {
   }
 }
 
+// Global install prompt reference
+let deferredInstallPrompt = null;
+
+// Register SW and capture install prompt BEFORE login (required for PWA installability)
+if ('serviceWorker' in navigator) {
+  const swPath = location.pathname.includes('/pix-muestreo/') ? '/pix-muestreo/sw.js' : '/sw.js';
+  const swScope = location.pathname.includes('/pix-muestreo/') ? '/pix-muestreo/' : '/';
+  navigator.serviceWorker.register(swPath, { scope: swScope })
+    .then(reg => console.log('SW registered:', reg.scope))
+    .catch(e => console.log('SW error:', e));
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  // Show install button on login screen if visible
+  const installBtn = document.getElementById('loginInstallBtn');
+  if (installBtn) installBtn.style.display = 'block';
+});
+
+window.addEventListener('appinstalled', () => {
+  deferredInstallPrompt = null;
+  const installBtn = document.getElementById('loginInstallBtn');
+  if (installBtn) installBtn.style.display = 'none';
+});
+
 // Init app
 const app = new PixApp();
 document.addEventListener('DOMContentLoaded', async () => {
@@ -1089,6 +1105,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('loginOverlay').style.display = 'none';
   app.init();
 });
+
+// Install from login screen
+async function pixInstall() {
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    const result = await deferredInstallPrompt.userChoice;
+    if (result.outcome === 'accepted') {
+      document.getElementById('loginInstallBtn').textContent = 'Instalando...';
+    }
+    deferredInstallPrompt = null;
+  } else {
+    // Fallback: show manual instructions
+    alert('Para instalar:\n\n Android: Tocá los 3 puntos (⋮) → "Instalar aplicación" o "Agregar a pantalla de inicio"\n\n iPhone: Tocá Compartir (⬆) → "Agregar a pantalla de inicio"');
+  }
+}
 
 // Login handler
 async function pixLogin() {
