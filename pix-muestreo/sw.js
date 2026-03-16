@@ -1,5 +1,5 @@
 // PIX Muestreo - Service Worker for Offline Support
-const CACHE_NAME = 'pix-muestreo-v4';
+const CACHE_NAME = 'pix-muestreo-v5';
 const TILE_CACHE = 'pix-tiles-v1';
 const DATA_CACHE = 'pix-data-v1';
 
