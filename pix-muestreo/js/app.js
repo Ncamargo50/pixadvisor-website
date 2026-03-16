@@ -14,12 +14,27 @@ class PixApp {
     // Init IndexedDB
     await pixDB.init();
 
-    // Register Service Worker
+    // Register Service Worker (path relative to deployment subdirectory)
     if ('serviceWorker' in navigator) {
       try {
-        await navigator.serviceWorker.register('/sw.js');
+        const swPath = location.pathname.includes('/pix-muestreo/') ? '/pix-muestreo/sw.js' : '/sw.js';
+        await navigator.serviceWorker.register(swPath, { scope: location.pathname.includes('/pix-muestreo/') ? '/pix-muestreo/' : '/' });
+        console.log('SW registered:', swPath);
       } catch (e) { console.log('SW not registered:', e); }
     }
+
+    // PWA Install prompt
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      this.deferredInstallPrompt = e;
+      this.showInstallBanner();
+    });
+
+    window.addEventListener('appinstalled', () => {
+      this.deferredInstallPrompt = null;
+      this.hideInstallBanner();
+      this.toast('App instalada correctamente', 'success');
+    });
 
     // Online/offline detection
     window.addEventListener('online', () => { this.isOnline = true; this.updateConnectionStatus(); });
@@ -1024,8 +1039,72 @@ class PixApp {
       setTimeout(() => toast.remove(), 300);
     }, 3000);
   }
+
+  showInstallBanner() {
+    let banner = document.getElementById('installBanner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'installBanner';
+      banner.style.cssText = 'position:fixed;bottom:70px;left:16px;right:16px;background:linear-gradient(135deg,#7FD633,#0d9488);color:#0F1B2D;padding:16px 20px;border-radius:16px;display:flex;align-items:center;gap:12px;z-index:9999;box-shadow:0 8px 32px rgba(0,0,0,0.4);font-family:Inter,sans-serif;';
+      banner.innerHTML = `
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:15px;">Instalar PIX Muestreo</div>
+          <div style="font-size:12px;opacity:0.8;margin-top:2px;">Acceso directo + funciona sin internet</div>
+        </div>
+        <button onclick="app.installApp()" style="background:#0F1B2D;color:#7FD633;border:none;padding:10px 20px;border-radius:10px;font-weight:600;font-size:14px;cursor:pointer;">Instalar</button>
+        <button onclick="app.hideInstallBanner()" style="background:none;border:none;color:#0F1B2D;font-size:20px;cursor:pointer;padding:4px;">&times;</button>
+      `;
+      document.body.appendChild(banner);
+    }
+    banner.style.display = 'flex';
+  }
+
+  hideInstallBanner() {
+    const banner = document.getElementById('installBanner');
+    if (banner) banner.style.display = 'none';
+  }
+
+  async installApp() {
+    if (this.deferredInstallPrompt) {
+      this.deferredInstallPrompt.prompt();
+      const result = await this.deferredInstallPrompt.userChoice;
+      if (result.outcome === 'accepted') {
+        this.toast('Instalando PIX Muestreo...', 'success');
+      }
+      this.deferredInstallPrompt = null;
+      this.hideInstallBanner();
+    }
+  }
 }
 
 // Init app
 const app = new PixApp();
-document.addEventListener('DOMContentLoaded', () => app.init());
+document.addEventListener('DOMContentLoaded', async () => {
+  // Check authentication before init
+  const isAuth = sessionStorage.getItem('pix_muestreo_auth');
+  if (!isAuth) {
+    document.getElementById('loginOverlay').style.display = 'flex';
+    return;
+  }
+  document.getElementById('loginOverlay').style.display = 'none';
+  app.init();
+});
+
+// Login handler
+async function pixLogin() {
+  const pass = document.getElementById('loginPass').value;
+  const encoder = new TextEncoder();
+  const data = encoder.encode(pass);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  // Hash of the correct password
+  if (hash === '89718ab553cc01c43f255575a0c59bd5d98bbef2171c13ebe831314f034d71c9') {
+    sessionStorage.setItem('pix_muestreo_auth', 'true');
+    document.getElementById('loginOverlay').style.display = 'none';
+    document.getElementById('loginError').style.display = 'none';
+    app.init();
+  } else {
+    document.getElementById('loginError').style.display = 'block';
+  }
+}
