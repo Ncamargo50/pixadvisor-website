@@ -1069,8 +1069,14 @@ class PixApp {
 
 // Global install prompt reference
 let deferredInstallPrompt = null;
+let appIsInstalled = false;
 
-// Register SW and capture install prompt BEFORE login (required for PWA installability)
+// Check if already installed as PWA (standalone mode)
+if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
+  appIsInstalled = true;
+}
+
+// Register SW BEFORE login (required for PWA installability)
 if ('serviceWorker' in navigator) {
   const swPath = location.pathname.includes('/pix-muestreo/') ? '/pix-muestreo/sw.js' : '/sw.js';
   const swScope = location.pathname.includes('/pix-muestreo/') ? '/pix-muestreo/' : '/';
@@ -1082,42 +1088,73 @@ if ('serviceWorker' in navigator) {
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredInstallPrompt = e;
-  // Show install button on login screen if visible
-  const installBtn = document.getElementById('loginInstallBtn');
-  if (installBtn) installBtn.style.display = 'block';
+  // Show auto-install button if install overlay is visible
+  const autoBtn = document.getElementById('autoInstallBtn');
+  if (autoBtn) autoBtn.style.display = 'block';
 });
 
 window.addEventListener('appinstalled', () => {
+  appIsInstalled = true;
   deferredInstallPrompt = null;
-  const installBtn = document.getElementById('loginInstallBtn');
-  if (installBtn) installBtn.style.display = 'none';
+  const autoBtn = document.getElementById('autoInstallBtn');
+  if (autoBtn) autoBtn.style.display = 'none';
+  // Auto-continue to app after install
+  showApp();
 });
 
 // Init app
 const app = new PixApp();
 document.addEventListener('DOMContentLoaded', async () => {
-  // Check authentication before init
   const isAuth = sessionStorage.getItem('pix_muestreo_auth');
   if (!isAuth) {
     document.getElementById('loginOverlay').style.display = 'flex';
     return;
   }
-  document.getElementById('loginOverlay').style.display = 'none';
-  app.init();
+  // Already authenticated - skip install screen if already installed
+  if (appIsInstalled) {
+    showApp();
+  } else {
+    // Check if user already dismissed install screen this session
+    const skippedInstall = sessionStorage.getItem('pix_muestreo_skip_install');
+    if (skippedInstall) {
+      showApp();
+    } else {
+      showInstallScreen();
+    }
+  }
 });
 
-// Install from login screen
+function showInstallScreen() {
+  document.getElementById('loginOverlay').style.display = 'none';
+  document.getElementById('installOverlay').style.display = 'flex';
+  // If beforeinstallprompt already fired, show the auto button
+  if (deferredInstallPrompt) {
+    const autoBtn = document.getElementById('autoInstallBtn');
+    if (autoBtn) autoBtn.style.display = 'block';
+  }
+}
+
+function showApp() {
+  document.getElementById('loginOverlay').style.display = 'none';
+  document.getElementById('installOverlay').style.display = 'none';
+  app.init();
+}
+
+function skipInstall() {
+  sessionStorage.setItem('pix_muestreo_skip_install', 'true');
+  showApp();
+}
+
+// Auto-install using beforeinstallprompt
 async function pixInstall() {
   if (deferredInstallPrompt) {
     deferredInstallPrompt.prompt();
     const result = await deferredInstallPrompt.userChoice;
     if (result.outcome === 'accepted') {
-      document.getElementById('loginInstallBtn').textContent = 'Instalando...';
+      const autoBtn = document.getElementById('autoInstallBtn');
+      if (autoBtn) autoBtn.textContent = '✓ Instalando...';
     }
     deferredInstallPrompt = null;
-  } else {
-    // Fallback: show manual instructions
-    alert('Para instalar:\n\n Android: Tocá los 3 puntos (⋮) → "Instalar aplicación" o "Agregar a pantalla de inicio"\n\n iPhone: Tocá Compartir (⬆) → "Agregar a pantalla de inicio"');
   }
 }
 
@@ -1132,9 +1169,13 @@ async function pixLogin() {
   // Hash of the correct password
   if (hash === '89718ab553cc01c43f255575a0c59bd5d98bbef2171c13ebe831314f034d71c9') {
     sessionStorage.setItem('pix_muestreo_auth', 'true');
-    document.getElementById('loginOverlay').style.display = 'none';
     document.getElementById('loginError').style.display = 'none';
-    app.init();
+    // If already installed as PWA, go straight to app
+    if (appIsInstalled) {
+      showApp();
+    } else {
+      showInstallScreen();
+    }
   } else {
     document.getElementById('loginError').style.display = 'block';
   }
