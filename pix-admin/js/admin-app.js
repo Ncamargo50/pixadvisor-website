@@ -42,28 +42,85 @@ class PixAdmin {
   }
 
   // ===== NAVIGATION =====
+
+  toggleNavGroup(groupId) {
+    const group = document.querySelector(`.nav-group[data-group="${groupId}"]`);
+    if (!group) return;
+    const wasExpanded = group.classList.contains('expanded');
+    // Collapse all groups first
+    document.querySelectorAll('.nav-group').forEach(g => g.classList.remove('expanded'));
+    // Toggle the clicked one
+    if (!wasExpanded) group.classList.add('expanded');
+  }
+
+  _expandParentGroup(viewName) {
+    const viewGroupMap = {
+      'soil': 'soil-group', 'soil-interpretation': 'soil-group', 'soil-relationships': 'soil-group', 'soil-amendments': 'soil-group',
+      'leaf': 'leaf-group', 'leaf-dris': 'leaf-group', 'leaf-cross': 'leaf-group',
+      'gis-dashboard': 'gis-group', 'nutrient-maps': 'gis-group', 'relation-maps': 'gis-group', 'management-zones': 'gis-group', 'sampling-points': 'gis-group', 'prescription': 'gis-group',
+      'engine-idw': 'engine-group', 'engine-kriging': 'engine-group', 'engine-variogram': 'engine-group', 'engine-validation': 'engine-group',
+      'interpretation': 'reports-group', 'report-protocol': 'reports-group', 'report-financial': 'reports-group', 'report-export': 'reports-group',
+      'samples': 'manage-group', 'manage-crops': 'manage-group', 'manage-clients': 'manage-group', 'settings': 'manage-group'
+    };
+    const groupId = viewGroupMap[viewName];
+    if (groupId) {
+      document.querySelectorAll('.nav-group').forEach(g => g.classList.remove('expanded'));
+      const group = document.querySelector(`.nav-group[data-group="${groupId}"]`);
+      if (group) group.classList.add('expanded');
+    }
+  }
+
   showView(viewName) {
     this.currentView = viewName;
-    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-    document.getElementById(`view-${viewName}`).classList.add('active');
-    document.querySelectorAll('.nav-link').forEach(n => {
+    // Deactivate all views (both .view and .view-fullmap)
+    document.querySelectorAll('.view, .view-fullmap').forEach(v => v.classList.remove('active'));
+    const viewEl = document.getElementById(`view-${viewName}`);
+    if (viewEl) viewEl.classList.add('active');
+    // All views are fullscreen — reset main-content inline styles
+    const mc = document.querySelector('.main-content');
+    if (mc) { mc.style.padding = ''; mc.style.overflow = ''; }
+
+    // Highlight active nav links
+    document.querySelectorAll('.nav-link, .nav-sub-link').forEach(n => {
       n.classList.toggle('active', n.dataset.view === viewName);
     });
 
+    // Auto-expand parent nav-group
+    this._expandParentGroup(viewName);
+
     const titles = {
       'dashboard': ['Dashboard', 'Resumen general'],
-      'soil': ['Análisis de Suelo', 'Interpretación de resultados de laboratorio'],
-      'leaf': ['Análisis Foliar', 'Interpretación de tejido vegetal'],
-      'interpretation': ['Reporte Completo', 'Interpretación + recomendaciones + enmiendas'],
+      'soil': ['Análisis de Suelo', 'Entrada de datos de laboratorio'],
+      'soil-interpretation': ['Interpretación de Suelo', 'Clasificación detallada por cultivo'],
+      'soil-relationships': ['Relaciones entre Nutrientes', 'Equilibrio catiónico Ca/Mg/K'],
+      'soil-amendments': ['Correcciones y Enmiendas', 'Encalado, yeso y fertilización'],
+      'leaf': ['Análisis Foliar', 'Entrada de datos de tejido vegetal'],
+      'leaf-dris': ['DRIS / IBN', 'Diagnóstico integrado de balance nutricional'],
+      'leaf-cross': ['Diagnóstico Cruzado', 'Comparación suelo vs. hoja'],
       'gis-dashboard': ['GIS Dashboard', 'Mapas profesionales de fertilidad, zonas y prescripción'],
-      'nutrient-maps': ['Mapas de Nutrientes', 'Interpolación IDW geoespacial'],
+      'nutrient-maps': ['Mapas de Nutrientes', 'Interpolación geoespacial'],
+      'relation-maps': ['Mapas de Relaciones', 'Ca/Mg, Ca/K, Mg/K geoespacial'],
+      'management-zones': ['Zonas de Manejo PRO v3', 'Multi-variable, temporal, planialtimetría y flujo de agua'],
+      'sampling-points': ['Puntos de Muestreo', 'Generación automática por zonas de manejo'],
       'prescription': ['Prescripción VRT', 'Mapas de tasa variable'],
-      'samples': ['Muestras / Lab', 'Gestión de muestras y resultados']
+      'engine-idw': ['Motor IDW', 'Configuración avanzada del interpolador IDW'],
+      'engine-kriging': ['Motor Kriging', 'Interpolación geoestadística con variogramas'],
+      'engine-variogram': ['Variograma', 'Análisis empírico y ajuste de modelos'],
+      'engine-validation': ['Validación Cruzada', 'Comparación Leave-One-Out IDW vs Kriging'],
+      'interpretation': ['Reporte Completo', 'Interpretación + recomendaciones + enmiendas'],
+      'report-protocol': ['Protocolo de Aplicación', 'Documento técnico de campo'],
+      'report-financial': ['Estudio Financiero', 'Costos por hectárea y ROI'],
+      'report-export': ['Exportar Mapas', 'PDF, GeoJSON, Shapefile'],
+      'samples': ['Muestras / Lab', 'Gestión de muestras y resultados'],
+      'manage-crops': ['Cultivos', 'Base de datos agronómica'],
+      'manage-clients': ['Clientes', 'Gestión de clientes y propiedades'],
+      'settings': ['Configuración', 'Preferencias de la aplicación']
     };
     const [t, s] = titles[viewName] || [viewName, ''];
     document.getElementById('headerTitle').textContent = t;
     document.getElementById('headerSubtitle').textContent = s;
 
+    // Map initializations
     if (viewName === 'gis-dashboard' && !this.maps.gis) {
       setTimeout(() => this.initGISMap(), 100);
     }
@@ -73,8 +130,25 @@ class PixAdmin {
     if (viewName === 'prescription' && !this.maps.prescription) {
       setTimeout(() => this.initPrescMap(), 100);
     }
+    if (viewName === 'relation-maps' && !this.maps.relation) {
+      setTimeout(() => this.initRelationMap(), 100);
+    }
+    if (viewName === 'management-zones' && !this.maps.mz) {
+      setTimeout(() => this.initMZMap(), 100);
+    }
+    if (viewName === 'sampling-points' && !this.maps.sampling) {
+      setTimeout(() => this.initSamplingMap(), 100);
+    }
+
+    // View-specific actions
     if (viewName === 'samples') this.renderSamplesTable();
     if (viewName === 'interpretation') this.generateFullReport();
+    if (viewName === 'soil-interpretation') this._renderSoilInterpretation();
+    if (viewName === 'soil-relationships') this._renderSoilRelationships();
+    if (viewName === 'soil-amendments') this._renderSoilAmendments();
+    if (viewName === 'leaf-dris') this._renderLeafDRIS();
+    if (viewName === 'leaf-cross') this._renderLeafCross();
+    if (viewName === 'manage-crops') this._renderCropsManager();
   }
 
   // ===== CROP SELECTOR =====
@@ -1106,9 +1180,10 @@ class PixAdmin {
     if (!container || container.offsetHeight === 0) return;
 
     this.maps.nutrient = L.map('nutrientMap').setView([-17.78, -63.18], 12);
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-      attribution: 'Esri', maxZoom: 19
-    }).addTo(this.maps.nutrient);
+    const satNutrient = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { attribution: 'Google', maxZoom: 21 });
+    const hybNutrient = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', { attribution: 'Google', maxZoom: 21 });
+    satNutrient.addTo(this.maps.nutrient);
+    L.control.layers({ 'Satélite': satNutrient, 'Híbrido': hybNutrient }, null, { position: 'topright', collapsed: true }).addTo(this.maps.nutrient);
   }
 
   initPrescMap() {
@@ -1117,9 +1192,10 @@ class PixAdmin {
     if (!container || container.offsetHeight === 0) return;
 
     this.maps.prescription = L.map('prescMap').setView([-17.78, -63.18], 12);
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-      attribution: 'Esri', maxZoom: 19
-    }).addTo(this.maps.prescription);
+    const satPresc = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { attribution: 'Google', maxZoom: 21 });
+    const hybPresc = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', { attribution: 'Google', maxZoom: 21 });
+    satPresc.addTo(this.maps.prescription);
+    L.control.layers({ 'Satélite': satPresc, 'Híbrido': hybPresc }, null, { position: 'topright', collapsed: true }).addTo(this.maps.prescription);
   }
 
   // Clear all map layers
@@ -1322,9 +1398,10 @@ class PixAdmin {
     if (!container || container.offsetHeight === 0) return;
 
     this.maps.gis = L.map('gisMap').setView([-27.035, -55.545], 13);
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-      attribution: 'Esri', maxZoom: 19
-    }).addTo(this.maps.gis);
+    const satGIS = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { attribution: 'Google', maxZoom: 21 });
+    const hybGIS = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', { attribution: 'Google', maxZoom: 21 });
+    satGIS.addTo(this.maps.gis);
+    L.control.layers({ 'Satélite': satGIS, 'Híbrido': hybGIS }, null, { position: 'topright', collapsed: true }).addTo(this.maps.gis);
 
     // Populate VRT source selector
     const vrtSel = document.getElementById('gisVrtSource');
@@ -1472,6 +1549,7 @@ class PixAdmin {
     const nutrient = document.getElementById('gisNutrient').value;
     const resolution = parseInt(document.getElementById('gisResolution').value);
     const power = parseInt(document.getElementById('gisPower').value);
+    const method = document.getElementById('gisMethod')?.value || 'idw';
     const info = NUTRIENT_INFO[nutrient] || { label: nutrient, unit: '' };
     const points = this._getGISPoints(nutrient);
 
@@ -1481,7 +1559,15 @@ class PixAdmin {
       ? InterpolationEngine.getBounds({ features: [{ geometry: { type: 'Polygon', coordinates: [this._boundaryPolygon] }, type: 'Feature' }] })
       : InterpolationEngine.getBounds(points);
 
-    const gridResult = InterpolationEngine.interpolateIDW(points, bounds, { resolution, power, smooth: 2 });
+    let gridResult;
+    if (method === 'kriging' && typeof KrigingEngine !== 'undefined' && points.length >= 3) {
+      const empirical = KrigingEngine.computeEmpiricalVariogram(points);
+      const fitted = KrigingEngine.autoFitAllModels(empirical);
+      const vp = { model: fitted[0].model, ...fitted[0].params };
+      gridResult = KrigingEngine.interpolateKriging(points, bounds, vp, { resolution });
+    } else {
+      gridResult = InterpolationEngine.interpolateIDW(points, bounds, { resolution, power, smooth: 2 });
+    }
 
     this._gisOverlay = InterpolationEngine.addToLeafletMap(this.maps.gis, gridResult, {
       cropId: this.cropId, nutrient, opacity: 0.75, layerOpacity: 0.85, polygon
@@ -1512,7 +1598,7 @@ class PixAdmin {
           <div class="stat-card" style="padding:8px"><div class="stat-value" style="font-size:16px;color:var(--warning)">${stats.mean}</div><div class="stat-label" style="font-size:10px">Media</div></div>
           <div class="stat-card" style="padding:8px"><div class="stat-value" style="font-size:16px;color:var(--success)">${stats.max}</div><div class="stat-label" style="font-size:10px">Máx</div></div>
         </div>
-        <div style="margin-top:8px;font-size:11px;color:var(--text-dim)">${points.length} pts · ${resolution}² · IDW p=${power}${polygon ? ' · Recortado' : ''}</div>
+        <div style="margin-top:8px;font-size:11px;color:var(--text-dim)">${points.length} pts · ${resolution}² · ${method === 'kriging' ? 'Kriging' : 'IDW p=' + power}${polygon ? ' · Recortado' : ''}</div>
       </div>`;
 
     this.toast(`Mapa ${info.label} generado`);
@@ -1831,6 +1917,1178 @@ class PixAdmin {
     }, 500);
   }
 
+  // ===== SUB-VIEW RENDERERS =====
+
+  _renderSoilInterpretation() {
+    const container = document.getElementById('soilInterpretationResults');
+    if (Object.keys(this.soilData).length === 0) {
+      this.soilData = this.getSoilFormData();
+    }
+    if (Object.keys(this.soilData).length === 0) return; // keep empty state
+
+    const options = { pMethod: this.pMethod, phMethod: this.phMethod, unitSystem: this.unitSystem };
+    const result = InterpretationEngine.interpretSoil(this.soilData, this.cropId, options);
+
+    let html = '';
+    // Nutrients table
+    html += '<div class="card"><div class="card-title" style="margin-bottom:16px">Clasificación de Nutrientes</div>';
+    html += '<table class="data-table"><thead><tr><th>Parámetro</th><th>Valor</th><th>Unidad</th><th>Clasificación</th></tr></thead><tbody>';
+    for (const [key, n] of Object.entries(result.nutrients)) {
+      const dispVal = (n.displayValue !== undefined ? n.displayValue : n.value);
+      const valStr = typeof dispVal === 'number' ? dispVal.toFixed(n.decimals || 1) : dispVal;
+      html += `<tr><td>${n.label}</td><td class="cell-value">${valStr}</td><td style="color:var(--text-muted)">${n.unit}</td>
+        <td><span class="badge badge-${n.class}">${n.label_class || CLASS_LABELS[n.class] || n.class}</span></td></tr>`;
+    }
+    html += '</tbody></table></div>';
+
+    if (result.calculated.texture) {
+      html += `<div class="card"><div class="card-title">Textura</div>
+        <div style="font-size:24px;font-weight:700;color:var(--teal);margin-top:8px">${result.calculated.texture.class}</div>
+        <div style="color:var(--text-muted);margin-top:4px">Grupo textural: ${result.calculated.texture.group}</div></div>`;
+    }
+
+    if (result.alerts.length > 0) {
+      html += '<div class="card"><div class="card-title" style="margin-bottom:12px">Alertas</div>';
+      for (const a of result.alerts) {
+        html += `<div class="alert alert-${a.type}">${a.msg}</div>`;
+      }
+      html += '</div>';
+    }
+    container.innerHTML = html;
+  }
+
+  _renderSoilRelationships() {
+    const container = document.getElementById('soilRelationshipsResults');
+    if (Object.keys(this.soilData).length === 0) this.soilData = this.getSoilFormData();
+    if (Object.keys(this.soilData).length === 0) return;
+
+    const normalizedData = InterpretationEngine.normalizeLabData(this.soilData, this.unitSystem);
+    const relationships = InterpretationEngine.analyzeRelationships(normalizedData, this.cropId);
+
+    if (relationships.length === 0) {
+      container.innerHTML = '<div class="alert alert-warning">Sin datos suficientes para calcular relaciones</div>';
+      return;
+    }
+
+    let html = '<div class="card"><div class="card-title" style="margin-bottom:16px">Relaciones entre Nutrientes</div><div class="grid-2">';
+    for (const r of relationships) {
+      html += `<div class="rel-card">
+        <div class="rel-value" style="color:${r.color}">${r.value.toFixed(1)}</div>
+        <div class="rel-info">
+          <div class="rel-name">${r.name}</div>
+          <div class="rel-range">Óptimo: ${r.optMin || '—'}–${r.optMax || '—'}</div>
+          <div class="rel-diagnostic" style="color:${r.color}">${r.diagnostic}</div>
+        </div>
+      </div>`;
+    }
+    html += '</div></div>';
+    container.innerHTML = html;
+  }
+
+  _renderSoilAmendments() {
+    const container = document.getElementById('soilAmendmentsResults');
+    if (Object.keys(this.soilData).length === 0) this.soilData = this.getSoilFormData();
+    if (Object.keys(this.soilData).length === 0) return;
+
+    const normalizedData = InterpretationEngine.normalizeLabData(this.soilData, this.unitSystem);
+    const liming = InterpretationEngine.calculateLiming(normalizedData, this.cropId);
+    const gypsum = InterpretationEngine.calculateGypsum(normalizedData, this.cropId);
+    const fert = InterpretationEngine.calculateFertilization(normalizedData, this.cropId, this.yieldTarget);
+    const products = InterpretationEngine.calculateProducts(fert);
+
+    let html = '';
+
+    // Liming
+    if (liming) {
+      const limingClass = liming.needed ? 'warning' : 'success';
+      html += `<div class="card"><div class="card-title" style="margin-bottom:12px">Encalado</div>
+        <div class="alert alert-${limingClass}">${liming.msg}</div>`;
+      if (liming.needed) {
+        html += `<div class="grid-3" style="margin-top:12px">
+          <div class="stat-card"><div class="stat-value">${liming.dose_t_ha}</div><div class="stat-label">t/ha ${liming.source}</div></div>
+          <div class="stat-card"><div class="stat-value">${liming.currentV.toFixed(0)}% → ${liming.targetV}%</div><div class="stat-label">V% actual → meta</div></div>
+          <div class="stat-card"><div class="stat-value">${liming.CTC.toFixed(0)}</div><div class="stat-label">CTC</div></div>
+        </div>`;
+      }
+      html += '</div>';
+    }
+
+    // Gypsum
+    if (gypsum) {
+      html += `<div class="card"><div class="card-title" style="margin-bottom:12px">Yeso Agrícola</div>
+        <div class="alert alert-${gypsum.needed ? 'warning' : 'success'}">${gypsum.msg}</div></div>`;
+    }
+
+    // Fertilization
+    html += '<div class="card"><div class="card-title" style="margin-bottom:16px">Recomendación de Fertilización</div>';
+    html += `<div style="margin-bottom:12px;color:var(--text-muted);font-size:13px">Cultivo: <strong>${fert.crop}</strong> | Meta: <strong>${fert.yieldTarget} ${fert.yieldUnit}</strong></div>`;
+    html += '<table class="data-table"><thead><tr><th>Nutriente</th><th>Extracción</th><th>Suelo</th><th>Nec. Neta</th><th>Efic.</th><th>Dosis kg/ha</th></tr></thead><tbody>';
+    for (const n of fert.nutrients.filter(x => !x.isMicro)) {
+      html += `<tr><td>${n.label}</td><td>${n.extraction}</td><td><span class="badge badge-${n.soilClass}">${n.soilLevel}</span></td>
+        <td>${n.netNeed}</td><td>${n.efficiency}%</td><td class="cell-value" style="color:var(--teal)">${n.doseKgHa}</td></tr>`;
+    }
+    html += '</tbody></table></div>';
+
+    // Products
+    if (products.length > 0) {
+      html += '<div class="card"><div class="card-title" style="margin-bottom:16px">Productos Recomendados</div>';
+      html += '<table class="data-table"><thead><tr><th>Nutriente</th><th>Producto</th><th>Concentración</th><th>Producto kg/ha</th></tr></thead><tbody>';
+      for (const p of products) {
+        html += `<tr><td>${p.label}</td><td>${p.source}</td><td>${p.nutrientContent}%</td>
+          <td class="cell-value" style="color:var(--teal)">${p.productKgHa} kg/ha</td></tr>`;
+      }
+      html += '</tbody></table></div>';
+    }
+
+    container.innerHTML = html;
+  }
+
+  _renderLeafDRIS() {
+    const container = document.getElementById('leafDrisResults');
+    if (Object.keys(this.leafData).length === 0) this.leafData = this.getLeafFormData();
+    if (Object.keys(this.leafData).length === 0) return;
+
+    const dris = InterpretationEngine.calculateDRIS(this.leafData, this.cropId);
+    if (dris.error || dris.order.length === 0) {
+      container.innerHTML = `<div class="alert alert-warning">${dris.error || 'Datos insuficientes para DRIS'}</div>`;
+      return;
+    }
+
+    let html = '<div class="card"><div class="card-title" style="margin-bottom:16px">Índices DRIS</div>';
+    html += `<div style="display:flex;gap:16px;margin-bottom:16px;font-size:14px">
+      <span>IBN: <strong style="color:${dris.balanced ? 'var(--teal)' : '#f97316'}">${dris.ibn}</strong></span>
+      <span>IBNm: <strong style="color:${dris.balanced ? 'var(--teal)' : '#f97316'}">${dris.ibnm}</strong></span>
+      <span>Estado: <strong style="color:${dris.balanced ? 'var(--teal)' : '#f97316'}">${dris.balanced ? 'Equilibrado' : 'Desbalanceado'}</strong></span>
+    </div>`;
+
+    html += '<div class="dris-chart">';
+    const maxAbs = Math.max(...dris.order.map(d => Math.abs(d.index)), 1);
+    for (const d of dris.order) {
+      const pct = Math.abs(d.index) / maxAbs * 100;
+      const isNeg = d.index < 0;
+      const color = d.status === 'deficiente' ? '#ef4444' : d.status === 'limitante' ? '#f97316'
+        : d.status === 'excesivo' ? '#3b82f6' : d.status === 'consumo lujoso' ? '#60a5fa' : '#22c55e';
+      html += `<div class="dris-bar-row">
+        <span class="dris-nutrient">${d.nutrient}</span>
+        <div class="dris-bar-container">
+          <div class="dris-bar ${isNeg ? 'negative' : 'positive'}" style="width:${pct}%;background:${color}"></div>
+        </div>
+        <span class="dris-index" style="color:${color}">${d.index > 0 ? '+' : ''}${d.index}</span>
+        <span class="dris-status" style="color:${color}">${d.status}</span>
+      </div>`;
+    }
+    html += '</div>';
+
+    const limiting = dris.order.filter(d => d.index < -5);
+    if (limiting.length > 0) {
+      html += `<div class="alert alert-warning" style="margin-top:12px">Orden de limitación: <strong>${limiting.map(d => d.nutrient).join(' > ')}</strong></div>`;
+    }
+    html += '</div>';
+    container.innerHTML = html;
+  }
+
+  _renderLeafCross() {
+    const container = document.getElementById('leafCrossResults');
+    if (Object.keys(this.soilData).length === 0 || Object.keys(this.leafData).length === 0) return;
+
+    const soilInterp = InterpretationEngine.interpretSoil(this.soilData, this.cropId, { pMethod: this.pMethod, phMethod: this.phMethod, unitSystem: this.unitSystem });
+    const leafInterp = InterpretationEngine.interpretLeaf(this.leafData, this.cropId);
+    const cross = InterpretationEngine.crossDiagnosis(soilInterp, leafInterp);
+
+    if (cross.length === 0) {
+      container.innerHTML = '<div class="alert alert-success">No se detectaron discrepancias suelo-hoja</div>';
+      return;
+    }
+
+    let html = '<div class="card"><div class="card-title" style="margin-bottom:16px">Diagnóstico Cruzado Suelo x Hoja</div>';
+    for (const d of cross) {
+      const type = d.type.includes('low') ? 'danger' : d.type.includes('ok') ? 'success' : 'warning';
+      html += `<div class="alert alert-${type}">${d.msg}</div>`;
+    }
+    html += '</div>';
+    container.innerHTML = html;
+  }
+
+  _renderCropsManager() {
+    const container = document.getElementById('cropsManagerContent');
+    const list = InterpretationEngine.getCropList();
+    let html = '<table class="data-table"><thead><tr><th>Cultivo</th><th>Nombre Científico</th><th>Rend. Default</th><th>Unidad</th><th>V% Ideal</th></tr></thead><tbody>';
+    for (const c of list) {
+      const crop = CROPS_DB[c.id];
+      html += `<tr>
+        <td><strong>${c.name}</strong></td>
+        <td style="font-style:italic;color:var(--text-muted)">${c.scientific}</td>
+        <td class="cell-value">${crop?.defaultYield || '—'}</td>
+        <td>${crop?.yieldUnit || '—'}</td>
+        <td>${crop?.idealV || '—'}%</td>
+      </tr>`;
+    }
+    html += '</tbody></table>';
+    container.innerHTML = html;
+  }
+
+  // ===== RELATION MAPS (Dedicated view) =====
+
+  initRelationMap() {
+    if (this.maps.relation) return;
+    const container = document.getElementById('relationMap');
+    if (!container || container.offsetHeight === 0) return;
+    this.maps.relation = L.map('relationMap').setView([-27.035, -55.545], 13);
+    const satRel = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { attribution: 'Google', maxZoom: 21 });
+    const hybRel = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', { attribution: 'Google', maxZoom: 21 });
+    satRel.addTo(this.maps.relation);
+    L.control.layers({ 'Satélite': satRel, 'Híbrido': hybRel }, null, { position: 'topright', collapsed: true }).addTo(this.maps.relation);
+  }
+
+  generateRelationMap() {
+    if (!this.maps.relation) this.initRelationMap();
+    const relId = document.getElementById('relationMapType').value;
+    const method = document.getElementById('relationMapMethod').value;
+
+    const relCalcs = {
+      Ca_Mg: { calc: d => (d.Ca || 0) / Math.max(d.Mg || 1, 0.1), label: 'Ca/Mg', opt: { optMin: 3, optMax: 5 } },
+      Ca_K: { calc: d => (d.Ca || 0) / Math.max(d.K || 1, 0.01), label: 'Ca/K', opt: { optMin: 15, optMax: 25 } },
+      Mg_K: { calc: d => (d.Mg || 0) / Math.max(d.K || 1, 0.01), label: 'Mg/K', opt: { optMin: 3, optMax: 5 } },
+      CaMg_K: { calc: d => ((d.Ca || 0) + (d.Mg || 0)) / Math.max(d.K || 1, 0.01), label: '(Ca+Mg)/K', opt: { optMin: 20, optMax: 30 } }
+    };
+    const rel = relCalcs[relId];
+    if (!rel) return;
+
+    const geoSamples = this.samples.filter(s => s.lat && s.lng && s.soilData);
+    const points = geoSamples
+      .map(s => ({ lat: s.lat, lng: s.lng, value: rel.calc(s.soilData), name: s.name }))
+      .filter(p => !isNaN(p.value) && isFinite(p.value));
+
+    if (points.length < 2) { this.toast('Se necesitan al menos 2 puntos con datos', 'warning'); return; }
+
+    const polygon = this._boundaryPolygon || null;
+    const bounds = polygon
+      ? InterpolationEngine.getBounds({ features: [{ geometry: { type: 'Polygon', coordinates: [polygon] }, type: 'Feature' }] })
+      : InterpolationEngine.getBounds(points);
+
+    let gridResult;
+    if (method === 'kriging' && typeof KrigingEngine !== 'undefined') {
+      const empirical = KrigingEngine.computeEmpiricalVariogram(points);
+      const fitted = KrigingEngine.autoFitAllModels(empirical);
+      const vp = { model: fitted[0].model, ...fitted[0].params };
+      gridResult = KrigingEngine.interpolateKriging(points, bounds, vp, { resolution: 80 });
+    } else {
+      gridResult = InterpolationEngine.interpolateIDW(points, bounds, { resolution: 80, power: 2, smooth: 2 });
+    }
+
+    // Clear old layers
+    if (this._relationOverlay) { this.maps.relation.removeLayer(this._relationOverlay); this._relationOverlay = null; }
+    if (this._relationMarkers) { this._relationMarkers.forEach(m => this.maps.relation.removeLayer(m)); this._relationMarkers = []; }
+
+    this._relationOverlay = InterpolationEngine.addToLeafletMap(this.maps.relation, gridResult, {
+      opacity: 0.75, layerOpacity: 0.85, polygon
+    });
+
+    this._relationMarkers = InterpolationEngine.addSampleMarkers(this.maps.relation, points, 'relation');
+
+    this.maps.relation.fitBounds([[bounds.minLat, bounds.minLng], [bounds.maxLat, bounds.maxLng]]);
+
+    // Stats
+    const { stats } = gridResult;
+    document.getElementById('relationMapStats').innerHTML = `
+      <div class="card"><div class="card-title">${rel.label} — Estadísticas</div>
+      <div class="grid-3" style="margin-top:12px">
+        <div class="stat-card"><div class="stat-value" style="font-size:20px">${stats.min}</div><div class="stat-label">Mín</div></div>
+        <div class="stat-card"><div class="stat-value" style="font-size:20px">${stats.mean}</div><div class="stat-label">Media</div></div>
+        <div class="stat-card"><div class="stat-value" style="font-size:20px">${stats.max}</div><div class="stat-label">Máx</div></div>
+      </div>
+      <div style="margin-top:8px;font-size:12px;color:var(--text-muted)">Óptimo: ${rel.opt.optMin}–${rel.opt.optMax} · ${method.toUpperCase()} · ${points.length} pts</div></div>`;
+
+    this.toast(`Mapa ${rel.label} generado (${method.toUpperCase()})`);
+  }
+
+  // ===== MANAGEMENT ZONES (Dedicated view) =====
+
+  initMZMap() {
+    if (this.maps.mz) return;
+    const container = document.getElementById('mzMap');
+    if (!container || container.offsetHeight === 0) return;
+    this.maps.mz = L.map('mzMap').setView([-27.035, -55.545], 13);
+    const satMZ = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { attribution: 'Google', maxZoom: 21 });
+    const hybMZ = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', { attribution: 'Google', maxZoom: 21 });
+    satMZ.addTo(this.maps.mz);
+    L.control.layers({ 'Satélite': satMZ, 'Híbrido': hybMZ }, null, { position: 'topright', collapsed: true }).addTo(this.maps.mz);
+  }
+
+  generateManagementZones() {
+    if (!this.maps.mz) this.initMZMap();
+    const nutrient = document.getElementById('mzBaseVar').value;
+    const numZones = parseInt(document.getElementById('mzNumZones').value);
+    const method = document.getElementById('mzMethod').value;
+    const info = NUTRIENT_INFO[nutrient] || { label: nutrient, unit: '' };
+    const points = this._getGISPoints(nutrient);
+
+    if (points.length < 2) { this.toast('Se necesitan al menos 2 puntos', 'warning'); return; }
+
+    const polygon = this._boundaryPolygon || null;
+    const bounds = polygon
+      ? InterpolationEngine.getBounds({ features: [{ geometry: { type: 'Polygon', coordinates: [polygon] }, type: 'Feature' }] })
+      : InterpolationEngine.getBounds(points);
+
+    let gridResult;
+    if (method === 'kriging' && typeof KrigingEngine !== 'undefined') {
+      const empirical = KrigingEngine.computeEmpiricalVariogram(points);
+      const fitted = KrigingEngine.autoFitAllModels(empirical);
+      const vp = { model: fitted[0].model, ...fitted[0].params };
+      gridResult = KrigingEngine.interpolateKriging(points, bounds, vp, { resolution: 80 });
+    } else {
+      gridResult = InterpolationEngine.interpolateIDW(points, bounds, { resolution: 80, power: 2, smooth: 2 });
+    }
+
+    const zoneResult = InterpolationEngine.generateManagementZones(gridResult, numZones);
+
+    // Clear old layers
+    if (this._mzOverlay) { this.maps.mz.removeLayer(this._mzOverlay); this._mzOverlay = null; }
+    if (this._mzLabels) { this._mzLabels.forEach(m => this.maps.mz.removeLayer(m)); this._mzLabels = []; }
+
+    this._mzOverlay = InterpolationEngine.addToLeafletMap(this.maps.mz, zoneResult, {
+      isZones: true, opacity: 0.70, layerOpacity: 0.80, polygon
+    });
+
+    // Zone labels
+    this._mzLabels = [];
+    for (const z of zoneResult.zones) {
+      if (z.cellCount === 0) continue;
+      const icon = L.divIcon({
+        className: 'map-zone-label',
+        html: `<span style="font-size:14px">Z${z.zone}<br><small style="font-weight:500;font-size:11px">${z.mean} ${info.unit}</small></span>`,
+        iconSize: [0, 0], iconAnchor: [0, 0]
+      });
+      const marker = L.marker([z.centroidLat, z.centroidLng], { icon, interactive: false }).addTo(this.maps.mz);
+      this._mzLabels.push(marker);
+    }
+
+    this.maps.mz.fitBounds([[bounds.minLat, bounds.minLng], [bounds.maxLat, bounds.maxLng]]);
+
+    // Legend
+    let legendHtml = `<div class="map-legend pro"><div class="legend-title">Zonas de Manejo — ${info.label}</div>`;
+    for (const z of zoneResult.zones) {
+      legendHtml += `<div class="legend-item">
+        <span class="legend-color" style="background:rgb(${z.color.join(',')})"></span>
+        <span class="legend-label">Zona ${z.zone}:</span>
+        <span class="legend-range">${z.mean} ${info.unit} (${z.areaPct}%)</span>
+      </div>`;
+    }
+    legendHtml += '</div>';
+    document.getElementById('mzLegend').innerHTML = legendHtml;
+
+    // Stats
+    let statsHtml = '<div class="card" style="padding:10px"><table class="data-table" style="font-size:12px"><thead><tr><th>Zona</th><th>Media</th><th>Rango</th><th>Área</th></tr></thead><tbody>';
+    for (const z of zoneResult.zones) {
+      statsHtml += `<tr><td><span class="zone-color" style="background:rgb(${z.color.join(',')});width:16px;height:16px"></span> Z${z.zone}</td>
+        <td class="cell-value">${z.mean}</td><td>${z.min} – ${z.max}</td><td>${z.areaPct}%</td></tr>`;
+    }
+    statsHtml += '</tbody></table></div>';
+    document.getElementById('mzStats').innerHTML = statsHtml;
+
+    this.toast(`${numZones} zonas de manejo generadas (${info.label}, ${method.toUpperCase()})`);
+  }
+
+  // ===== KRIGING ENGINE CONTROLLERS =====
+
+  selectKrigingModel(modelType) {
+    this._selectedKrigingModel = modelType;
+    document.querySelectorAll('.model-option').forEach(el => {
+      el.classList.toggle('selected', el.dataset.model === modelType);
+    });
+  }
+
+  autoFitVariogram() {
+    const nutrient = document.getElementById('gisNutrient')?.value || 'P';
+    const points = this._getGISPoints(nutrient);
+
+    if (points.length < 3) {
+      this.toast('Se necesitan al menos 3 puntos con datos de ' + nutrient, 'warning');
+      return;
+    }
+
+    const empirical = KrigingEngine.computeEmpiricalVariogram(points);
+    const fitted = KrigingEngine.autoFitAllModels(empirical);
+
+    if (fitted.length === 0) {
+      this.toast('No se pudo ajustar el variograma', 'danger');
+      return;
+    }
+
+    const best = fitted[0];
+    const bp = best.params;
+    // Update sliders
+    document.getElementById('krigNuggetSlider').value = bp.nugget;
+    document.getElementById('krigNuggetVal').textContent = bp.nugget.toFixed(1);
+    document.getElementById('krigSillSlider').value = bp.sill;
+    document.getElementById('krigSillVal').textContent = bp.sill.toFixed(0);
+    document.getElementById('krigRangeSlider').value = bp.range;
+    document.getElementById('krigRangeVal').textContent = bp.range.toFixed(0);
+
+    // Select best model
+    this.selectKrigingModel(best.model);
+
+    // Render preview chart
+    const canvas = document.getElementById('krigingPreviewChart');
+    if (canvas) {
+      KrigingEngine.renderVariogramChart(canvas, empirical, fitted, best.model);
+    }
+
+    // Model info
+    const infoEl = document.getElementById('krigingModelInfo');
+    if (infoEl) {
+      infoEl.innerHTML = `<strong>${best.model}</strong> — Nugget: ${bp.nugget.toFixed(1)}, Sill: ${bp.sill.toFixed(0)}, Range: ${bp.range.toFixed(0)}m, RMSE: ${best.rmse.toFixed(3)}`;
+    }
+
+    this._currentVariogramParams = { model: best.model, ...bp };
+    this.toast(`Variograma auto-ajustado: ${best.model} (RMSE ${best.rmse.toFixed(3)})`);
+  }
+
+  applyKrigingConfig() {
+    const model = this._selectedKrigingModel || 'spherical';
+    const nugget = parseFloat(document.getElementById('krigNuggetSlider').value);
+    const sill = parseFloat(document.getElementById('krigSillSlider').value);
+    const range = parseFloat(document.getElementById('krigRangeSlider').value);
+    const resolution = parseInt(document.getElementById('krigResSlider').value);
+    const maxPoints = parseInt(document.getElementById('krigMaxPtsSlider').value);
+
+    this._currentVariogramParams = { model, nugget, sill, range, resolution, maxPoints };
+    this.toast(`Kriging configurado: ${model} (C₀=${nugget}, Sill=${sill}, Range=${range}m)`);
+  }
+
+  applyIDWConfig() {
+    const power = parseFloat(document.getElementById('idwPowerSlider').value);
+    const resolution = parseInt(document.getElementById('idwResSlider').value);
+    const radius = parseInt(document.getElementById('idwRadiusSlider').value);
+    const smooth = parseInt(document.getElementById('idwSmoothSlider').value);
+
+    this._idwConfig = { power, resolution, radius: radius === 0 ? Infinity : radius, smooth };
+    this.toast(`IDW configurado: p=${power}, res=${resolution}, suavizado=${smooth}`);
+  }
+
+  // ===== VARIOGRAM ANALYSIS =====
+
+  computeFullVariogram() {
+    const nutrient = document.getElementById('varioNutrient').value;
+    const points = this._getGISPoints(nutrient);
+
+    if (points.length < 3) {
+      this.toast('Se necesitan al menos 3 puntos con datos', 'warning');
+      return;
+    }
+
+    const empirical = KrigingEngine.computeEmpiricalVariogram(points);
+    const fitted = KrigingEngine.autoFitAllModels(empirical);
+
+    // Render full variogram chart
+    const canvas = document.getElementById('fullVariogramChart');
+    if (canvas) {
+      KrigingEngine.renderVariogramChart(canvas, empirical, fitted, fitted[0]?.model);
+    }
+
+    // Build comparison table
+    const tbody = document.getElementById('variogramComparisonBody');
+    if (tbody) {
+      let html = '';
+      const modelNames = {
+        spherical: 'Esférica', gaussian: 'Gaussiana', exponential: 'Exponencial',
+        linear: 'Lineal', power: 'Potencia', 'hole-effect': 'Hole-Effect'
+      };
+      fitted.forEach((m, i) => {
+        const p = m.params || {};
+        const rank = i === 0 ? '<span style="color:var(--teal);font-weight:700">MEJOR</span>' : `#${i + 1}`;
+        html += `<tr${i === 0 ? ' style="background:rgba(127,214,51,0.08)"' : ''}>
+          <td><strong>${modelNames[m.model] || m.model}</strong></td>
+          <td>${(p.nugget || 0).toFixed(2)}</td>
+          <td>${(p.sill || 0).toFixed(2)}</td>
+          <td>${(p.range || 0).toFixed(0)} m</td>
+          <td class="cell-value">${m.rmse.toFixed(4)}</td>
+          <td>${rank}</td>
+        </tr>`;
+      });
+      tbody.innerHTML = html;
+    }
+
+    this.toast(`Variograma de ${nutrient} calculado — ${fitted.length} modelos comparados`);
+  }
+
+  // ===== CROSS-VALIDATION =====
+
+  runCrossValidation() {
+    const nutrient = document.getElementById('validNutrient').value;
+    const points = this._getGISPoints(nutrient);
+
+    if (points.length < 4) {
+      this.toast('Se necesitan al menos 4 puntos para validación cruzada', 'warning');
+      return;
+    }
+
+    this.toast('Ejecutando validación cruzada...', 'warning');
+
+    setTimeout(() => {
+      const idwResult = KrigingEngine.crossValidate(points, 'idw');
+      const krigingResult = KrigingEngine.crossValidate(points, 'kriging');
+
+      // Stats grid
+      const statsGrid = document.getElementById('validationStatsGrid');
+      const betterMethod = idwResult.rmse <= krigingResult.rmse ? 'IDW' : 'Kriging';
+      const betterColor = betterMethod === 'Kriging' ? 'var(--teal)' : 'var(--warning)';
+
+      statsGrid.innerHTML = `
+        <div class="validation-stat"><div class="val" style="color:var(--warning)">${idwResult.rmse.toFixed(3)}</div><div class="label">RMSE IDW</div></div>
+        <div class="validation-stat"><div class="val" style="color:var(--teal)">${krigingResult.rmse.toFixed(3)}</div><div class="label">RMSE Kriging</div></div>
+        <div class="validation-stat"><div class="val" style="color:var(--warning)">${idwResult.r2.toFixed(3)}</div><div class="label">R² IDW</div></div>
+        <div class="validation-stat"><div class="val" style="color:var(--teal)">${krigingResult.r2.toFixed(3)}</div><div class="label">R² Kriging</div></div>
+        <div class="validation-stat"><div class="val" style="color:${betterColor};font-size:16px">${betterMethod}</div><div class="label">Mejor Método</div></div>
+      `;
+
+      // Render scatter plots
+      const canvasIDW = document.getElementById('validationChartIDW');
+      const canvasKriging = document.getElementById('validationChartKriging');
+      if (canvasIDW) KrigingEngine.renderValidationChart(canvasIDW, idwResult.residuals);
+      if (canvasKriging) KrigingEngine.renderValidationChart(canvasKriging, krigingResult.residuals);
+
+      this.toast(`Validación completa: ${betterMethod} es mejor (RMSE ${betterMethod === 'IDW' ? idwResult.rmse.toFixed(3) : krigingResult.rmse.toFixed(3)})`);
+    }, 50);
+  }
+
+  // ===== REPORT CONTROLLERS =====
+
+  generateProtocol() {
+    if (Object.keys(this.soilData).length === 0) this.soilData = this.getSoilFormData();
+    if (Object.keys(this.soilData).length === 0) {
+      this.toast('Se necesitan datos de análisis de suelo', 'warning');
+      return;
+    }
+
+    const normalizedData = InterpretationEngine.normalizeLabData(this.soilData, this.unitSystem);
+    const fert = InterpretationEngine.calculateFertilization(normalizedData, this.cropId, this.yieldTarget);
+    const products = InterpretationEngine.calculateProducts(fert);
+    const liming = InterpretationEngine.calculateLiming(normalizedData, this.cropId);
+    const crop = CROPS_DB[this.cropId];
+
+    let html = '<div class="card" style="max-width:800px;margin:0 auto">';
+    html += `<div style="text-align:center;padding:20px 0;border-bottom:2px solid var(--teal)">
+      <h2 style="color:var(--teal);margin:0">PROTOCOLO DE APLICACIÓN</h2>
+      <p style="color:var(--text-muted);margin:4px 0 0">Pixadvisor — Agricultura de Precisión</p>
+    </div>`;
+
+    html += `<div style="margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px">
+      <div><strong>Cliente:</strong> ${this.clientData.nombre || '—'}</div>
+      <div><strong>Propiedad:</strong> ${this.clientData.propiedad || '—'}</div>
+      <div><strong>Lote:</strong> ${this.clientData.lote || '—'}</div>
+      <div><strong>Área:</strong> ${this.clientData.area || '—'}</div>
+      <div><strong>Cultivo:</strong> ${crop?.name || this.cropId}</div>
+      <div><strong>Meta:</strong> ${this.yieldTarget} ${crop?.yieldUnit || ''}</div>
+      <div><strong>Fecha:</strong> ${new Date().toLocaleDateString('es')}</div>
+    </div>`;
+
+    // Liming
+    if (liming?.needed) {
+      html += `<div style="margin-top:20px"><h4 style="color:var(--teal)">1. Encalado</h4>
+        <table class="data-table"><tbody>
+          <tr><td>Producto</td><td class="cell-value">${liming.source}</td></tr>
+          <tr><td>Dosis</td><td class="cell-value" style="color:var(--teal)">${liming.dose_t_ha} t/ha</td></tr>
+          <tr><td>Objetivo</td><td>V% de ${liming.currentV.toFixed(0)}% → ${liming.targetV}%</td></tr>
+          <tr><td>Época</td><td>60-90 días antes de plantación, incorporar a 20 cm</td></tr>
+        </tbody></table></div>`;
+    }
+
+    // Fertilization
+    html += `<div style="margin-top:20px"><h4 style="color:var(--teal)">${liming?.needed ? '2' : '1'}. Fertilización</h4>`;
+    if (products.length > 0) {
+      html += '<table class="data-table"><thead><tr><th>Producto</th><th>Nutriente</th><th>Dosis kg/ha</th><th>Época</th></tr></thead><tbody>';
+      for (const p of products) {
+        html += `<tr><td><strong>${p.source}</strong></td><td>${p.label} (${p.nutrientContent}%)</td>
+          <td class="cell-value" style="color:var(--teal)">${p.productKgHa} kg/ha</td>
+          <td>Según etapa fenológica</td></tr>`;
+      }
+      html += '</tbody></table>';
+    }
+    html += '</div>';
+
+    html += `<div style="margin-top:24px;padding:12px;background:var(--dark-3);border-radius:8px;font-size:11px;color:var(--text-dim)">
+      Protocolo generado por PIX Admin v2.0 PRO MAX — ${new Date().toLocaleString('es')}
+    </div></div>`;
+
+    document.getElementById('protocolContent').innerHTML = html;
+    this.toast('Protocolo de aplicación generado');
+  }
+
+  printProtocol() {
+    const content = document.getElementById('protocolContent');
+    if (!content || content.querySelector('.empty-state')) {
+      this.toast('Generá el protocolo primero', 'warning');
+      return;
+    }
+    window.print();
+  }
+
+  generateFinancialStudy() {
+    if (Object.keys(this.soilData).length === 0) this.soilData = this.getSoilFormData();
+    if (Object.keys(this.soilData).length === 0) {
+      this.toast('Se necesitan datos de análisis de suelo', 'warning');
+      return;
+    }
+
+    const normalizedData = InterpretationEngine.normalizeLabData(this.soilData, this.unitSystem);
+    const fert = InterpretationEngine.calculateFertilization(normalizedData, this.cropId, this.yieldTarget);
+    const products = InterpretationEngine.calculateProducts(fert);
+    const crop = CROPS_DB[this.cropId];
+
+    // Approximate prices per kg product (USD)
+    const priceMap = {
+      'Urea': 0.45, 'MAP (10-52-00)': 0.65, 'SFT (0-46-00)': 0.55,
+      'KCl (0-0-60)': 0.40, 'Calcáreo Dolomítico': 0.03, 'Yeso Agrícola': 0.04,
+      'Sulfato de Amonio': 0.30, 'Bórax': 1.5, 'Sulfato de Zinc': 0.80,
+      'Sulfato de Cobre': 1.2, 'Sulfato de Manganeso': 0.90
+    };
+
+    let totalCostHa = 0;
+    const areaHa = parseFloat(this.clientData.area) || 1;
+
+    let html = '<div class="card"><div class="card-title" style="margin-bottom:16px">Estudio de Costos por Hectárea</div>';
+    html += '<table class="data-table"><thead><tr><th>Producto</th><th>Dosis kg/ha</th><th>USD/kg</th><th>USD/ha</th></tr></thead><tbody>';
+    for (const p of products) {
+      const price = priceMap[p.source] || 0.50;
+      const costHa = (p.productKgHa * price).toFixed(2);
+      totalCostHa += parseFloat(costHa);
+      html += `<tr><td>${p.source}</td><td>${p.productKgHa}</td><td>${price.toFixed(2)}</td>
+        <td class="cell-value" style="color:var(--teal)">$${costHa}</td></tr>`;
+    }
+    html += '</tbody></table>';
+
+    const totalLote = (totalCostHa * areaHa).toFixed(2);
+    html += `<div class="grid-3" style="margin-top:16px">
+      <div class="stat-card"><div class="stat-value" style="color:var(--teal)">$${totalCostHa.toFixed(2)}</div><div class="stat-label">Costo / ha</div></div>
+      <div class="stat-card"><div class="stat-value">${areaHa}</div><div class="stat-label">Área (ha)</div></div>
+      <div class="stat-card"><div class="stat-value" style="color:var(--warning)">$${totalLote}</div><div class="stat-label">Costo Total Lote</div></div>
+    </div>`;
+
+    html += `<div style="margin-top:12px;font-size:11px;color:var(--text-dim)">
+      * Precios referenciales USD. Ajustar según cotizaciones locales. Generado: ${new Date().toLocaleDateString('es')}
+    </div></div>`;
+
+    document.getElementById('financialContent').innerHTML = html;
+    this.toast('Estudio financiero generado');
+  }
+
+  exportAllRelationMaps() {
+    const relIds = ['Ca_Mg', 'Ca_K', 'Mg_K', 'CaMg_K'];
+    let idx = 0;
+    const downloadNext = () => {
+      if (idx >= relIds.length) { this.toast(`${relIds.length} mapas de relaciones exportados`); return; }
+      this.downloadRelationshipMapPDF(relIds[idx]);
+      idx++;
+      setTimeout(downloadNext, 800);
+    };
+    downloadNext();
+  }
+
+  // ===== CLIENT MANAGEMENT =====
+
+  addNewClient() {
+    const container = document.getElementById('clientsManagerContent');
+    const html = `<div class="card" style="margin-top:16px">
+      <div class="card-title" style="margin-bottom:16px">Nuevo Cliente</div>
+      <div class="grid-2">
+        <div class="form-group"><label class="form-label">Nombre</label><input type="text" class="form-input" id="newClientName" placeholder="Nombre del cliente"></div>
+        <div class="form-group"><label class="form-label">Propiedad</label><input type="text" class="form-input" id="newClientProp" placeholder="Nombre de la propiedad"></div>
+        <div class="form-group"><label class="form-label">Ubicación</label><input type="text" class="form-input" id="newClientLoc" placeholder="Departamento, País"></div>
+        <div class="form-group"><label class="form-label">Teléfono</label><input type="text" class="form-input" id="newClientPhone" placeholder="+595 ..."></div>
+      </div>
+      <div style="margin-top:16px;display:flex;gap:8px">
+        <button class="btn btn-primary" onclick="admin.saveNewClient()">Guardar</button>
+        <button class="btn btn-secondary" onclick="admin.showView('manage-clients')">Cancelar</button>
+      </div>
+    </div>`;
+    container.innerHTML = html;
+  }
+
+  saveNewClient() {
+    const name = document.getElementById('newClientName').value;
+    if (!name) { this.toast('Ingresá el nombre del cliente', 'warning'); return; }
+    if (!this._clients) this._clients = [];
+    this._clients.push({
+      name,
+      property: document.getElementById('newClientProp').value,
+      location: document.getElementById('newClientLoc').value,
+      phone: document.getElementById('newClientPhone').value,
+      createdAt: new Date().toISOString()
+    });
+    this._renderClientsList();
+    this.toast(`Cliente "${name}" guardado`);
+  }
+
+  _renderClientsList() {
+    const container = document.getElementById('clientsManagerContent');
+    if (!this._clients || this._clients.length === 0) {
+      container.innerHTML = '<div class="empty-state"><h3>Sin clientes registrados</h3></div>';
+      return;
+    }
+    let html = '<table class="data-table"><thead><tr><th>Nombre</th><th>Propiedad</th><th>Ubicación</th><th>Teléfono</th><th>Acciones</th></tr></thead><tbody>';
+    this._clients.forEach((c, i) => {
+      html += `<tr>
+        <td><strong>${c.name}</strong></td><td>${c.property || '—'}</td>
+        <td>${c.location || '—'}</td><td>${c.phone || '—'}</td>
+        <td><button class="btn btn-sm btn-secondary" onclick="admin.useClient(${i})">Usar</button></td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    container.innerHTML = html;
+  }
+
+  useClient(idx) {
+    const client = this._clients[idx];
+    if (!client) return;
+    this.clientData.nombre = client.name;
+    this.clientData.propiedad = client.property;
+    this.clientData.ubicacion = client.location;
+    this.toast(`Cliente "${client.name}" seleccionado para reportes`);
+  }
+
+  // ===== SETTINGS =====
+
+  saveSettings() {
+    this._settings = {
+      defaultMethod: document.getElementById('settingsDefaultMethod').value,
+      defaultRes: document.getElementById('settingsDefaultRes').value,
+      colorPalette: document.getElementById('settingsColorPalette').value,
+      cationUnit: document.getElementById('settingsCationUnit').value,
+      moUnit: document.getElementById('settingsMOUnit').value,
+      exportFormat: document.getElementById('settingsExportFormat').value
+    };
+    try {
+      localStorage.setItem('pixadmin_settings', JSON.stringify(this._settings));
+    } catch (e) { /* localStorage may not be available */ }
+    this.toast('Configuración guardada');
+  }
+
+  resetSettings() {
+    document.getElementById('settingsDefaultMethod').value = 'idw';
+    document.getElementById('settingsDefaultRes').value = '80';
+    document.getElementById('settingsColorPalette').value = 'fertility';
+    document.getElementById('settingsCationUnit').value = 'cmolc';
+    document.getElementById('settingsMOUnit').value = 'g/dm3';
+    document.getElementById('settingsExportFormat').value = 'geojson';
+    this.toast('Configuración restablecida');
+  }
+
+  // ===== MANAGEMENT ZONES v3 WIZARD =====
+
+  mzWizardStep(step) {
+    document.querySelectorAll('.wizard-step').forEach((s, i) => {
+      s.classList.toggle('active', i === step - 1);
+      if (i < step - 1) s.classList.add('done');
+      else s.classList.remove('done');
+    });
+    document.querySelectorAll('.wizard-content').forEach((c, i) => {
+      c.classList.toggle('active', i === step - 1);
+    });
+    // Update config summary on step 5
+    if (step === 5) this._updateMZSummary();
+  }
+
+  _updateMZSummary() {
+    const layers = [];
+    document.querySelectorAll('#mzLayerChecks input:checked').forEach(cb => layers.push(cb.value));
+    const numZones = document.getElementById('mzNumZones').value;
+    const method = document.getElementById('mzMethod').value;
+    const resolution = document.getElementById('mzResolution')?.value || '80';
+    const useTemporal = document.getElementById('mzUseTemporalLayer')?.checked;
+    const useTWI = document.getElementById('mzUseTWI')?.checked;
+    const cropEl = document.getElementById('mzCropProfile');
+    const crop = cropEl ? cropEl.value : 'auto';
+
+    let html = `<strong>Variables:</strong> ${layers.join(', ') || 'Ninguna'}<br>`;
+    html += `<strong>Cultivo:</strong> ${crop === 'auto' ? this.cropId : crop}<br>`;
+    html += `<strong>Zonas:</strong> ${numZones} | <strong>Método:</strong> ${method.toUpperCase()} | <strong>Res:</strong> ${resolution}<br>`;
+    html += `<strong>Temporal:</strong> ${useTemporal ? 'Sí' : 'No'} | <strong>TWI:</strong> ${useTWI ? 'Sí' : 'No'}`;
+    document.getElementById('mzConfigSummary').innerHTML = html;
+  }
+
+  updateMZCropProfile() {
+    const cropId = document.getElementById('mzCropProfile').value;
+    const effectiveCrop = cropId === 'auto' ? this.cropId : cropId;
+    const profile = typeof ZonesEngine !== 'undefined' ? ZonesEngine.CROP_PROFILES[effectiveCrop] : null;
+    const stageSelect = document.getElementById('mzPhenStage');
+    if (profile && stageSelect) {
+      stageSelect.innerHTML = Object.keys(profile).map(s =>
+        `<option value="${s}">${s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, ' ')}</option>`
+      ).join('');
+      this._updateMZCropIndices();
+    }
+  }
+
+  _updateMZCropIndices() {
+    const cropId = document.getElementById('mzCropProfile').value;
+    const effectiveCrop = cropId === 'auto' ? this.cropId : cropId;
+    const stage = document.getElementById('mzPhenStage')?.value;
+    const profile = typeof ZonesEngine !== 'undefined' ? ZonesEngine.CROP_PROFILES[effectiveCrop] : null;
+    const indices = profile?.[stage] || ['NDVI', 'EVI'];
+    const el = document.getElementById('mzCropIndices');
+    if (el) el.innerHTML = `Índices recomendados: <strong style="color:var(--teal)">${indices.join(', ')}</strong>`;
+  }
+
+  addMZCampaign() {
+    const timeline = document.getElementById('mzCampaigns');
+    if (!timeline) return;
+    const year = 2026 - timeline.children.length;
+    const item = document.createElement('div');
+    item.className = 'campaign-item';
+    item.innerHTML = `<span class="campaign-year">${year > 2020 ? year : 2020}</span><span class="campaign-index">NDVI — Sin datos</span><span class="campaign-status pending"></span>`;
+    timeline.appendChild(item);
+  }
+
+  importCampaignRaster() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.tif,.tiff,.geotiff,.json,.geojson';
+    input.onchange = () => this.toast('Raster de campaña importado (demo)');
+    input.click();
+  }
+
+  loadDemoCampaigns() {
+    // Simulate 3 campaigns loaded
+    const items = document.querySelectorAll('#mzCampaigns .campaign-item');
+    const campaigns = ['2024', '2025', '2026'];
+    items.forEach((item, i) => {
+      if (i < campaigns.length) {
+        item.querySelector('.campaign-year').textContent = campaigns[i];
+        item.querySelector('.campaign-index').textContent = 'NDVI — Demo cargado';
+        item.querySelector('.campaign-status').className = 'campaign-status loaded';
+      }
+    });
+    this._demoCampaignsLoaded = true;
+    this.toast('3 campañas demo cargadas (2024-2026)');
+  }
+
+  importDEM() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.tif,.tiff,.asc,.json';
+    input.onchange = () => this.toast('MDE importado (demo)');
+    input.click();
+  }
+
+  loadDemoDEM() {
+    // Simulate DEM loaded with elevation data
+    this._demLoaded = true;
+    const panel = document.getElementById('mzDEMPanel');
+    if (panel) panel.style.display = '';
+    document.getElementById('demMinElev').textContent = '185';
+    document.getElementById('demMaxElev').textContent = '212';
+    document.getElementById('demDelta').textContent = '27m';
+    this.toast('MDE demo cargado (ALOS 30m)');
+  }
+
+  generateManagementZonesV3() {
+    if (!this.fieldPolygon || this.samples.length === 0) {
+      this.toast('Cargá perímetro y muestras primero', 'warning');
+      return;
+    }
+
+    // Gather config from wizard
+    const layers = [];
+    document.querySelectorAll('#mzLayerChecks input:checked').forEach(cb => layers.push(cb.value));
+    const numZones = parseInt(document.getElementById('mzNumZones').value) || 3;
+    const method = document.getElementById('mzMethod').value;
+    const resolution = parseInt(document.getElementById('mzResolution')?.value) || 80;
+    const cropId = document.getElementById('mzCropProfile')?.value;
+    const effectiveCrop = cropId === 'auto' ? this.cropId : cropId;
+
+    // Gather weights
+    const weights = {};
+    document.querySelectorAll('#mzWeights input[type="range"]').forEach(s => {
+      weights[s.dataset.var] = parseInt(s.value) / 100;
+    });
+
+    if (layers.length === 0) {
+      this.toast('Seleccioná al menos una variable', 'warning');
+      return;
+    }
+
+    // Check for ZonesEngine availability
+    if (typeof ZonesEngine === 'undefined') {
+      // Fallback: use existing InterpolationEngine for basic zone generation
+      this._generateBasicZones(layers[0], numZones, method, resolution);
+      return;
+    }
+
+    const map = this.maps.mz;
+    const bounds = map.getBounds();
+
+    const config = {
+      samples: this.samples,
+      boundary: this.fieldPolygon,
+      bounds: bounds,
+      variables: layers,
+      cropId: effectiveCrop,
+      numZones: numZones,
+      method: method,
+      resolution: resolution,
+      weights: weights
+    };
+
+    // Add temporal stability if enabled
+    if (document.getElementById('mzUseTemporalLayer')?.checked && this._demoCampaignsLoaded) {
+      config.campaignData = 'demo'; // ZonesEngine will generate demo data
+      config.temporalWeight = parseInt(document.getElementById('mzTemporalWeight')?.value || '60') / 100;
+    }
+
+    // Add DEM/TWI if enabled
+    if (document.getElementById('mzUseTWI')?.checked && this._demLoaded) {
+      config.demData = 'demo'; // ZonesEngine will generate demo DEM
+      config.twiWeight = parseInt(document.getElementById('mzTWIWeight')?.value || '40') / 100;
+    }
+
+    try {
+      const result = ZonesEngine.generateManagementZones(config);
+      this._lastMZResult = result;
+
+      // Render zones on map
+      this._clearMZOverlays();
+      ZonesEngine.renderZonesToMap(map, result.zoneGrid, bounds, numZones, {
+        opacity: 0.7,
+        showLabels: true,
+        clipPolygon: this.fieldPolygon
+      });
+
+      // Show flow lines if DEM is present
+      if (result.flowLines && document.getElementById('mzShowFlowLines')?.checked) {
+        this._renderFlowLines(map, result.flowLines);
+      }
+
+      // Update results panel
+      this._renderMZStats(result.stats, numZones);
+      document.getElementById('mzResults').style.display = '';
+      this.toast(`${numZones} zonas de manejo generadas (${layers.length} variables)`);
+    } catch (e) {
+      console.error('MZ v3 error:', e);
+      // Fallback to basic
+      this._generateBasicZones(layers[0], numZones, method, resolution);
+    }
+  }
+
+  _generateBasicZones(variable, numZones, method, resolution) {
+    // Fallback using existing InterpolationEngine
+    const map = this.maps.mz;
+    if (!map) return;
+    const bounds = map.getBounds();
+    const points = this.samples.filter(s => s.soilData[variable] !== undefined).map(s => ({
+      lat: s.lat, lng: s.lng, value: parseFloat(s.soilData[variable])
+    }));
+    if (points.length < 2) { this.toast('Datos insuficientes', 'warning'); return; }
+
+    const interpResult = InterpolationEngine.interpolateIDW(points, bounds, { resolution });
+    const zoneResult = InterpolationEngine.kMeansZones(interpResult.grid, numZones);
+
+    this._clearMZOverlays();
+    const overlay = InterpolationEngine.renderZonesToCanvas(map, zoneResult.zones, interpResult.grid, bounds, numZones, {
+      polygon: this.fieldPolygon,
+      showLabels: true
+    });
+    this._mzOverlay = overlay;
+
+    // Basic stats
+    const statsHtml = zoneResult.stats.map((s, i) => `
+      <div class="zone-stat-card" style="border-left-color:${InterpolationEngine.PALETTES.zones[i] ? `rgb(${InterpolationEngine.PALETTES.zones[i].join(',')})` : 'var(--teal)'}">
+        <div class="zone-label">Zona ${i + 1}</div>
+        <div class="zone-area">${s.count} px</div>
+        <div class="zone-mean">${s.mean?.toFixed(1) || '—'}</div>
+        <div class="zone-cv">CV: ${s.cv?.toFixed(0) || '—'}%</div>
+      </div>`).join('');
+    document.getElementById('mzZoneStats').innerHTML = statsHtml;
+    document.getElementById('mzResults').style.display = '';
+    this.toast(`${numZones} zonas generadas (variable: ${variable})`);
+  }
+
+  _clearMZOverlays() {
+    const map = this.maps.mz;
+    if (!map) return;
+    if (this._mzOverlay) {
+      if (this._mzOverlay.overlay) map.removeLayer(this._mzOverlay.overlay);
+      if (this._mzOverlay.labels) map.removeLayer(this._mzOverlay.labels);
+    }
+    if (this._mzFlowLayer) map.removeLayer(this._mzFlowLayer);
+  }
+
+  _renderMZStats(stats, numZones) {
+    if (!stats) return;
+    const zoneColors = InterpolationEngine.PALETTES.zones;
+    const html = stats.map((s, i) => {
+      const color = zoneColors[i] ? `rgb(${zoneColors[i].join(',')})` : 'var(--teal)';
+      const potential = s.potential || (i < numZones / 3 ? 'Bajo' : i >= numZones * 2 / 3 ? 'Alto' : 'Medio');
+      const potClass = potential.toLowerCase();
+      return `<div class="zone-stat-card" style="border-left-color:${color}">
+        <div class="zone-label" style="color:${color}">Zona ${i + 1}</div>
+        <div class="zone-area">${s.areaHa ? s.areaHa.toFixed(1) + ' ha' : s.count + ' px'}</div>
+        <div class="zone-mean">${s.mean?.toFixed(1) || '—'}</div>
+        <div class="zone-cv">CV: ${s.cv?.toFixed(0) || '—'}%</div>
+        <div class="zone-potential zone-potential-${potClass}">${potential}</div>
+      </div>`;
+    }).join('');
+    document.getElementById('mzZoneStats').innerHTML = html;
+  }
+
+  _renderFlowLines(map, flowLines) {
+    if (this._mzFlowLayer) map.removeLayer(this._mzFlowLayer);
+    const lines = flowLines.map(line =>
+      L.polyline(line, { color: '#4488ff', weight: 2, opacity: 0.5 })
+    );
+    this._mzFlowLayer = L.layerGroup(lines).addTo(map);
+  }
+
+  toggleMZLayer(layer, visible) {
+    const map = this.maps.mz;
+    if (!map) return;
+    if (layer === 'zones' && this._mzOverlay?.overlay) {
+      visible ? this._mzOverlay.overlay.addTo(map) : map.removeLayer(this._mzOverlay.overlay);
+    }
+    if (layer === 'labels' && this._mzOverlay?.labels) {
+      visible ? this._mzOverlay.labels.addTo(map) : map.removeLayer(this._mzOverlay.labels);
+    }
+    if (layer === 'twi' && this._mzFlowLayer) {
+      visible ? this._mzFlowLayer.addTo(map) : map.removeLayer(this._mzFlowLayer);
+    }
+  }
+
+  exportMZGeoJSON() {
+    if (!this._lastMZResult) { this.toast('Generá zonas primero', 'warning'); return; }
+    const gj = typeof ZonesEngine !== 'undefined'
+      ? ZonesEngine.zonesToGeoJSON(this._lastMZResult.zoneGrid, this.maps.mz.getBounds(), this._lastMZResult.numZones, this._lastMZResult.stats)
+      : { type: 'FeatureCollection', features: [] };
+    const blob = new Blob([JSON.stringify(gj, null, 2)], { type: 'application/json' });
+    this._downloadBlob(blob, 'zonas_manejo.geojson');
+  }
+
+  exportMZShapefile() { this.toast('Exportación SHP en desarrollo', 'warning'); }
+  exportMZCSV() {
+    if (!this._lastMZResult?.stats) { this.toast('Generá zonas primero', 'warning'); return; }
+    const csv = typeof ZonesEngine !== 'undefined'
+      ? ZonesEngine.zonesToCSV(this._lastMZResult.stats)
+      : 'zona,area,media,cv\n';
+    const blob = new Blob([csv], { type: 'text/csv' });
+    this._downloadBlob(blob, 'zonas_manejo.csv');
+  }
+  exportMZPDF() { this.toast('Exportación PDF en desarrollo', 'warning'); }
+
+  // ===== SAMPLING POINTS =====
+
+  initSamplingMap() {
+    if (this.maps.sampling) return;
+    this.maps.sampling = L.map('samplingMap', { zoomControl: true }).setView([-27.035, -55.545], 14);
+    const satSamp = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { attribution: 'Google', maxZoom: 21 });
+    const hybSamp = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', { attribution: 'Google', maxZoom: 21 });
+    satSamp.addTo(this.maps.sampling);
+    L.control.layers({ 'Satélite': satSamp, 'Híbrido': hybSamp }, null, { position: 'topright', collapsed: true }).addTo(this.maps.sampling);
+    if (this.fieldBoundary) {
+      this._boundaryLayers.sampling = InterpolationEngine.addBoundaryToMap(this.maps.sampling, this.fieldBoundary, { color: '#ffffff', weight: 3 });
+      this.maps.sampling.fitBounds(this._boundaryLayers.sampling.getBounds().pad(0.05));
+    }
+  }
+
+  selectSamplingMethod(method) {
+    document.querySelectorAll('.sampling-method-card').forEach(c => {
+      c.classList.toggle('selected', c.dataset.method === method);
+    });
+    this._samplingMethod = method;
+  }
+
+  generateSamplingPlan() {
+    if (!this.fieldPolygon) { this.toast('Cargá perímetro primero', 'warning'); return; }
+    if (typeof SamplingEngine === 'undefined') { this.toast('Motor de muestreo no disponible', 'danger'); return; }
+
+    const method = this._samplingMethod || 'grid';
+    const density = parseFloat(document.getElementById('sampDensity').value) || 0.5;
+    const pointsPerZone = parseInt(document.getElementById('sampPointsPerZone').value) || 4;
+    const edgeBuffer = parseInt(document.getElementById('sampEdgeBuffer').value) || 20;
+    const compositePattern = document.getElementById('sampComposite').value || null;
+    const compositeRadius = parseInt(document.getElementById('sampCompositeRadius').value) || 15;
+
+    const map = this.maps.sampling;
+    const bounds = map.getBounds();
+
+    const config = {
+      method: method,
+      polygon: this.fieldPolygon,
+      bounds: bounds,
+      areaHa: this.fieldAreaHa || 120,
+      density: density,
+      pointsPerZone: pointsPerZone,
+      edgeBuffer: edgeBuffer,
+      compositePattern: compositePattern || undefined,
+      compositeRadius: compositeRadius
+    };
+
+    // If we have zone data from MZ wizard, use it
+    if (this._lastMZResult?.zoneGrid) {
+      config.zoneGrid = this._lastMZResult.zoneGrid;
+      config.numZones = this._lastMZResult.numZones;
+    }
+
+    try {
+      const result = SamplingEngine.generateSamplingPlan(config);
+      this._lastSamplingResult = result;
+
+      // Clear previous points
+      if (this._samplingLayer) map.removeLayer(this._samplingLayer);
+
+      // Render points
+      this._samplingLayer = SamplingEngine.renderPointsToMap(map, result.points, {
+        showLabels: true,
+        showComposite: !!compositePattern,
+        compositePoints: result.compositePoints
+      });
+
+      // Show report
+      const report = result.report;
+      document.getElementById('sampReport').innerHTML = `
+        <strong>Puntos generados:</strong> ${result.points.length}<br>
+        <strong>Densidad:</strong> ${report.density?.toFixed(2) || '—'} pts/ha<br>
+        <strong>Dist. mín:</strong> ${report.minDist?.toFixed(0) || '—'} m<br>
+        <strong>Dist. media:</strong> ${report.meanDist?.toFixed(0) || '—'} m<br>
+        <strong>Cobertura:</strong> ${report.coverageScore?.toFixed(0) || '—'}/100
+        ${report.warnings?.length ? '<br><span style="color:var(--warning)">' + report.warnings.join('<br>') + '</span>' : ''}
+      `;
+      document.getElementById('sampResults').style.display = '';
+      this.toast(`${result.points.length} puntos de muestreo generados`);
+    } catch (e) {
+      console.error('Sampling error:', e);
+      this.toast('Error generando puntos: ' + e.message, 'danger');
+    }
+  }
+
+  exportSamplingGPX() {
+    if (!this._lastSamplingResult) { this.toast('Generá puntos primero', 'warning'); return; }
+    const gpx = SamplingEngine.toGPX(this._lastSamplingResult.points);
+    this._downloadBlob(new Blob([gpx], { type: 'application/gpx+xml' }), 'muestreo.gpx');
+  }
+  exportSamplingKML() {
+    if (!this._lastSamplingResult) { this.toast('Generá puntos primero', 'warning'); return; }
+    const kml = SamplingEngine.toKML(this._lastSamplingResult.points);
+    this._downloadBlob(new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' }), 'muestreo.kml');
+  }
+  exportSamplingGeoJSON() {
+    if (!this._lastSamplingResult) { this.toast('Generá puntos primero', 'warning'); return; }
+    const gj = SamplingEngine.toGeoJSON(this._lastSamplingResult.points);
+    this._downloadBlob(new Blob([JSON.stringify(gj, null, 2)], { type: 'application/json' }), 'muestreo.geojson');
+  }
+  exportSamplingCSV() {
+    if (!this._lastSamplingResult) { this.toast('Generá puntos primero', 'warning'); return; }
+    const csv = SamplingEngine.toCSV(this._lastSamplingResult.points);
+    this._downloadBlob(new Blob([csv], { type: 'text/csv' }), 'muestreo.csv');
+  }
+
+  _downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
   // ===== TOAST =====
   toast(msg, type = 'success') {
     const existing = document.querySelector('.toast-admin');
@@ -1848,4 +3106,5 @@ class PixAdmin {
 
 // Init
 const admin = new PixAdmin();
+window.admin = admin;
 document.addEventListener('DOMContentLoaded', () => admin.init());

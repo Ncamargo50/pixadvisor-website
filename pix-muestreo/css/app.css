@@ -304,6 +304,53 @@ html, body {
 .nav-accuracy.medium { color: var(--warning); }
 .nav-accuracy.poor { color: var(--danger); }
 
+/* GPS Quality Bar */
+.gps-quality-bar {
+  width: 100%;
+  height: 4px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 2px;
+  margin-top: 6px;
+  overflow: hidden;
+}
+.gps-quality-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.5s ease, background 0.5s ease;
+  background: var(--danger);
+}
+.gps-quality-fill.good { background: var(--success); }
+.gps-quality-fill.medium { background: var(--warning); }
+.gps-quality-fill.poor { background: var(--danger); }
+
+/* GPS Status Row */
+.gps-status-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 10px;
+}
+.gps-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--warning);
+  flex-shrink: 0;
+  animation: gps-pulse 1.5s ease-in-out infinite;
+}
+.gps-status-dot.ready { background: var(--success); animation: none; }
+.gps-status-dot.warming { background: var(--warning); }
+.gps-status-dot.no-signal { background: var(--danger); }
+.gps-status-text {
+  color: var(--text-muted);
+}
+
+@keyframes gps-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
 .map-fab {
   position: absolute;
   right: 16px;
@@ -932,4 +979,130 @@ select.form-input {
 @media (min-width: 768px) {
   .bottom-nav { max-width: 500px; margin: 0 auto; }
   .modal-sheet { max-height: 70vh; border-radius: 20px; margin-bottom: 16px; }
+}
+
+/* ===== PIX Campo Agent - Mobile Chat UI ===== */
+.field-agent-fab {
+  position:fixed; bottom:calc(var(--nav-height) + var(--safe-bottom) + 12px); right:12px;
+  z-index:9999; width:50px; height:50px; border-radius:50%;
+  background:var(--gradient); color:#fff;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; box-shadow:0 4px 16px rgba(127,214,51,0.4);
+  transition:all .3s;
+}
+.field-agent-fab:active { transform:scale(0.92); }
+.field-agent-fab.active { background:var(--dark-2); box-shadow:0 2px 8px rgba(0,0,0,0.3); }
+.field-agent-badge {
+  position:absolute; top:-3px; right:-3px;
+  background:#F44336; color:#fff; font-size:10px; font-weight:700;
+  width:18px; height:18px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+}
+
+.field-agent-panel {
+  position:fixed; bottom:calc(var(--nav-height) + var(--safe-bottom) + 70px);
+  right:8px; left:8px; z-index:9998;
+  max-height:65vh; background:var(--dark);
+  border:1px solid rgba(127,214,51,0.12);
+  border-radius:20px; display:flex; flex-direction:column;
+  box-shadow:0 8px 40px rgba(0,0,0,0.6);
+  opacity:0; transform:translateY(16px);
+  pointer-events:none; transition:all .3s;
+  overflow:hidden;
+}
+.field-agent-panel.open { opacity:1; transform:translateY(0); pointer-events:auto; }
+
+.field-agent-header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:12px 14px; border-bottom:1px solid rgba(255,255,255,0.05);
+  background:rgba(255,255,255,0.02);
+}
+.field-agent-header-left { display:flex; align-items:center; gap:8px; }
+.field-agent-avatar {
+  width:32px; height:32px; border-radius:50%;
+  background:var(--gradient); display:flex; align-items:center; justify-content:center;
+  color:#fff;
+}
+.field-agent-name { font-size:13px; font-weight:700; color:#fff; }
+.field-agent-status { font-size:10px; color:var(--teal); display:flex; align-items:center; gap:3px; }
+.field-agent-dot {
+  width:5px; height:5px; border-radius:50%; background:#7FD633;
+  animation:fieldPulse 2s infinite;
+}
+@keyframes fieldPulse { 0%,100%{opacity:1}50%{opacity:0.4} }
+.field-agent-close {
+  width:30px; height:30px; border-radius:8px; border:none;
+  background:transparent; color:#94a3b8; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+}
+
+.field-agent-messages {
+  flex:1; overflow-y:auto; padding:10px 12px;
+  display:flex; flex-direction:column; gap:6px;
+  min-height:150px; max-height:calc(65vh - 160px);
+}
+.field-msg { display:flex; flex-direction:column; }
+.field-msg-agent { align-items:flex-start; }
+.field-msg-user { align-items:flex-end; }
+.field-msg-bubble {
+  max-width:88%; padding:8px 12px; border-radius:14px;
+  font-size:13px; line-height:1.45; word-break:break-word;
+}
+.field-msg-agent .field-msg-bubble {
+  background:rgba(255,255,255,0.06); color:#e2e8f0;
+  border-bottom-left-radius:4px;
+}
+.field-msg-user .field-msg-bubble {
+  background:var(--gradient); color:#0F1B2D; font-weight:500;
+  border-bottom-right-radius:4px;
+}
+.field-msg-system .field-msg-bubble {
+  background:rgba(127,214,51,0.06); border:1px solid rgba(127,214,51,0.1);
+  color:#94a3b8; font-size:11px;
+}
+.field-msg-time { font-size:9px; color:#475569; margin-top:2px; padding:0 4px; }
+.field-msg-bubble code {
+  background:rgba(0,0,0,0.3); padding:1px 4px; border-radius:3px;
+  font-size:11px;
+}
+
+.field-agent-quick {
+  display:flex; gap:5px; padding:5px 12px; flex-wrap:wrap;
+  border-top:1px solid rgba(255,255,255,0.03);
+}
+.field-quick-btn {
+  padding:4px 10px; border-radius:16px;
+  border:1px solid rgba(127,214,51,0.15);
+  background:rgba(127,214,51,0.05); color:#7FD633;
+  font-size:10px; font-weight:500; cursor:pointer;
+  font-family:Inter,sans-serif;
+}
+
+.field-agent-input-area {
+  display:flex; align-items:center; gap:6px;
+  padding:8px 10px; border-top:1px solid rgba(255,255,255,0.05);
+  padding-bottom:calc(8px + var(--safe-bottom));
+}
+.field-voice-btn {
+  width:36px; height:36px; border-radius:50%; border:none;
+  background:rgba(255,255,255,0.06); color:#94a3b8;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; flex-shrink:0;
+}
+.field-voice-btn.listening {
+  background:rgba(244,67,54,0.2); color:#F44336;
+  animation:fieldPulse 1s infinite;
+}
+.field-agent-input {
+  flex:1; padding:8px 12px; border-radius:18px;
+  border:1px solid rgba(255,255,255,0.08);
+  background:rgba(255,255,255,0.04); color:#fff;
+  font-size:13px; outline:none; font-family:Inter,sans-serif;
+}
+.field-agent-input::placeholder { color:#475569; }
+.field-send-btn {
+  width:36px; height:36px; border-radius:50%; border:none;
+  background:var(--gradient); color:#0F1B2D;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; flex-shrink:0;
 }

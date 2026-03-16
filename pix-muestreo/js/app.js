@@ -55,6 +55,9 @@ class PixApp {
     // Load projects
     this.loadProjects();
 
+    // Load GPS settings
+    this.loadGPSSettings();
+
     // Show map view by default
     this.showView('map');
 
@@ -136,6 +139,7 @@ class PixApp {
 
     if (viewName === 'sync') this.updateSyncStats();
     if (viewName === 'projects') this.loadProjects();
+    if (viewName === 'settings') this.updateTileCacheStats();
   }
 
   // Connection status
@@ -335,10 +339,124 @@ class PixApp {
     const rounded = Math.round(accuracy);
     el.textContent = `Precisión GPS: ±${rounded}m`;
     el.className = 'nav-accuracy ' + (rounded <= 5 ? 'good' : rounded <= 15 ? 'medium' : 'poor');
+
+    // Update quality bar
+    const quality = gpsNav.getGPSQuality();
+    const fill = document.getElementById('gpsQualityFill');
+    if (fill) {
+      fill.style.width = quality + '%';
+      fill.className = 'gps-quality-fill ' + (quality >= 75 ? 'good' : quality >= 40 ? 'medium' : 'poor');
+    }
+
+    // Update status row
+    const statusRow = document.getElementById('gpsStatusRow');
+    const statusDot = document.getElementById('gpsStatusDot');
+    const statusText = document.getElementById('gpsStatusText');
+    if (statusRow) {
+      statusRow.style.display = 'flex';
+      if (gpsNav.isWarmedUp && gpsNav.isStabilized) {
+        statusDot.className = 'gps-status-dot ready';
+        statusText.textContent = `Listo | HDOP ~${gpsNav.getEstimatedHDOP() || '?'} | ${gpsNav.isStabilized ? 'Estable' : 'Mov.'}`;
+      } else if (gpsNav.isWarmedUp) {
+        statusDot.className = 'gps-status-dot warming';
+        statusText.textContent = 'GPS listo, estabilizando posición...';
+      } else {
+        statusDot.className = 'gps-status-dot warming';
+        statusText.textContent = 'GPS calentando, esperá mejor señal...';
+      }
+    }
   }
 
   autoDetectPoint() {
     // Not implemented in simplified version
+  }
+
+  // ===== GPS SETTINGS =====
+  async saveGPSSetting(key, value) {
+    await pixDB.setSetting('gps_' + key, value);
+    this.toast(`GPS: ${key} = ${value}`, 'info');
+  }
+
+  async loadGPSSettings() {
+    const minAcc = await pixDB.getSetting('gps_minAccuracy');
+    if (minAcc) document.getElementById('gpsMinAccuracy').value = minAcc;
+    const avgSamples = await pixDB.getSetting('gps_avgSamples');
+    if (avgSamples) document.getElementById('gpsAvgSamples').value = avgSamples;
+    const kalman = await pixDB.getSetting('gps_kalmanEnabled');
+    if (kalman !== null && kalman !== undefined) document.getElementById('gpsKalmanEnabled').value = kalman;
+  }
+
+  // ===== OFFLINE TILE DOWNLOAD =====
+  async downloadTilesOffline() {
+    if (!pixMap.map) {
+      this.toast('Abrí el mapa primero', 'warning');
+      return;
+    }
+
+    // Get bounds from field layers or current map view
+    let bounds;
+    if (pixMap.fieldLayers.length > 0) {
+      const group = L.featureGroup(pixMap.fieldLayers);
+      bounds = group.getBounds().pad(0.2); // 20% padding
+    } else {
+      bounds = pixMap.map.getBounds().pad(0.1);
+    }
+
+    if (!bounds || !bounds.isValid()) {
+      this.toast('Sin área para descargar', 'warning');
+      return;
+    }
+
+    // Check if preloadTiles exists
+    if (typeof pixMap.preloadTiles !== 'function') {
+      this.toast('Módulo de tiles offline no disponible', 'error');
+      return;
+    }
+
+    // Estimate
+    const estimate = pixMap.estimateTileCount(bounds, 13, 18);
+    const progressEl = document.getElementById('tileDownloadProgress');
+    const fillEl = document.getElementById('tileProgressFill');
+    const textEl = document.getElementById('tileProgressText');
+
+    this.toast(`Descargando ~${estimate.tileCount} tiles (~${estimate.estimatedSizeMB.toFixed(1)} MB)...`, 'info');
+
+    if (progressEl) progressEl.style.display = 'block';
+
+    try {
+      const result = await pixMap.preloadTiles(bounds, 13, 18, (downloaded, total, zoom) => {
+        const pct = Math.round((downloaded / total) * 100);
+        if (fillEl) fillEl.style.width = pct + '%';
+        if (textEl) textEl.textContent = `Zoom ${zoom}: ${downloaded}/${total} tiles (${pct}%)`;
+      });
+      this.toast(`Mapa offline listo: ${result.downloaded} tiles (${result.cacheSizeMB || '?'} MB)`, 'success');
+    } catch (e) {
+      this.toast('Error descargando tiles: ' + e.message, 'error');
+    } finally {
+      if (progressEl) progressEl.style.display = 'none';
+    }
+    this.updateTileCacheStats();
+  }
+
+  async clearTileCache() {
+    if (typeof pixMap.clearTileCache === 'function') {
+      await pixMap.clearTileCache();
+      this.toast('Cache de tiles eliminado', 'info');
+      this.updateTileCacheStats();
+    }
+  }
+
+  async updateTileCacheStats() {
+    const el = document.getElementById('tileCacheStats');
+    if (!el) return;
+    if (typeof pixMap.getCacheStats === 'function') {
+      try {
+        const stats = await pixMap.getCacheStats();
+        el.textContent = `Cache: ${stats.tileCount} tiles (~${stats.estimatedSizeMB.toFixed(1)} MB)`;
+      } catch (e) {
+        el.textContent = 'Cache: no disponible';
+      }
+    }
   }
 
   // ===== COLLECT SAMPLE =====
@@ -485,13 +603,37 @@ class PixApp {
     // Build IBRA metadata if available
     const ibraData = this.collectForm.parsedIBRA || null;
 
+    // Use GPS averaging for maximum precision at collect time
+    let gpsLat = gpsNav.currentPosition?.lat || this.currentPoint.lat;
+    let gpsLng = gpsNav.currentPosition?.lng || this.currentPoint.lng;
+    let gpsAcc = gpsNav.currentPosition?.accuracy || null;
+    let gpsMethod = 'single';
+
+    if (gpsNav.currentPosition && typeof gpsNav.averagePosition === 'function') {
+      try {
+        const avgSamples = parseInt(await pixDB.getSetting('gps_avgSamples') || '10');
+        this.toast(`Promediando ${avgSamples} lecturas GPS...`, 'info');
+        const avg = await gpsNav.averagePosition(avgSamples, 1500, (taken, total, acc) => {
+          const el = document.getElementById('collectCoords');
+          if (el) el.textContent = `GPS: ${taken}/${total} lecturas (±${acc.toFixed(1)}m)`;
+        });
+        gpsLat = avg.lat;
+        gpsLng = avg.lng;
+        gpsAcc = avg.accuracy;
+        gpsMethod = `averaged_${avg.samples}pts`;
+      } catch (e) {
+        console.warn('GPS averaging failed, using single reading:', e);
+      }
+    }
+
     const sample = {
       pointId: this.currentPoint.id,
       fieldId: this.currentField.id,
       pointName: this.currentPoint.name,
-      lat: gpsNav.currentPosition?.lat || this.currentPoint.lat,
-      lng: gpsNav.currentPosition?.lng || this.currentPoint.lng,
-      accuracy: gpsNav.currentPosition?.accuracy || null,
+      lat: gpsLat,
+      lng: gpsLng,
+      accuracy: gpsAcc,
+      gpsMethod: gpsMethod,
       depth: depth,
       sampleType: sampleType,
       barcode: this.collectForm.barcode,
@@ -1078,47 +1220,29 @@ if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.
 
 // Register SW BEFORE login (required for PWA installability)
 if ('serviceWorker' in navigator) {
-  const swPath = location.pathname.includes('/pix-muestreo/') ? '/pix-muestreo/sw.js' : '/sw.js';
-  const swScope = location.pathname.includes('/pix-muestreo/') ? '/pix-muestreo/' : '/';
-  navigator.serviceWorker.register(swPath, { scope: swScope, updateViaCache: 'none' })
-    .then(reg => {
-      console.log('SW registered:', reg.scope);
-      // Only check for updates if there's already a controlling SW (not first install)
-      if (navigator.serviceWorker.controller) {
-        reg.update();
-        reg.addEventListener('updatefound', () => {
-          const newSW = reg.installing;
-          newSW.addEventListener('statechange', () => {
-            if (newSW.state === 'activated') {
-              console.log('New SW activated, reloading for fresh files...');
-              window.location.reload();
-            }
-          });
-        });
-      }
-    })
+  const base = location.pathname.replace(/\/[^/]*$/, '/');
+  const swPath = base + 'sw.js';
+  const swScope = base;
+  navigator.serviceWorker.register(swPath, { scope: swScope })
+    .then(reg => console.log('SW registered:', reg.scope))
     .catch(e => console.log('SW error:', e));
 }
 
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredInstallPrompt = e;
-  // Update button if install screen is visible
-  const btn = document.getElementById('mainInstallBtn');
-  if (btn) btn.textContent = '⬇ DESCARGAR APP AHORA';
-  const status = document.getElementById('installStatus');
-  if (status) { status.textContent = 'App lista para instalar'; status.style.color = '#7FD633'; }
-  // Hide manual guide if shown
-  const guide = document.getElementById('manualGuide');
-  if (guide) guide.style.display = 'none';
+  // Show auto-install button if install overlay is visible
+  const autoBtn = document.getElementById('autoInstallBtn');
+  if (autoBtn) autoBtn.style.display = 'block';
 });
 
 window.addEventListener('appinstalled', () => {
   appIsInstalled = true;
   deferredInstallPrompt = null;
-  const status = document.getElementById('installStatus');
-  if (status) { status.textContent = '✓ App instalada correctamente'; status.style.color = '#7FD633'; }
-  setTimeout(() => showApp(), 1500);
+  const autoBtn = document.getElementById('autoInstallBtn');
+  if (autoBtn) autoBtn.style.display = 'none';
+  // Auto-continue to app after install
+  showApp();
 });
 
 // Init app
@@ -1146,12 +1270,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 function showInstallScreen() {
   document.getElementById('loginOverlay').style.display = 'none';
   document.getElementById('installOverlay').style.display = 'flex';
-  // If beforeinstallprompt already fired, update button text
+  // If beforeinstallprompt already fired, show the auto button
   if (deferredInstallPrompt) {
-    const btn = document.getElementById('mainInstallBtn');
-    if (btn) btn.textContent = '⬇ DESCARGAR APP AHORA';
-    const status = document.getElementById('installStatus');
-    if (status) { status.textContent = 'App lista para instalar'; status.style.color = '#7FD633'; }
+    const autoBtn = document.getElementById('autoInstallBtn');
+    if (autoBtn) autoBtn.style.display = 'block';
   }
 }
 
@@ -1166,45 +1288,16 @@ function skipInstall() {
   showApp();
 }
 
-// Install handler - auto if available, otherwise show manual guide
+// Auto-install using beforeinstallprompt
 async function pixInstall() {
-  const btn = document.getElementById('mainInstallBtn');
-  const status = document.getElementById('installStatus');
-  const guide = document.getElementById('manualGuide');
-
   if (deferredInstallPrompt) {
-    // Auto-install available
-    btn.textContent = 'Instalando...';
-    btn.style.opacity = '0.7';
     deferredInstallPrompt.prompt();
     const result = await deferredInstallPrompt.userChoice;
     if (result.outcome === 'accepted') {
-      btn.textContent = '✓ Instalando...';
-      if (status) { status.textContent = 'Descargando app...'; status.style.color = '#7FD633'; }
-    } else {
-      btn.textContent = '⬇ DESCARGAR APP';
-      btn.style.opacity = '1';
-      if (status) { status.textContent = 'Instalación cancelada'; status.style.color = '#f59e0b'; }
+      const autoBtn = document.getElementById('autoInstallBtn');
+      if (autoBtn) autoBtn.textContent = '✓ Instalando...';
     }
     deferredInstallPrompt = null;
-  } else {
-    // No auto-install - show manual instructions
-    btn.textContent = '👆 SEGUÍ LOS PASOS ABAJO';
-    btn.style.background = 'linear-gradient(135deg,#f59e0b,#ea580c)';
-    if (status) { status.textContent = 'Usá el menú de tu navegador para instalar'; status.style.color = '#f59e0b'; }
-    if (guide) {
-      guide.style.display = 'block';
-      // Detect platform and highlight relevant guide
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-      if (isIOS) {
-        document.getElementById('androidGuide').style.opacity = '0.4';
-        document.getElementById('iosGuide').style.borderColor = '#0ea5e9';
-      } else {
-        document.getElementById('iosGuide').style.opacity = '0.4';
-        document.getElementById('androidGuide').style.borderColor = '#7FD633';
-      }
-      guide.scrollIntoView({ behavior: 'smooth' });
-    }
   }
 }
 

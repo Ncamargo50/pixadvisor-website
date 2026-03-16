@@ -48,45 +48,108 @@
       <h2>PIX Admin<small>Agricultura de Precisión</small></h2>
     </div>
     <nav class="sidebar-nav">
-      <div class="nav-section">Principal</div>
+      <!-- Dashboard (direct link) -->
       <button class="nav-link active" data-view="dashboard" onclick="admin.showView('dashboard')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
         Dashboard
       </button>
 
-      <div class="nav-section">Análisis</div>
-      <button class="nav-link" data-view="soil" onclick="admin.showView('soil')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 22h20"/><path d="M12 2v14"/><path d="M5 12l7 7 7-7"/></svg>
-        Análisis de Suelo
-      </button>
-      <button class="nav-link" data-view="leaf" onclick="admin.showView('leaf')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 20A7 7 0 019.8 6.9C15.5 4.9 20 7 20 7s.7 5.4-3.3 8.7A7 7 0 0111 20z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>
-        Análisis Foliar
-      </button>
-      <button class="nav-link" data-view="interpretation" onclick="admin.showView('interpretation')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8M16 17H8M10 9H8"/></svg>
-        Reporte Completo
-      </button>
+      <div class="nav-group-divider"></div>
 
-      <div class="nav-section">Mapas GIS</div>
-      <button class="nav-link" data-view="gis-dashboard" onclick="admin.showView('gis-dashboard')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
-        GIS Dashboard
-      </button>
-      <button class="nav-link" data-view="nutrient-maps" onclick="admin.showView('nutrient-maps')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
-        Mapas de Nutrientes
-      </button>
-      <button class="nav-link" data-view="prescription" onclick="admin.showView('prescription')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
-        Prescripción VRT
-      </button>
+      <!-- ANALISIS DE SUELO -->
+      <div class="nav-group" data-group="soil-group">
+        <button class="nav-group-header" onclick="admin.toggleNavGroup('soil-group')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 22h20"/><path d="M12 2v14"/><path d="M5 12l7 7 7-7"/></svg>
+          Análisis de Suelo
+          <svg class="nav-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+        <div class="nav-group-items">
+          <button class="nav-sub-link" data-view="soil" onclick="admin.showView('soil')">Entrada de Datos</button>
+          <button class="nav-sub-link" data-view="soil-interpretation" onclick="admin.showView('soil-interpretation')">Interpretación</button>
+          <button class="nav-sub-link" data-view="soil-relationships" onclick="admin.showView('soil-relationships')">Relaciones</button>
+          <button class="nav-sub-link" data-view="soil-amendments" onclick="admin.showView('soil-amendments')">Correcciones y Enmiendas</button>
+        </div>
+      </div>
 
-      <div class="nav-section">Datos</div>
-      <button class="nav-link" data-view="samples" onclick="admin.showView('samples')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
-        Muestras / Lab
-      </button>
+      <!-- ANALISIS FOLIAR -->
+      <div class="nav-group" data-group="leaf-group">
+        <button class="nav-group-header" onclick="admin.toggleNavGroup('leaf-group')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 20A7 7 0 019.8 6.9C15.5 4.9 20 7 20 7s.7 5.4-3.3 8.7A7 7 0 0111 20z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>
+          Análisis Foliar
+          <svg class="nav-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+        <div class="nav-group-items">
+          <button class="nav-sub-link" data-view="leaf" onclick="admin.showView('leaf')">Entrada de Datos</button>
+          <button class="nav-sub-link" data-view="leaf-dris" onclick="admin.showView('leaf-dris')">DRIS / IBN</button>
+          <button class="nav-sub-link" data-view="leaf-cross" onclick="admin.showView('leaf-cross')">Diagnóstico Cruzado</button>
+        </div>
+      </div>
+
+      <div class="nav-group-divider"></div>
+
+      <!-- MAPAS GIS -->
+      <div class="nav-group" data-group="gis-group">
+        <button class="nav-group-header" onclick="admin.toggleNavGroup('gis-group')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+          Mapas GIS
+          <svg class="nav-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+        <div class="nav-group-items">
+          <button class="nav-sub-link" data-view="gis-dashboard" onclick="admin.showView('gis-dashboard')">Dashboard GIS</button>
+          <button class="nav-sub-link" data-view="nutrient-maps" onclick="admin.showView('nutrient-maps')">Mapas de Fertilidad</button>
+          <button class="nav-sub-link" data-view="relation-maps" onclick="admin.showView('relation-maps')">Mapas de Relaciones</button>
+          <button class="nav-sub-link" data-view="management-zones" onclick="admin.showView('management-zones')">Zonas de Manejo<span class="nav-pro-badge">v3</span></button>
+          <button class="nav-sub-link" data-view="sampling-points" onclick="admin.showView('sampling-points')">Puntos de Muestreo</button>
+          <button class="nav-sub-link" data-view="prescription" onclick="admin.showView('prescription')">Prescripción VRT</button>
+        </div>
+      </div>
+
+      <!-- MOTOR DE INTERPOLACION (PRO) -->
+      <div class="nav-group" data-group="engine-group">
+        <button class="nav-group-header" onclick="admin.toggleNavGroup('engine-group')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+          Motor Interpolación<span class="nav-pro-badge">PRO</span>
+          <svg class="nav-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+        <div class="nav-group-items">
+          <button class="nav-sub-link" data-view="engine-idw" onclick="admin.showView('engine-idw')">Config. IDW</button>
+          <button class="nav-sub-link" data-view="engine-kriging" onclick="admin.showView('engine-kriging')">Config. Kriging</button>
+          <button class="nav-sub-link" data-view="engine-variogram" onclick="admin.showView('engine-variogram')">Variograma</button>
+          <button class="nav-sub-link" data-view="engine-validation" onclick="admin.showView('engine-validation')">Validación Cruzada</button>
+        </div>
+      </div>
+
+      <div class="nav-group-divider"></div>
+
+      <!-- INFORMES -->
+      <div class="nav-group" data-group="reports-group">
+        <button class="nav-group-header" onclick="admin.toggleNavGroup('reports-group')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8M16 17H8M10 9H8"/></svg>
+          Informes
+          <svg class="nav-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+        <div class="nav-group-items">
+          <button class="nav-sub-link" data-view="interpretation" onclick="admin.showView('interpretation')">Informe Completo</button>
+          <button class="nav-sub-link" data-view="report-protocol" onclick="admin.showView('report-protocol')">Protocolo Aplicación</button>
+          <button class="nav-sub-link" data-view="report-financial" onclick="admin.showView('report-financial')">Estudio Financiero</button>
+          <button class="nav-sub-link" data-view="report-export" onclick="admin.showView('report-export')">Exportar Mapas</button>
+        </div>
+      </div>
+
+      <!-- GESTION -->
+      <div class="nav-group" data-group="manage-group">
+        <button class="nav-group-header" onclick="admin.toggleNavGroup('manage-group')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+          Gestión
+          <svg class="nav-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+        <div class="nav-group-items">
+          <button class="nav-sub-link" data-view="samples" onclick="admin.showView('samples')">Muestras / Lab</button>
+          <button class="nav-sub-link" data-view="manage-crops" onclick="admin.showView('manage-crops')">Cultivos</button>
+          <button class="nav-sub-link" data-view="manage-clients" onclick="admin.showView('manage-clients')">Clientes</button>
+          <button class="nav-sub-link" data-view="settings" onclick="admin.showView('settings')">Configuración</button>
+        </div>
+      </div>
     </nav>
 
     <div style="padding:8px 16px 0">
@@ -105,7 +168,7 @@
       </button>
     </div>
     <div style="padding:4px 16px 12px;font-size:10px;color:var(--text-dim)">
-      PIX Admin v1.0 &middot; <a href="https://pixadvisor.network" target="_blank" style="color:var(--teal)">pixadvisor.network</a>
+      PIX Admin v2.0 PRO MAX &middot; <a href="https://pixadvisor.network" target="_blank" style="color:var(--teal)">pixadvisor.network</a>
     </div>
   </aside>
 
@@ -298,9 +361,13 @@
 
       <!-- ===== NUTRIENT MAPS ===== -->
       <!-- ===== GIS DASHBOARD ===== -->
-      <div id="view-gis-dashboard" class="view">
-        <!-- Top: Field Info Bar -->
-        <div class="card gis-field-bar" style="margin-bottom:12px">
+      <div id="view-gis-dashboard" class="view-fullmap">
+        <div class="fullmap-map">
+          <div id="gisMap" style="height:100%;width:100%"></div>
+        </div>
+        <div class="fullmap-panel">
+          <!-- Field Info Bar -->
+          <div class="panel-section">
           <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
             <div style="flex:1;min-width:200px">
               <div class="card-title" style="margin-bottom:2px">Lote / Talhão</div>
@@ -324,16 +391,7 @@
           </div>
         </div>
 
-        <!-- Map + Control Panel -->
-        <div class="gis-layout">
-          <!-- Left: Big Map -->
-          <div class="gis-map-panel">
-            <div class="map-container" id="gisMap" style="height:100%;border-radius:10px"></div>
-          </div>
-
-          <!-- Right: Control Panel -->
-          <div class="gis-control-panel">
-            <!-- Tab Bar -->
+          <!-- Tab Bar -->
             <div class="gis-tabs">
               <button class="gis-tab active" data-gistab="fertility" onclick="admin.switchGISTab('fertility')">Fertilidad</button>
               <button class="gis-tab" data-gistab="zones" onclick="admin.switchGISTab('zones')">Zonas Manejo</button>
@@ -370,6 +428,13 @@
                     <option value="80" selected>80² estándar</option>
                     <option value="120">120² HD</option>
                     <option value="200">200² Ultra</option>
+                  </select>
+                </div>
+                <div class="gis-control-group" style="flex:1">
+                  <label class="form-label">Método</label>
+                  <select class="form-input" id="gisMethod">
+                    <option value="idw" selected>IDW</option>
+                    <option value="kriging">Kriging</option>
                   </select>
                 </div>
                 <div class="gis-control-group" style="flex:1">
@@ -498,100 +563,101 @@
           </div>
         </div>
       </div>
-    </div>
 
-      <div id="view-nutrient-maps" class="view">
-        <div class="card" style="margin-bottom:16px">
-          <div class="card-header">
-            <div><div class="card-title">Mapas de Interpolación de Nutrientes</div><div class="card-subtitle">IDW desde puntos de muestreo</div></div>
-            <div style="display:flex;align-items:center;gap:8px">
-              <span id="boundaryStatus" class="boundary-status" style="font-size:11px;color:var(--text-muted)">Sin perímetro</span>
+      <div id="view-nutrient-maps" class="view-fullmap">
+        <div class="fullmap-map">
+          <div id="nutrientMap" style="height:100%;width:100%"></div>
+        </div>
+        <div class="fullmap-panel">
+          <div class="panel-section">
+            <div class="panel-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/></svg>
+              Mapas de Nutrientes
+            </div>
+            <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+              <span id="boundaryStatus" style="font-size:11px;color:var(--text-muted);align-self:center">Sin perímetro</span>
               <button class="btn btn-sm btn-outline" onclick="admin.loadDemoBoundary()">Demo Lote</button>
               <button class="btn btn-sm btn-secondary" onclick="admin.importFieldBoundary()">Cargar Perímetro</button>
             </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">Nutriente</label>
-              <select class="form-input" id="mapNutrient" onchange="admin.updateNutrientMap()">
-                <option value="pH_H2O">pH</option><option value="P">Fósforo (P)</option><option value="K">Potasio (K)</option>
-                <option value="Ca">Calcio (Ca)</option><option value="Mg">Magnesio (Mg)</option><option value="MO">Mat. Orgánica</option>
-                <option value="V">V%</option><option value="S">Azufre (S)</option><option value="B">Boro (B)</option>
-                <option value="Cu">Cobre (Cu)</option><option value="Fe">Hierro (Fe)</option><option value="Mn">Manganeso (Mn)</option><option value="Zn">Zinc (Zn)</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Resolución</label>
-              <select class="form-input" id="mapResolution">
-                <option value="50">50×50 (rápido)</option>
-                <option value="80" selected>80×80 (estándar)</option>
-                <option value="120">120×120 (HD)</option>
-                <option value="200">200×200 (Ultra HD)</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Potencia IDW</label>
-              <select class="form-input" id="mapPower">
-                <option value="1">1 (suave)</option>
-                <option value="2" selected>2 (estándar)</option>
-                <option value="3">3 (fuerte)</option>
-              </select>
-            </div>
-            <div class="form-group" style="display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap">
-              <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;white-space:nowrap">
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div class="form-group">
+                <label class="form-label">Nutriente</label>
+                <select class="form-input" id="mapNutrient" onchange="admin.updateNutrientMap()">
+                  <option value="pH_H2O">pH</option><option value="P">Fósforo (P)</option><option value="K">Potasio (K)</option>
+                  <option value="Ca">Calcio (Ca)</option><option value="Mg">Magnesio (Mg)</option><option value="MO">Mat. Orgánica</option>
+                  <option value="V">V%</option><option value="S">Azufre (S)</option><option value="B">Boro (B)</option>
+                  <option value="Cu">Cobre (Cu)</option><option value="Fe">Hierro (Fe)</option><option value="Mn">Manganeso (Mn)</option><option value="Zn">Zinc (Zn)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Resolución</label>
+                <select class="form-input" id="mapResolution">
+                  <option value="50">50×50 (rápido)</option>
+                  <option value="80" selected>80×80 (estándar)</option>
+                  <option value="120">120×120 (HD)</option>
+                  <option value="200">200×200 (Ultra HD)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Potencia IDW</label>
+                <select class="form-input" id="mapPower">
+                  <option value="1">1 (suave)</option>
+                  <option value="2" selected>2 (estándar)</option>
+                  <option value="3">3 (fuerte)</option>
+                </select>
+              </div>
+              <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer">
                 <input type="checkbox" id="mapShowLabels" checked> Etiquetas
               </label>
-              <button class="btn btn-outline" onclick="admin.loadDemoSamples()">Demo GPS</button>
-              <button class="btn btn-primary" onclick="admin.generateNutrientMap()">Generar Mapa</button>
+              <div style="display:flex;gap:8px">
+                <button class="btn btn-outline btn-sm" onclick="admin.loadDemoSamples()">Demo GPS</button>
+                <button class="btn btn-primary btn-sm" onclick="admin.generateNutrientMap()">Generar Mapa</button>
+              </div>
             </div>
           </div>
-        </div>
-        <div class="grid-2">
-          <div><div class="map-container map-container-full" id="nutrientMap"></div></div>
-          <div>
-            <div id="mapLegend"></div>
-            <div id="mapStats" style="margin-top:16px"></div>
-          </div>
+          <div class="panel-section" id="mapLegend"></div>
+          <div class="panel-section" id="mapStats"></div>
         </div>
       </div>
 
       <!-- ===== PRESCRIPTION VRT ===== -->
-      <div id="view-prescription" class="view">
-        <div class="card" style="margin-bottom:16px">
-          <div class="card-header">
-            <div><div class="card-title">Mapa de Prescripción - Tasa Variable</div><div class="card-subtitle">Genera mapas VRT para controladores</div></div>
-            <div style="display:flex;align-items:center;gap:8px">
+      <div id="view-prescription" class="view-fullmap">
+        <div class="fullmap-map">
+          <div id="prescMap" style="height:100%;width:100%"></div>
+        </div>
+        <div class="fullmap-panel">
+          <div class="panel-section">
+            <div class="panel-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
+              Prescripción VRT
+            </div>
+            <div style="display:flex;gap:6px;margin-bottom:12px">
               <button class="btn btn-sm btn-secondary" onclick="admin.importFieldBoundary()">Cargar Perímetro</button>
             </div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div class="form-group">
+                <label class="form-label">Nutriente a prescribir</label>
+                <select class="form-input" id="prescNutrient">
+                  <option value="P">Fósforo (P₂O₅)</option><option value="K">Potasio (K₂O)</option>
+                  <option value="Ca">Calcio (Ca)</option><option value="Mg">Magnesio (Mg)</option><option value="S">Azufre (S)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Meta rendimiento</label>
+                <input type="number" class="form-input" id="prescYield" placeholder="t/ha">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Fuente fertilizante</label>
+                <select class="form-input" id="prescSource"></select>
+              </div>
+              <div style="display:flex;gap:8px">
+                <button class="btn btn-primary btn-sm" onclick="admin.generatePrescription()">Generar</button>
+                <button class="btn btn-secondary btn-sm" onclick="admin.exportPrescription()">Exportar</button>
+              </div>
+            </div>
           </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">Nutriente a prescribir</label>
-              <select class="form-input" id="prescNutrient">
-                <option value="P">Fósforo (P₂O₅)</option><option value="K">Potasio (K₂O)</option>
-                <option value="Ca">Calcio (Ca)</option><option value="Mg">Magnesio (Mg)</option><option value="S">Azufre (S)</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Meta rendimiento</label>
-              <input type="number" class="form-input" id="prescYield" placeholder="t/ha">
-            </div>
-            <div class="form-group">
-              <label class="form-label">Fuente fertilizante</label>
-              <select class="form-input" id="prescSource"></select>
-            </div>
-            <div class="form-group" style="display:flex;align-items:flex-end;gap:8px">
-              <button class="btn btn-primary" onclick="admin.generatePrescription()">Generar</button>
-              <button class="btn btn-secondary" onclick="admin.exportPrescription()">Exportar</button>
-            </div>
-          </div>
-        </div>
-        <div class="grid-2">
-          <div><div class="map-container map-container-full" id="prescMap"></div></div>
-          <div>
-            <div id="prescLegend"></div>
-            <div id="prescZones" style="margin-top:16px"></div>
-          </div>
+          <div class="panel-section" id="prescLegend"></div>
+          <div class="panel-section" id="prescZones"></div>
         </div>
       </div>
 
@@ -607,6 +673,883 @@
             </div>
           </div>
           <div id="samplesTable"></div>
+        </div>
+      </div>
+
+      <!-- ===== SOIL INTERPRETATION (Sub-page) ===== -->
+      <div id="view-soil-interpretation" class="view">
+        <div class="pro-banner">
+          <div class="pro-banner-icon">🔬</div>
+          <div class="pro-banner-text">
+            <h4>Interpretación Detallada de Suelo</h4>
+            <p>Clasificación de nutrientes, textura y propiedades del suelo con rangos específicos por cultivo</p>
+          </div>
+        </div>
+        <div id="soilInterpretationResults">
+          <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+            <h3>Sin datos de interpretación</h3>
+            <p>Primero ingresá datos en "Análisis de Suelo → Entrada de Datos" e interpretá</p>
+            <button class="btn btn-primary" onclick="admin.showView('soil')" style="margin-top:16px">Ir a Entrada de Datos</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== SOIL RELATIONSHIPS (Sub-page) ===== -->
+      <div id="view-soil-relationships" class="view">
+        <div class="pro-banner">
+          <div class="pro-banner-icon">⚖️</div>
+          <div class="pro-banner-text">
+            <h4>Relaciones entre Nutrientes</h4>
+            <p>Ca/Mg, Ca/K, Mg/K, (Ca+Mg)/K — equilibrio catiónico y proporciones ideales</p>
+          </div>
+        </div>
+        <div id="soilRelationshipsResults">
+          <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+            <h3>Sin datos de relaciones</h3>
+            <p>Primero interpretá un análisis de suelo</p>
+            <button class="btn btn-primary" onclick="admin.showView('soil')" style="margin-top:16px">Ir a Análisis de Suelo</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== SOIL AMENDMENTS (Sub-page) ===== -->
+      <div id="view-soil-amendments" class="view">
+        <div class="pro-banner">
+          <div class="pro-banner-icon">🧪</div>
+          <div class="pro-banner-text">
+            <h4>Correcciones y Enmiendas</h4>
+            <p>Encalado, yeso, fertilización y productos recomendados con cálculos por hectárea</p>
+          </div>
+        </div>
+        <div id="soilAmendmentsResults">
+          <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <h3>Sin datos de correcciones</h3>
+            <p>Primero interpretá un análisis de suelo</p>
+            <button class="btn btn-primary" onclick="admin.showView('soil')" style="margin-top:16px">Ir a Análisis de Suelo</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== LEAF DRIS (Sub-page) ===== -->
+      <div id="view-leaf-dris" class="view">
+        <div class="pro-banner">
+          <div class="pro-banner-icon">📊</div>
+          <div class="pro-banner-text">
+            <h4>Análisis DRIS / IBN</h4>
+            <p>Sistema Integrado de Diagnóstico y Recomendación — Índices de Balance Nutricional</p>
+          </div>
+        </div>
+        <div id="leafDrisResults">
+          <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+            <h3>Sin datos DRIS</h3>
+            <p>Primero ingresá datos en "Análisis Foliar → Entrada de Datos" e interpretá</p>
+            <button class="btn btn-primary" onclick="admin.showView('leaf')" style="margin-top:16px">Ir a Análisis Foliar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== LEAF CROSS DIAGNOSIS (Sub-page) ===== -->
+      <div id="view-leaf-cross" class="view">
+        <div class="pro-banner">
+          <div class="pro-banner-icon">🔄</div>
+          <div class="pro-banner-text">
+            <h4>Diagnóstico Cruzado Suelo-Hoja</h4>
+            <p>Comparación entre niveles en suelo y tejido vegetal para detectar problemas de absorción</p>
+          </div>
+        </div>
+        <div id="leafCrossResults">
+          <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+            <h3>Sin datos para diagnóstico cruzado</h3>
+            <p>Se necesitan datos de suelo Y foliar interpretados</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== RELATION MAPS ===== -->
+      <div id="view-relation-maps" class="view-fullmap">
+        <div class="fullmap-map">
+          <div id="relationMap" style="height:100%;width:100%"></div>
+        </div>
+        <div class="fullmap-panel">
+          <div class="panel-section">
+            <div class="panel-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/></svg>
+              Relaciones entre Nutrientes
+            </div>
+            <div style="display:flex;gap:6px;margin-bottom:12px">
+              <button class="btn btn-sm btn-outline" onclick="admin.loadDemoBoundary()">Demo Lote</button>
+              <button class="btn btn-sm btn-outline" onclick="admin.loadDemoSamples()">Demo Muestras</button>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div class="form-group">
+                <label class="form-label">Relación</label>
+                <select class="form-input" id="relationMapType">
+                  <option value="Ca_Mg">Ca/Mg (ideal: 3-5)</option>
+                  <option value="Ca_K">Ca/K (ideal: 15-25)</option>
+                  <option value="Mg_K">Mg/K (ideal: 3-5)</option>
+                  <option value="CaMg_K">(Ca+Mg)/K (ideal: 20-30)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Método</label>
+                <select class="form-input" id="relationMapMethod">
+                  <option value="idw">IDW</option>
+                  <option value="kriging">Kriging</option>
+                </select>
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="admin.generateRelationMap()">Generar Mapa</button>
+            </div>
+          </div>
+          <div class="panel-section" id="relationMapLegend"></div>
+          <div class="panel-section" id="relationMapStats"></div>
+        </div>
+      </div>
+
+      <!-- ===== MANAGEMENT ZONES v3 (Full-screen wizard) ===== -->
+      <div id="view-management-zones" class="view-fullmap">
+        <!-- Full-screen map -->
+        <div class="fullmap-map">
+          <div id="mzMap" style="height:100%;width:100%"></div>
+        </div>
+        <!-- Wizard panel -->
+        <div class="fullmap-panel">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+            <div style="font-size:16px;font-weight:700;flex:1">Zonas de Manejo PRO</div>
+            <span class="nav-pro-badge" style="font-size:9px">v3</span>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">Multi-variable, temporal, planialtimetría y flujo de agua</div>
+
+          <!-- Wizard Steps -->
+          <div class="wizard-steps">
+            <div class="wizard-step active" onclick="admin.mzWizardStep(1)"><div class="wizard-step-num">1</div><br>Capas</div>
+            <div class="wizard-step" onclick="admin.mzWizardStep(2)"><div class="wizard-step-num">2</div><br>Cultivo</div>
+            <div class="wizard-step" onclick="admin.mzWizardStep(3)"><div class="wizard-step-num">3</div><br>Temporal</div>
+            <div class="wizard-step" onclick="admin.mzWizardStep(4)"><div class="wizard-step-num">4</div><br>DEM</div>
+            <div class="wizard-step" onclick="admin.mzWizardStep(5)"><div class="wizard-step-num">5</div><br>Generar</div>
+          </div>
+
+          <!-- STEP 1: Variables / Capas -->
+          <div class="wizard-content active" id="mzStep1">
+            <div class="panel-section">
+              <div class="panel-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg> Variables de Suelo</div>
+              <div style="display:flex;flex-direction:column;gap:6px" id="mzLayerChecks">
+                <label class="layer-toggle"><input type="checkbox" checked value="V"> <span class="layer-toggle-label">V% (Saturación)</span></label>
+                <label class="layer-toggle"><input type="checkbox" checked value="P"> <span class="layer-toggle-label">Fósforo (P)</span></label>
+                <label class="layer-toggle"><input type="checkbox" value="K"> <span class="layer-toggle-label">Potasio (K)</span></label>
+                <label class="layer-toggle"><input type="checkbox" value="MO"> <span class="layer-toggle-label">Materia Orgánica</span></label>
+                <label class="layer-toggle"><input type="checkbox" value="clay"> <span class="layer-toggle-label">Arcilla</span></label>
+                <label class="layer-toggle"><input type="checkbox" value="pH_H2O"> <span class="layer-toggle-label">pH</span></label>
+                <label class="layer-toggle"><input type="checkbox" value="Ca"> <span class="layer-toggle-label">Calcio</span></label>
+                <label class="layer-toggle"><input type="checkbox" value="Mg"> <span class="layer-toggle-label">Magnesio</span></label>
+              </div>
+            </div>
+            <div class="panel-section">
+              <div class="panel-title">Pesos por Variable</div>
+              <div class="weight-slider-group" id="mzWeights">
+                <div class="weight-slider-item"><label>V%</label><input type="range" min="0" max="100" value="100" data-var="V" oninput="this.nextElementSibling.textContent=this.value+'%'"><span class="weight-val">100%</span></div>
+                <div class="weight-slider-item"><label>P</label><input type="range" min="0" max="100" value="80" data-var="P" oninput="this.nextElementSibling.textContent=this.value+'%'"><span class="weight-val">80%</span></div>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-sm btn-outline" onclick="admin.loadDemoBoundary()">Demo Lote</button>
+              <button class="btn btn-sm btn-outline" onclick="admin.loadDemoSamples()">Demo Muestras</button>
+              <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="admin.mzWizardStep(2)">Siguiente</button>
+            </div>
+          </div>
+
+          <!-- STEP 2: Crop Profile -->
+          <div class="wizard-content" id="mzStep2">
+            <div class="panel-section">
+              <div class="panel-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 20A7 7 0 019.8 6.9C15.5 4.9 20 7 20 7s.7 5.4-3.3 8.7A7 7 0 0111 20z"/></svg> Perfil por Cultivo</div>
+              <div class="gis-control-group" style="margin-bottom:10px">
+                <label class="form-label">Cultivo</label>
+                <select class="form-input" id="mzCropProfile" onchange="admin.updateMZCropProfile()">
+                  <option value="auto">Usar cultivo global</option>
+                  <option value="cana">Caña de Azúcar</option>
+                  <option value="soja">Soja</option>
+                  <option value="maiz">Maíz</option>
+                  <option value="sorgo">Sorgo</option>
+                  <option value="girasol">Girasol</option>
+                  <option value="tomate">Tomate</option>
+                  <option value="papa">Papa</option>
+                </select>
+              </div>
+              <div class="gis-control-group" style="margin-bottom:10px">
+                <label class="form-label">Etapa Fenológica</label>
+                <select class="form-input" id="mzPhenStage">
+                  <option value="vegetativo">Vegetativo</option>
+                </select>
+              </div>
+              <div id="mzCropIndices" style="font-size:11px;color:var(--text-muted);padding:8px;background:var(--dark);border-radius:6px">
+                Índices recomendados: NDVI, EVI
+              </div>
+            </div>
+            <div class="panel-section">
+              <div class="panel-title">Algoritmo</div>
+              <div class="gis-control-group" style="margin-bottom:10px">
+                <label class="form-label">N° Zonas</label>
+                <select class="form-input" id="mzNumZones">
+                  <option value="2">2 zonas</option>
+                  <option value="3" selected>3 zonas</option>
+                  <option value="4">4 zonas</option>
+                  <option value="5">5 zonas</option>
+                  <option value="7">7 zonas</option>
+                </select>
+              </div>
+              <div class="gis-control-group" style="margin-bottom:10px">
+                <label class="form-label">Método Interpolación</label>
+                <select class="form-input" id="mzMethod">
+                  <option value="idw">IDW</option>
+                  <option value="kriging">Kriging</option>
+                </select>
+              </div>
+              <div class="gis-control-group">
+                <label class="form-label">Resolución</label>
+                <select class="form-input" id="mzResolution">
+                  <option value="50">50 (rápido)</option>
+                  <option value="80" selected>80 (estándar)</option>
+                  <option value="120">120 (HD)</option>
+                </select>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-sm btn-secondary" onclick="admin.mzWizardStep(1)">Atrás</button>
+              <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="admin.mzWizardStep(3)">Siguiente</button>
+            </div>
+          </div>
+
+          <!-- STEP 3: Temporal Stability -->
+          <div class="wizard-content" id="mzStep3">
+            <div class="panel-section">
+              <div class="panel-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Estabilidad Temporal</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px">
+                Mínimo 3 campañas para análisis de estabilidad. Cargá rasters de índices de vegetación por campaña.
+              </div>
+              <div class="campaign-timeline" id="mzCampaigns">
+                <div class="campaign-item">
+                  <span class="campaign-year">2024</span>
+                  <span class="campaign-index">NDVI — Sin datos</span>
+                  <span class="campaign-status pending"></span>
+                </div>
+                <div class="campaign-item">
+                  <span class="campaign-year">2025</span>
+                  <span class="campaign-index">NDVI — Sin datos</span>
+                  <span class="campaign-status pending"></span>
+                </div>
+                <div class="campaign-item">
+                  <span class="campaign-year">2026</span>
+                  <span class="campaign-index">NDVI — Sin datos</span>
+                  <span class="campaign-status pending"></span>
+                </div>
+              </div>
+              <button class="campaign-add-btn" onclick="admin.addMZCampaign()">+ Agregar Campaña</button>
+              <div style="margin-top:10px;display:flex;gap:6px">
+                <button class="btn btn-sm btn-outline" onclick="admin.importCampaignRaster()">Importar Raster</button>
+                <button class="btn btn-sm btn-outline" onclick="admin.loadDemoCampaigns()">Demo 3 Campañas</button>
+              </div>
+            </div>
+            <div class="panel-section">
+              <div class="panel-title">Configuración Temporal</div>
+              <div class="gis-control-group" style="margin-bottom:8px">
+                <label class="form-label">Umbral Estabilidad (CV%)</label>
+                <div style="display:flex;gap:8px;font-size:11px;color:var(--text-muted)">
+                  <span>Estable &lt;15%</span><span>Moderado 15-30%</span><span>Inestable &gt;30%</span>
+                </div>
+              </div>
+              <label class="layer-toggle"><input type="checkbox" id="mzUseTemporalLayer" checked> <span class="layer-toggle-label">Incluir capa de estabilidad en clustering</span></label>
+              <div class="weight-slider-item" style="margin-top:6px"><label>Peso</label><input type="range" min="0" max="100" value="60" id="mzTemporalWeight" oninput="this.nextElementSibling.textContent=this.value+'%'"><span class="weight-val">60%</span></div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-sm btn-secondary" onclick="admin.mzWizardStep(2)">Atrás</button>
+              <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="admin.mzWizardStep(4)">Siguiente</button>
+            </div>
+          </div>
+
+          <!-- STEP 4: DEM / Planialtimetry -->
+          <div class="wizard-content" id="mzStep4">
+            <div class="panel-section">
+              <div class="panel-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 18L13.5 5 8.5 14 2 8"/></svg> Planialtimetría y Flujo de Agua</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px">
+                Cargá un MDE (Modelo Digital de Elevación) para calcular TWI y líneas de flujo.
+              </div>
+              <div style="display:flex;gap:6px;margin-bottom:10px">
+                <button class="btn btn-sm btn-outline" onclick="admin.importDEM()">Importar MDE</button>
+                <button class="btn btn-sm btn-outline" onclick="admin.loadDemoDEM()">Demo ALOS 30m</button>
+              </div>
+              <div class="dem-panel" id="mzDEMPanel" style="display:none">
+                <div class="dem-stats">
+                  <div class="dem-stat"><div class="val" id="demMinElev">—</div><div class="lbl">Mín (m)</div></div>
+                  <div class="dem-stat"><div class="val" id="demMaxElev">—</div><div class="lbl">Máx (m)</div></div>
+                  <div class="dem-stat"><div class="val" id="demDelta">—</div><div class="lbl">Desnivel</div></div>
+                </div>
+              </div>
+            </div>
+            <div class="panel-section">
+              <div class="panel-title">Índice TWI (Topographic Wetness)</div>
+              <label class="layer-toggle"><input type="checkbox" id="mzUseTWI" checked> <span class="layer-toggle-label">Incluir TWI en clustering</span></label>
+              <div class="weight-slider-item" style="margin-top:6px"><label>Peso TWI</label><input type="range" min="0" max="100" value="40" id="mzTWIWeight" oninput="this.nextElementSibling.textContent=this.value+'%'"><span class="weight-val">40%</span></div>
+              <label class="layer-toggle" style="margin-top:6px"><input type="checkbox" id="mzShowFlowLines" checked> <span class="layer-toggle-label">Mostrar líneas de flujo de agua</span></label>
+              <div class="twi-legend" style="margin-top:8px">
+                <div class="twi-item"><div class="twi-color" style="background:#d4a574"></div> Cresta (TWI &lt; 5)</div>
+                <div class="twi-item"><div class="twi-color" style="background:#a8c868"></div> Ladera (TWI 5-8)</div>
+                <div class="twi-item"><div class="twi-color" style="background:#68a8c8"></div> Planicie (TWI 8-11)</div>
+                <div class="twi-item"><div class="twi-color" style="background:#4466aa"></div> Bajo/Acumulación (TWI &gt; 11)</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-sm btn-secondary" onclick="admin.mzWizardStep(3)">Atrás</button>
+              <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="admin.mzWizardStep(5)">Siguiente</button>
+            </div>
+          </div>
+
+          <!-- STEP 5: Generate -->
+          <div class="wizard-content" id="mzStep5">
+            <div class="panel-section">
+              <div class="panel-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Generar Zonas</div>
+              <div id="mzConfigSummary" style="font-size:11px;color:var(--text-muted);line-height:1.7">
+                Resumen de configuración aparecerá aquí...
+              </div>
+              <button class="btn btn-primary" style="width:100%;margin-top:12px" onclick="admin.generateManagementZonesV3()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                Generar Zonas de Manejo
+              </button>
+            </div>
+            <div id="mzResults" style="display:none">
+              <div class="panel-section">
+                <div class="panel-title">Resultados</div>
+                <div class="zone-stats-grid" id="mzZoneStats"></div>
+              </div>
+              <div class="panel-section">
+                <div class="panel-title">Capas del Mapa</div>
+                <label class="layer-toggle"><input type="checkbox" checked onchange="admin.toggleMZLayer('zones',this.checked)"> <span class="layer-toggle-label">Zonas de Manejo</span></label>
+                <label class="layer-toggle"><input type="checkbox" checked onchange="admin.toggleMZLayer('labels',this.checked)"> <span class="layer-toggle-label">Etiquetas de Zona</span></label>
+                <label class="layer-toggle"><input type="checkbox" onchange="admin.toggleMZLayer('stability',this.checked)"> <span class="layer-toggle-label">Estabilidad Temporal</span></label>
+                <label class="layer-toggle"><input type="checkbox" onchange="admin.toggleMZLayer('twi',this.checked)"> <span class="layer-toggle-label">TWI / Flujo</span></label>
+                <label class="layer-toggle"><input type="checkbox" checked onchange="admin.toggleMZLayer('points',this.checked)"> <span class="layer-toggle-label">Puntos de Muestreo</span></label>
+              </div>
+              <div class="panel-section">
+                <div class="panel-title">Exportar</div>
+                <div class="export-row">
+                  <button class="export-btn" onclick="admin.exportMZGeoJSON()">GeoJSON</button>
+                  <button class="export-btn" onclick="admin.exportMZShapefile()">SHP</button>
+                  <button class="export-btn" onclick="admin.exportMZCSV()">CSV</button>
+                  <button class="export-btn" onclick="admin.exportMZPDF()">PDF</button>
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <button class="btn btn-sm btn-secondary" onclick="admin.mzWizardStep(4)">Atrás</button>
+              <button class="btn btn-sm btn-outline" style="margin-left:auto" onclick="admin.showView('sampling-points')">Ir a Muestreo</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== SAMPLING POINTS v3 (Full-screen) ===== -->
+      <div id="view-sampling-points" class="view-fullmap">
+        <div class="fullmap-map">
+          <div id="samplingMap" style="height:100%;width:100%"></div>
+        </div>
+        <div class="fullmap-panel">
+          <div style="font-size:16px;font-weight:700;margin-bottom:4px">Puntos de Muestreo</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px">Generación automática de puntos basada en zonas de manejo</div>
+
+          <div class="panel-section">
+            <div class="panel-title">Método de Muestreo</div>
+            <div class="sampling-method-cards">
+              <div class="sampling-method-card selected" data-method="grid" onclick="admin.selectSamplingMethod('grid')">
+                <div class="method-icon">&#9638;</div>
+                <div class="method-name">Grid Regular</div>
+                <div class="method-desc">Malla uniforme sobre el lote</div>
+              </div>
+              <div class="sampling-method-card" data-method="stratified" onclick="admin.selectSamplingMethod('stratified')">
+                <div class="method-icon">&#9641;</div>
+                <div class="method-name">Estratificado</div>
+                <div class="method-desc">Por zona de manejo</div>
+              </div>
+              <div class="sampling-method-card" data-method="centroid" onclick="admin.selectSamplingMethod('centroid')">
+                <div class="method-icon">&#9673;</div>
+                <div class="method-name">Centroide</div>
+                <div class="method-desc">Centro de cada zona</div>
+              </div>
+              <div class="sampling-method-card" data-method="random" onclick="admin.selectSamplingMethod('random')">
+                <div class="method-icon">&#9686;</div>
+                <div class="method-name">Aleatorio</div>
+                <div class="method-desc">Random por zona</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel-section">
+            <div class="panel-title">Configuración</div>
+            <div class="gis-control-group" style="margin-bottom:8px">
+              <label class="form-label">Densidad (pts/ha)</label>
+              <input type="number" class="form-input" id="sampDensity" value="0.5" min="0.1" max="5" step="0.1">
+            </div>
+            <div class="gis-control-group" style="margin-bottom:8px">
+              <label class="form-label">Puntos por zona (estratificado/random)</label>
+              <input type="number" class="form-input" id="sampPointsPerZone" value="4" min="1" max="20">
+            </div>
+            <div class="gis-control-group" style="margin-bottom:8px">
+              <label class="form-label">Buffer de borde (m)</label>
+              <input type="number" class="form-input" id="sampEdgeBuffer" value="20" min="0" max="100">
+            </div>
+          </div>
+
+          <div class="panel-section">
+            <div class="panel-title">Submuestreo Compuesto</div>
+            <div class="gis-control-group" style="margin-bottom:8px">
+              <label class="form-label">Patrón</label>
+              <select class="form-input" id="sampComposite">
+                <option value="">Sin submuestreo</option>
+                <option value="zigzag">Zigzag (W)</option>
+                <option value="cross">Cruz (+)</option>
+                <option value="diamond">Diamante</option>
+                <option value="circle">Circular (8 pts)</option>
+              </select>
+            </div>
+            <div class="gis-control-group">
+              <label class="form-label">Radio submuestreo (m)</label>
+              <input type="number" class="form-input" id="sampCompositeRadius" value="15" min="5" max="50">
+            </div>
+            <div class="composite-preview" id="sampCompositePreview"></div>
+          </div>
+
+          <button class="btn btn-primary" style="width:100%" onclick="admin.generateSamplingPlan()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+            Generar Plan de Muestreo
+          </button>
+
+          <div id="sampResults" style="display:none">
+            <div class="panel-section">
+              <div class="panel-title">Reporte de Cobertura</div>
+              <div id="sampReport" style="font-size:11px;color:var(--text-muted);line-height:1.7"></div>
+            </div>
+            <div class="panel-section">
+              <div class="panel-title">Exportar Puntos</div>
+              <div class="export-row">
+                <button class="export-btn" onclick="admin.exportSamplingGPX()">GPX</button>
+                <button class="export-btn" onclick="admin.exportSamplingKML()">KML</button>
+                <button class="export-btn" onclick="admin.exportSamplingGeoJSON()">GeoJSON</button>
+                <button class="export-btn" onclick="admin.exportSamplingCSV()">CSV</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== ENGINE: IDW CONFIG ===== -->
+      <div id="view-engine-idw" class="view">
+        <div class="pro-banner">
+          <div class="pro-banner-icon">⚡</div>
+          <div class="pro-banner-text">
+            <h4>Motor IDW — Inverse Distance Weighting</h4>
+            <p>Configuración avanzada del interpolador por distancia inversa ponderada</p>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="engine-card">
+            <div class="card-title" style="margin-bottom:16px">Parámetros IDW</div>
+            <div class="param-group" style="margin-bottom:16px">
+              <div class="param-label"><span>Potencia (p)</span><span id="idwPowerVal">2.0</span></div>
+              <input type="range" class="param-slider" id="idwPowerSlider" min="0.5" max="5" step="0.1" value="2" oninput="document.getElementById('idwPowerVal').textContent=this.value">
+              <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-dim)"><span>0.5 (suave)</span><span>5.0 (fuerte)</span></div>
+            </div>
+            <div class="param-group" style="margin-bottom:16px">
+              <div class="param-label"><span>Resolución Grid</span><span id="idwResVal">80</span></div>
+              <input type="range" class="param-slider" id="idwResSlider" min="30" max="300" step="10" value="80" oninput="document.getElementById('idwResVal').textContent=this.value">
+              <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-dim)"><span>30 (rápido)</span><span>300 (Ultra HD)</span></div>
+            </div>
+            <div class="param-group" style="margin-bottom:16px">
+              <div class="param-label"><span>Radio de Búsqueda</span><span id="idwRadiusVal">∞</span></div>
+              <input type="range" class="param-slider" id="idwRadiusSlider" min="0" max="5000" step="100" value="0" oninput="document.getElementById('idwRadiusVal').textContent=this.value==0?'∞':this.value+'m'">
+            </div>
+            <div class="param-group" style="margin-bottom:16px">
+              <div class="param-label"><span>Pasadas Suavizado</span><span id="idwSmoothVal">1</span></div>
+              <input type="range" class="param-slider" id="idwSmoothSlider" min="0" max="5" step="1" value="1" oninput="document.getElementById('idwSmoothVal').textContent=this.value">
+            </div>
+            <div style="margin-top:20px">
+              <button class="btn btn-primary" style="width:100%" onclick="admin.applyIDWConfig()">Aplicar Configuración</button>
+            </div>
+          </div>
+          <div class="engine-card">
+            <div class="card-title" style="margin-bottom:16px">Referencia IDW</div>
+            <div style="font-size:13px;color:var(--text-muted);line-height:1.8">
+              <p><strong>Potencia (p):</strong> Controla la influencia de puntos lejanos. p=1 suave, p=2 estándar, p>3 prioriza vecinos cercanos.</p>
+              <p style="margin-top:10px"><strong>Resolución:</strong> Cantidad de celdas del grid. Mayor resolución = más detalle pero más lento.</p>
+              <p style="margin-top:10px"><strong>Radio:</strong> Limita los puntos considerados. ∞ = todos los puntos (global IDW).</p>
+              <p style="margin-top:10px"><strong>Suavizado:</strong> Pasadas de filtro gaussiano sobre el resultado. Reduce artefactos de "bull's eye".</p>
+            </div>
+            <div style="margin-top:20px;padding:14px;background:var(--dark-3);border-radius:8px">
+              <div style="font-size:12px;font-weight:700;color:var(--teal);margin-bottom:6px">Fórmula IDW</div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-muted)">
+                Z(x) = Σ(wᵢ·zᵢ) / Σ(wᵢ)<br>
+                wᵢ = 1 / d(x, xᵢ)ᵖ
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== ENGINE: KRIGING CONFIG ===== -->
+      <div id="view-engine-kriging" class="view">
+        <div class="pro-banner">
+          <div class="pro-banner-icon">🎯</div>
+          <div class="pro-banner-text">
+            <h4>Motor Kriging — Interpolación Geoestadística</h4>
+            <p>Ordinary Kriging con 6 modelos de variograma — El estándar profesional en agricultura de precisión</p>
+          </div>
+        </div>
+        <div class="engine-card">
+          <div class="card-title" style="margin-bottom:16px">Modelo de Variograma</div>
+          <div class="model-grid" id="krigingModelGrid">
+            <div class="model-option selected" data-model="spherical" onclick="admin.selectKrigingModel('spherical')">
+              <div class="model-icon">🔵</div>
+              <div class="model-option-name">Esférica</div>
+              <div class="model-option-desc">El más común en suelos</div>
+              <div class="model-option-formula">γ(h) = C₀ + C[1.5(h/a) - 0.5(h/a)³]</div>
+            </div>
+            <div class="model-option" data-model="gaussian" onclick="admin.selectKrigingModel('gaussian')">
+              <div class="model-icon">🟢</div>
+              <div class="model-option-name">Gaussiana</div>
+              <div class="model-option-desc">Transiciones suaves</div>
+              <div class="model-option-formula">γ(h) = C₀ + C[1 - e^(-3h²/a²)]</div>
+            </div>
+            <div class="model-option" data-model="exponential" onclick="admin.selectKrigingModel('exponential')">
+              <div class="model-icon">🟡</div>
+              <div class="model-option-name">Exponencial</div>
+              <div class="model-option-desc">Alcance gradual</div>
+              <div class="model-option-formula">γ(h) = C₀ + C[1 - e^(-3h/a)]</div>
+            </div>
+            <div class="model-option" data-model="linear" onclick="admin.selectKrigingModel('linear')">
+              <div class="model-icon">📈</div>
+              <div class="model-option-name">Lineal</div>
+              <div class="model-option-desc">Tendencia constante</div>
+              <div class="model-option-formula">γ(h) = C₀ + (C/a)·h</div>
+            </div>
+            <div class="model-option" data-model="power" onclick="admin.selectKrigingModel('power')">
+              <div class="model-icon">⚡</div>
+              <div class="model-option-name">Potencia</div>
+              <div class="model-option-desc">Sin meseta</div>
+              <div class="model-option-formula">γ(h) = C₀ + b·hⁿ</div>
+            </div>
+            <div class="model-option" data-model="hole-effect" onclick="admin.selectKrigingModel('hole-effect')">
+              <div class="model-icon">🌊</div>
+              <div class="model-option-name">Hole-Effect</div>
+              <div class="model-option-desc">Patrones cíclicos</div>
+              <div class="model-option-formula">γ(h) = C₀ + C[1 - sin(πh/a)/(πh/a)]</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="engine-card">
+            <div class="card-title" style="margin-bottom:16px">Parámetros del Variograma</div>
+            <div class="param-group" style="margin-bottom:14px">
+              <div class="param-label"><span>Nugget (C₀) — Efecto Pepita</span><span id="krigNuggetVal">0</span></div>
+              <input type="range" class="param-slider" id="krigNuggetSlider" min="0" max="100" step="0.5" value="0" oninput="document.getElementById('krigNuggetVal').textContent=parseFloat(this.value).toFixed(1)">
+            </div>
+            <div class="param-group" style="margin-bottom:14px">
+              <div class="param-label"><span>Sill (C₀+C) — Meseta</span><span id="krigSillVal">50</span></div>
+              <input type="range" class="param-slider" id="krigSillSlider" min="1" max="500" step="1" value="50" oninput="document.getElementById('krigSillVal').textContent=this.value">
+            </div>
+            <div class="param-group" style="margin-bottom:14px">
+              <div class="param-label"><span>Range (a) — Alcance (m)</span><span id="krigRangeVal">500</span></div>
+              <input type="range" class="param-slider" id="krigRangeSlider" min="10" max="5000" step="10" value="500" oninput="document.getElementById('krigRangeVal').textContent=this.value">
+            </div>
+            <div class="param-group" style="margin-bottom:14px">
+              <div class="param-label"><span>Resolución Grid</span><span id="krigResVal">80</span></div>
+              <input type="range" class="param-slider" id="krigResSlider" min="30" max="200" step="10" value="80" oninput="document.getElementById('krigResVal').textContent=this.value">
+            </div>
+            <div class="param-group" style="margin-bottom:14px">
+              <div class="param-label"><span>Max Vecinos</span><span id="krigMaxPtsVal">15</span></div>
+              <input type="range" class="param-slider" id="krigMaxPtsSlider" min="5" max="30" step="1" value="15" oninput="document.getElementById('krigMaxPtsVal').textContent=this.value">
+            </div>
+            <div style="display:flex;gap:8px;margin-top:16px">
+              <button class="btn btn-primary" style="flex:1" onclick="admin.autoFitVariogram()">Auto-Ajustar</button>
+              <button class="btn btn-secondary" style="flex:1" onclick="admin.applyKrigingConfig()">Aplicar</button>
+            </div>
+          </div>
+          <div class="engine-card">
+            <div class="card-title" style="margin-bottom:16px">Vista Previa del Variograma</div>
+            <div class="variogram-chart-wrap">
+              <canvas id="krigingPreviewChart" width="500" height="300"></canvas>
+            </div>
+            <div id="krigingModelInfo" style="margin-top:12px;font-size:12px;color:var(--text-muted)">
+              Seleccioná un nutriente y hacé click en "Auto-Ajustar" para ver el variograma empírico y el modelo ajustado.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== ENGINE: VARIOGRAM ===== -->
+      <div id="view-engine-variogram" class="view">
+        <div class="pro-banner">
+          <div class="pro-banner-icon">📉</div>
+          <div class="pro-banner-text">
+            <h4>Análisis de Variograma</h4>
+            <p>Variograma empírico con ajuste automático de los 6 modelos — Seleccioná el mejor para tus datos</p>
+          </div>
+        </div>
+        <div class="engine-card">
+          <div class="engine-card-header">
+            <div class="card-title">Variograma Empírico vs Modelos Ajustados</div>
+            <div style="display:flex;gap:8px">
+              <select class="form-input" id="varioNutrient" style="width:160px;font-size:13px;padding:6px 10px">
+                <option value="pH_H2O">pH</option><option value="P" selected>Fósforo</option><option value="K">Potasio</option>
+                <option value="Ca">Calcio</option><option value="Mg">Magnesio</option><option value="MO">Mat. Orgánica</option>
+                <option value="V">V%</option><option value="S">Azufre</option>
+              </select>
+              <button class="btn btn-primary btn-sm" onclick="admin.computeFullVariogram()">Calcular Variograma</button>
+            </div>
+          </div>
+          <div class="variogram-chart-wrap" style="margin-bottom:16px">
+            <canvas id="fullVariogramChart" width="800" height="400"></canvas>
+          </div>
+        </div>
+        <div class="engine-card">
+          <div class="card-title" style="margin-bottom:12px">Comparación de Modelos</div>
+          <table class="comparison-table" id="variogramComparisonTable">
+            <thead><tr><th>Modelo</th><th>Nugget (C₀)</th><th>Sill (C₀+C)</th><th>Range (a)</th><th>RMSE</th><th>Ranking</th></tr></thead>
+            <tbody id="variogramComparisonBody">
+              <tr><td colspan="6" style="text-align:center;color:var(--text-dim);padding:24px">Calculá el variograma para ver la comparación</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ===== ENGINE: CROSS-VALIDATION ===== -->
+      <div id="view-engine-validation" class="view">
+        <div class="pro-banner">
+          <div class="pro-banner-icon">✅</div>
+          <div class="pro-banner-text">
+            <h4>Validación Cruzada (Leave-One-Out)</h4>
+            <p>Compará IDW vs Kriging con diferentes modelos — Medí la precisión real de la interpolación</p>
+          </div>
+        </div>
+        <div class="engine-card">
+          <div class="engine-card-header">
+            <div class="card-title">Ejecutar Validación</div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <select class="form-input" id="validNutrient" style="width:150px;font-size:13px;padding:6px 10px">
+                <option value="pH_H2O">pH</option><option value="P" selected>Fósforo</option><option value="K">Potasio</option>
+                <option value="Ca">Calcio</option><option value="Mg">Magnesio</option><option value="V">V%</option>
+              </select>
+              <button class="btn btn-primary btn-sm" onclick="admin.runCrossValidation()">Ejecutar Validación</button>
+            </div>
+          </div>
+          <div id="validationResults">
+            <div class="validation-grid" style="margin-bottom:20px" id="validationStatsGrid">
+              <div class="validation-stat"><div class="val">—</div><div class="label">RMSE IDW</div></div>
+              <div class="validation-stat"><div class="val">—</div><div class="label">RMSE Kriging</div></div>
+              <div class="validation-stat"><div class="val">—</div><div class="label">R² IDW</div></div>
+              <div class="validation-stat"><div class="val">—</div><div class="label">R² Kriging</div></div>
+              <div class="validation-stat"><div class="val">—</div><div class="label">Mejor Método</div></div>
+            </div>
+            <div class="grid-2">
+              <div>
+                <div class="card-title" style="margin-bottom:8px;font-size:14px">IDW — Predicho vs Real</div>
+                <div class="variogram-chart-wrap"><canvas id="validationChartIDW" width="400" height="300"></canvas></div>
+              </div>
+              <div>
+                <div class="card-title" style="margin-bottom:8px;font-size:14px">Kriging — Predicho vs Real</div>
+                <div class="variogram-chart-wrap"><canvas id="validationChartKriging" width="400" height="300"></canvas></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== REPORT: PROTOCOL ===== -->
+      <div id="view-report-protocol" class="view">
+        <div class="engine-card">
+          <div class="engine-card-header">
+            <div class="engine-card-title">
+              <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg></div>
+              Protocolo de Aplicación
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-primary btn-sm" onclick="admin.generateProtocol()">Generar Protocolo</button>
+              <button class="btn btn-outline btn-sm" onclick="admin.printProtocol()">Imprimir / PDF</button>
+            </div>
+          </div>
+          <div id="protocolContent">
+            <div class="empty-state">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/></svg>
+              <h3>Generá el protocolo de aplicación</h3>
+              <p>Se necesitan datos de análisis de suelo y recomendaciones de fertilización</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== REPORT: FINANCIAL ===== -->
+      <div id="view-report-financial" class="view">
+        <div class="engine-card">
+          <div class="engine-card-header">
+            <div class="engine-card-title">
+              <div class="icon" style="background:linear-gradient(135deg, #f59e0b, #ef4444)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div>
+              Estudio Financiero
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="admin.generateFinancialStudy()">Calcular Costos</button>
+          </div>
+          <div id="financialContent">
+            <div class="empty-state">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+              <h3>Estudio de costos por hectárea</h3>
+              <p>Se necesitan recomendaciones de fertilización generadas</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== REPORT: EXPORT MAPS ===== -->
+      <div id="view-report-export" class="view">
+        <div class="engine-card">
+          <div class="engine-card-header">
+            <div class="engine-card-title">
+              <div class="icon" style="background:linear-gradient(135deg, #3b82f6, #6366f1)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div>
+              Exportar Mapas
+            </div>
+          </div>
+          <div class="grid-3" style="margin-top:16px">
+            <div class="card" style="text-align:center;cursor:pointer" onclick="admin.downloadAllNutrientMapsPDF()">
+              <div style="font-size:32px;margin-bottom:8px">🗺️</div>
+              <div class="card-title" style="font-size:14px">Todos los Nutrientes</div>
+              <div class="card-subtitle">PDF con 15 mapas</div>
+            </div>
+            <div class="card" style="text-align:center;cursor:pointer" onclick="admin.exportAllRelationMaps()">
+              <div style="font-size:32px;margin-bottom:8px">⚖️</div>
+              <div class="card-title" style="font-size:14px">Mapas de Relaciones</div>
+              <div class="card-subtitle">Ca/Mg, Ca/K, Mg/K, (Ca+Mg)/K</div>
+            </div>
+            <div class="card" style="text-align:center;cursor:pointer" onclick="admin.exportGISPrescription()">
+              <div style="font-size:32px;margin-bottom:8px">📋</div>
+              <div class="card-title" style="font-size:14px">Prescripción VRT</div>
+              <div class="card-subtitle">GeoJSON + Shapefile</div>
+            </div>
+          </div>
+          <div style="margin-top:16px">
+            <div class="card-title" style="margin-bottom:12px">Mapas Individuales</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap" id="exportMapButtons">
+              <button class="btn btn-sm btn-outline" onclick="admin.downloadNutrientMapPDF('pH_H2O')">pH</button>
+              <button class="btn btn-sm btn-outline" onclick="admin.downloadNutrientMapPDF('P')">P</button>
+              <button class="btn btn-sm btn-outline" onclick="admin.downloadNutrientMapPDF('K')">K</button>
+              <button class="btn btn-sm btn-outline" onclick="admin.downloadNutrientMapPDF('Ca')">Ca</button>
+              <button class="btn btn-sm btn-outline" onclick="admin.downloadNutrientMapPDF('Mg')">Mg</button>
+              <button class="btn btn-sm btn-outline" onclick="admin.downloadNutrientMapPDF('MO')">MO</button>
+              <button class="btn btn-sm btn-outline" onclick="admin.downloadNutrientMapPDF('V')">V%</button>
+              <button class="btn btn-sm btn-outline" onclick="admin.downloadNutrientMapPDF('S')">S</button>
+              <button class="btn btn-sm btn-outline" onclick="admin.downloadNutrientMapPDF('B')">B</button>
+              <button class="btn btn-sm btn-outline" onclick="admin.downloadNutrientMapPDF('Cu')">Cu</button>
+              <button class="btn btn-sm btn-outline" onclick="admin.downloadNutrientMapPDF('Fe')">Fe</button>
+              <button class="btn btn-sm btn-outline" onclick="admin.downloadNutrientMapPDF('Mn')">Mn</button>
+              <button class="btn btn-sm btn-outline" onclick="admin.downloadNutrientMapPDF('Zn')">Zn</button>
+              <button class="btn btn-sm btn-outline" onclick="admin.downloadNutrientMapPDF('Al')">Al</button>
+              <button class="btn btn-sm btn-outline" onclick="admin.downloadNutrientMapPDF('clay')">Arcilla</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== MANAGE: CROPS ===== -->
+      <div id="view-manage-crops" class="view">
+        <div class="card">
+          <div class="card-header">
+            <div><div class="card-title">Base de Datos de Cultivos</div><div class="card-subtitle">Rangos de suficiencia, extracción y eficiencia por cultivo</div></div>
+          </div>
+          <div id="cropsManagerContent"></div>
+        </div>
+      </div>
+
+      <!-- ===== MANAGE: CLIENTS ===== -->
+      <div id="view-manage-clients" class="view">
+        <div class="card">
+          <div class="card-header">
+            <div><div class="card-title">Gestión de Clientes</div><div class="card-subtitle">Base de datos local de clientes y propiedades</div></div>
+            <button class="btn btn-primary btn-sm" onclick="admin.addNewClient()">+ Nuevo Cliente</button>
+          </div>
+          <div id="clientsManagerContent">
+            <div class="empty-state">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+              <h3>Sin clientes registrados</h3>
+              <p>Agregá clientes para asociar análisis y reportes</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== SETTINGS ===== -->
+      <div id="view-settings" class="view">
+        <div class="card">
+          <div class="card-header">
+            <div><div class="card-title">Configuración</div><div class="card-subtitle">Preferencias de la aplicación</div></div>
+          </div>
+          <div class="grid-2">
+            <div>
+              <div class="form-group">
+                <label class="form-label">Método de Interpolación por Defecto</label>
+                <select class="form-input" id="settingsDefaultMethod">
+                  <option value="idw">IDW (Inverse Distance Weighting)</option>
+                  <option value="kriging-spherical">Kriging Esférico</option>
+                  <option value="kriging-gaussian">Kriging Gaussiano</option>
+                  <option value="kriging-exponential">Kriging Exponencial</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Resolución por Defecto</label>
+                <select class="form-input" id="settingsDefaultRes">
+                  <option value="50">50 (Rápido)</option>
+                  <option value="80" selected>80 (Estándar)</option>
+                  <option value="120">120 (HD)</option>
+                  <option value="200">200 (Ultra HD)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Paleta de Colores</label>
+                <select class="form-input" id="settingsColorPalette">
+                  <option value="fertility">Fertilidad (Verde-Amarillo-Rojo)</option>
+                  <option value="reversed">Invertida (Rojo-Amarillo-Verde)</option>
+                  <option value="prescription">Prescripción (Azul-Verde-Rojo)</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <div class="form-group">
+                <label class="form-label">Unidad de Cationes</label>
+                <select class="form-input" id="settingsCationUnit">
+                  <option value="cmolc">cmolc/dm³</option>
+                  <option value="mmolc">mmolc/dm³</option>
+                  <option value="meq">meq/100g</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Unidad de Materia Orgánica</label>
+                <select class="form-input" id="settingsMOUnit">
+                  <option value="g/dm3">g/dm³</option>
+                  <option value="g/kg">g/kg</option>
+                  <option value="dag/kg">dag/kg (%)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Formato de Exportación</label>
+                <select class="form-input" id="settingsExportFormat">
+                  <option value="geojson">GeoJSON</option>
+                  <option value="shapefile">Shapefile (SHP)</option>
+                  <option value="both">Ambos</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:16px;display:flex;gap:8px">
+            <button class="btn btn-primary" onclick="admin.saveSettings()">Guardar Configuración</button>
+            <button class="btn btn-secondary" onclick="admin.resetSettings()">Restablecer</button>
+          </div>
         </div>
       </div>
 
@@ -684,7 +1627,11 @@ function pixLogout() {
 <script src="js/engine.js"></script>
 <script src="js/interpolation.js"></script>
 <script src="js/report-generator.js"></script>
+<script src="js/kriging.js"></script>
+<script src="js/zones-engine.js?v=5"></script>
+<script src="js/sampling-engine.js?v=5"></script>
 <script src="js/admin-app.js"></script>
+<script src="js/agent-admin.js"></script>
 <script>
 // Register PWA Service Worker
 if ('serviceWorker' in navigator) {

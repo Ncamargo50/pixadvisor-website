@@ -346,6 +346,150 @@ class PixMap {
       this.map = null;
     }
   }
+
+  // --- Offline Tile Pre-loader ---
+
+  // Helper: convert lat/lng to tile coordinates at a given zoom
+  _tileCoords(lat, lng, zoom) {
+    const n = Math.pow(2, zoom);
+    const x = Math.floor((lng + 180) / 360 * n);
+    const latRad = lat * Math.PI / 180;
+    const y = Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n);
+    return { x, y };
+  }
+
+  // Estimate tile count for bounds across zoom levels (both hybrid + satellite)
+  estimateTileCount(bounds, minZoom = 13, maxZoom = 18) {
+    const north = bounds.north ?? bounds.getNorth();
+    const south = bounds.south ?? bounds.getSouth();
+    const east = bounds.east ?? bounds.getEast();
+    const west = bounds.west ?? bounds.getWest();
+
+    let tileCount = 0;
+    for (let z = minZoom; z <= maxZoom; z++) {
+      const min = this._tileCoords(north, west, z);
+      const max = this._tileCoords(south, east, z);
+      const xCount = Math.abs(max.x - min.x) + 1;
+      const yCount = Math.abs(max.y - min.y) + 1;
+      tileCount += xCount * yCount;
+    }
+
+    // Double for both hybrid + satellite layers
+    tileCount *= 2;
+    const estimatedSizeMB = parseFloat((tileCount * 15 / 1024).toFixed(1));
+    return { tileCount, estimatedSizeMB };
+  }
+
+  // Pre-load tiles for a given bounds area
+  async preloadTiles(bounds, minZoom = 13, maxZoom = 18, onProgress = null) {
+    const north = bounds.north ?? bounds.getNorth();
+    const south = bounds.south ?? bounds.getSouth();
+    const east = bounds.east ?? bounds.getEast();
+    const west = bounds.west ?? bounds.getWest();
+
+    const tileUrls = [];
+    const urlTemplates = [
+      'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',  // hybrid
+      'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}'   // satellite
+    ];
+
+    for (let z = minZoom; z <= maxZoom; z++) {
+      const min = this._tileCoords(north, west, z);
+      const max = this._tileCoords(south, east, z);
+      const xStart = Math.min(min.x, max.x);
+      const xEnd = Math.max(min.x, max.x);
+      const yStart = Math.min(min.y, max.y);
+      const yEnd = Math.max(min.y, max.y);
+
+      for (let x = xStart; x <= xEnd; x++) {
+        for (let y = yStart; y <= yEnd; y++) {
+          urlTemplates.forEach(tpl => {
+            const url = tpl.replace('{x}', x).replace('{y}', y).replace('{z}', z);
+            tileUrls.push({ url, zoom: z });
+          });
+        }
+      }
+    }
+
+    const total = tileUrls.length;
+    let downloaded = 0;
+    let failed = 0;
+    const BATCH_SIZE = 6;
+    const cache = await caches.open('pix-tiles-v1');
+
+    for (let i = 0; i < tileUrls.length; i += BATCH_SIZE) {
+      const batch = tileUrls.slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(batch.map(async (tile) => {
+        // Skip if already cached
+        const existing = await cache.match(tile.url);
+        if (existing) return;
+        const response = await fetch(tile.url);
+        if (response.ok) {
+          await cache.put(tile.url, response);
+        } else {
+          throw new Error('fetch failed');
+        }
+      }));
+
+      results.forEach(r => {
+        if (r.status === 'rejected') failed++;
+        downloaded++;
+      });
+
+      if (onProgress) {
+        const currentZoom = batch[0].zoom;
+        onProgress(Math.min(downloaded, total), total, currentZoom);
+      }
+    }
+
+    // Calculate cache size estimate
+    const keys = await cache.keys();
+    const cacheSizeMB = parseFloat((keys.length * 15 / 1024).toFixed(1));
+
+    return { downloaded: downloaded - failed, failed, total, cacheSizeMB };
+  }
+
+  // Convenience: pre-load tiles for current field area with padding
+  async preloadFieldArea(paddingPercent = 20) {
+    let bounds = null;
+
+    // Try field boundary layers first
+    if (this.fieldLayers.length > 0) {
+      const group = L.featureGroup(this.fieldLayers);
+      bounds = group.getBounds();
+    } else if (this.map) {
+      bounds = this.map.getBounds();
+    }
+
+    if (!bounds) return null;
+
+    // Add padding
+    const pad = paddingPercent / 100;
+    bounds = bounds.pad(pad);
+
+    const estimate = this.estimateTileCount(bounds);
+    const result = await this.preloadTiles(bounds);
+    return result;
+  }
+
+  // Get tile cache statistics
+  async getCacheStats() {
+    try {
+      const cache = await caches.open('pix-tiles-v1');
+      const keys = await cache.keys();
+      const tileCount = keys.length;
+      const estimatedSizeMB = parseFloat((tileCount * 15 / 1024).toFixed(1));
+      return { tileCount, estimatedSizeMB };
+    } catch (e) {
+      return { tileCount: 0, estimatedSizeMB: 0 };
+    }
+  }
+
+  // Clear all cached tiles
+  async clearTileCache() {
+    await caches.delete('pix-tiles-v1');
+    return true;
+  }
 }
 
 const pixMap = new PixMap();
