@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>PIX Admin - Pixadvisor Agricultura de Precisión</title>
+  <link rel="icon" type="image/png" href="img/LOGO-PIX.png">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="img/icon-192.png">
+  <meta name="theme-color" content="#7FD633">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="PIX Admin">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+
+<!-- ===== LOGIN SCREEN ===== -->
+<div id="loginScreen" class="login-overlay">
+  <div class="login-card">
+    <img src="img/Logo.png" alt="Pixadvisor" class="login-logo">
+    <h2>PIX Admin</h2>
+    <p>Ingrese sus credenciales para acceder al panel de administración</p>
+    <form id="loginForm" onsubmit="return pixLogin(event)">
+      <div class="login-field">
+        <label for="loginUser">Usuario</label>
+        <input type="text" id="loginUser" placeholder="Usuario" autocomplete="username" required>
+      </div>
+      <div class="login-field">
+        <label for="loginPass">Contraseña</label>
+        <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password" required>
+      </div>
+      <div id="loginError" class="login-error" style="display:none">Usuario o contraseña incorrectos</div>
+      <button type="submit" class="login-btn">Ingresar</button>
+    </form>
+    <div class="login-footer">Pixadvisor — Agricultura de Precisión</div>
+  </div>
+</div>
+
+<div class="app-layout" id="appLayout" style="display:none">
+  <!-- ===== SIDEBAR ===== -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <img src="img/Logo.png" alt="Pixadvisor" class="sidebar-logo">
+      <h2>PIX Admin<small>Agricultura de Precisión</small></h2>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">Principal</div>
+      <button class="nav-link active" data-view="dashboard" onclick="admin.showView('dashboard')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        Dashboard
+      </button>
+
+      <div class="nav-section">Análisis</div>
+      <button class="nav-link" data-view="soil" onclick="admin.showView('soil')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 22h20"/><path d="M12 2v14"/><path d="M5 12l7 7 7-7"/></svg>
+        Análisis de Suelo
+      </button>
+      <button class="nav-link" data-view="leaf" onclick="admin.showView('leaf')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 20A7 7 0 019.8 6.9C15.5 4.9 20 7 20 7s.7 5.4-3.3 8.7A7 7 0 0111 20z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>
+        Análisis Foliar
+      </button>
+      <button class="nav-link" data-view="interpretation" onclick="admin.showView('interpretation')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8M16 17H8M10 9H8"/></svg>
+        Reporte Completo
+      </button>
+
+      <div class="nav-section">Mapas GIS</div>
+      <button class="nav-link" data-view="gis-dashboard" onclick="admin.showView('gis-dashboard')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+        GIS Dashboard
+      </button>
+      <button class="nav-link" data-view="nutrient-maps" onclick="admin.showView('nutrient-maps')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+        Mapas de Nutrientes
+      </button>
+      <button class="nav-link" data-view="prescription" onclick="admin.showView('prescription')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+        Prescripción VRT
+      </button>
+
+      <div class="nav-section">Datos</div>
+      <button class="nav-link" data-view="samples" onclick="admin.showView('samples')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+        Muestras / Lab
+      </button>
+    </nav>
+
+    <div style="padding:8px 16px 0">
+      <button id="pwaInstallBtn" class="btn btn-sm" onclick="pixInstallApp()" style="width:100%;background:var(--gradient);color:#fff;border:none;padding:8px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Instalar App
+      </button>
+    </div>
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="sidebar-user-avatar" id="sidebarUserAvatar">N</div>
+        <span id="sidebarUserName">Ncamargo</span>
+      </div>
+      <button class="sidebar-logout" onclick="pixLogout()" title="Cerrar sesión">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+    <div style="padding:4px 16px 12px;font-size:10px;color:var(--text-dim)">
+      PIX Admin v1.0 &middot; <a href="https://pixadvisor.network" target="_blank" style="color:var(--teal)">pixadvisor.network</a>
+    </div>
+  </aside>
+
+  <!-- ===== MAIN ===== -->
+  <div class="main-area">
+    <header class="main-header">
+      <button class="btn-secondary btn-sm" onclick="document.getElementById('sidebar').classList.toggle('open')" style="display:none" id="menuBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+      </button>
+      <div>
+        <div class="header-title" id="headerTitle">Dashboard</div>
+        <div class="header-subtitle" id="headerSubtitle">Resumen general</div>
+      </div>
+      <div class="header-actions">
+        <select class="form-input" id="globalCrop" onchange="admin.setCrop(this.value)" style="width:200px;padding:6px 10px;font-size:13px"></select>
+      </div>
+    </header>
+
+    <div class="main-content">
+
+      <!-- ===== DASHBOARD ===== -->
+      <div id="view-dashboard" class="view active">
+        <div class="grid-4">
+          <div class="stat-card"><div class="stat-value" id="statCrop">—</div><div class="stat-label">Cultivo seleccionado</div></div>
+          <div class="stat-card"><div class="stat-value" id="statYield">—</div><div class="stat-label">Meta de rendimiento</div></div>
+          <div class="stat-card"><div class="stat-value" id="statSamples">0</div><div class="stat-label">Muestras cargadas</div></div>
+          <div class="stat-card"><div class="stat-value" id="statAlerts">0</div><div class="stat-label">Alertas</div></div>
+        </div>
+
+        <div class="grid-2" style="margin-top:20px">
+          <div class="card">
+            <div class="card-title">Inicio Rápido</div>
+            <div class="card-subtitle">Cargá datos de análisis para generar reportes</div>
+            <div style="margin-top:16px;display:flex;flex-direction:column;gap:10px">
+              <button class="btn btn-primary btn-block" onclick="admin.showView('soil')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                Cargar Análisis de Suelo
+              </button>
+              <button class="btn btn-secondary btn-block" onclick="admin.importLabFile()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                Importar Lab IBRA (CSV / Excel)
+              </button>
+              <button class="btn btn-secondary btn-block" onclick="admin.importSamplesJSON()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
+                Importar desde PIX Recolección
+              </button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Cultivos Disponibles</div>
+            <div class="card-subtitle">Base de datos agronómica completa</div>
+            <div id="cropListDashboard" style="margin-top:12px"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== SOIL ANALYSIS ===== -->
+      <div id="view-soil" class="view">
+        <div class="card">
+          <div class="card-header">
+            <div><div class="card-title">Datos del Análisis de Suelo</div><div class="card-subtitle">Ingresá los resultados del laboratorio</div></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-sm btn-primary" onclick="admin.importLabFile()" title="Importar CSV/Excel de laboratorio (IBRA, etc.)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+                Importar Lab
+              </button>
+              <button class="btn btn-sm btn-secondary" onclick="admin.loadDemoSoil()">Demo</button>
+              <button class="btn btn-sm btn-secondary" onclick="admin.clearSoilForm()">Limpiar</button>
+            </div>
+          </div>
+
+          <div class="form-row" style="margin-bottom:16px">
+            <div class="form-group">
+              <label class="form-label">Identificación de muestra</label>
+              <input type="text" class="form-input" id="soilSampleId" placeholder="Ej: P1, Lote 5A, Zona Alta">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Profundidad</label>
+              <select class="form-input" id="soilDepth">
+                <option value="0-20">0-20 cm</option>
+                <option value="20-40">20-40 cm</option>
+                <option value="0-10">0-10 cm</option>
+                <option value="10-20">10-20 cm</option>
+                <option value="40-60">40-60 cm</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="soilMethodPanel" style="margin-bottom:16px"></div>
+
+          <div class="form-label" style="margin-bottom:8px">Macronutrientes y propiedades</div>
+          <div class="lab-input-grid" id="soilMacroInputs"></div>
+
+          <div class="form-label" style="margin:16px 0 8px">Micronutrientes</div>
+          <div class="lab-input-grid" id="soilMicroInputs"></div>
+
+          <div class="form-label" style="margin:16px 0 8px">Textura</div>
+          <div class="lab-input-grid" id="soilTextureInputs"></div>
+
+          <div style="margin-top:20px;display:flex;gap:12px">
+            <button class="btn btn-primary" onclick="admin.interpretSoil()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+              Interpretar Análisis
+            </button>
+            <button class="btn btn-secondary" onclick="admin.addSoilToSamples()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+              Agregar a Muestras
+            </button>
+          </div>
+        </div>
+
+        <div id="soilResults"></div>
+      </div>
+
+      <!-- ===== LEAF ANALYSIS ===== -->
+      <div id="view-leaf" class="view">
+        <div class="card">
+          <div class="card-header">
+            <div><div class="card-title">Datos del Análisis Foliar</div><div class="card-subtitle">Resultados de tejido vegetal</div></div>
+            <button class="btn btn-sm btn-secondary" onclick="admin.loadDemoLeaf()">Demo</button>
+          </div>
+          <div class="lab-input-grid" id="leafInputs"></div>
+          <div style="margin-top:20px">
+            <button class="btn btn-primary" onclick="admin.interpretLeaf()">Interpretar Foliar</button>
+          </div>
+        </div>
+        <div id="leafResults"></div>
+      </div>
+
+      <!-- ===== FULL INTERPRETATION REPORT ===== -->
+      <div id="view-interpretation" class="view">
+        <div class="card" style="margin-bottom:16px" id="clientDataCard">
+          <div class="card-header">
+            <div><div class="card-title">Datos del Cliente</div><div class="card-subtitle">Información para el reporte profesional</div></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-primary" onclick="admin.importLabFile()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+                Importar Lab
+              </button>
+              <button class="btn btn-primary" onclick="admin.generateFullReport()">Generar Reporte</button>
+              <button class="btn btn-outline" onclick="admin.printReport()">Imprimir / PDF</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="form-grid-4">
+              <div class="form-group">
+                <label class="form-label">Nombre / Empresa</label>
+                <input type="text" class="form-input" id="client_nombre" placeholder="Ej: Agropecuaria San José" oninput="admin.clientData.nombre=this.value">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Propiedad / Hacienda</label>
+                <input type="text" class="form-input" id="client_propiedad" placeholder="Ej: Fazenda Santa María" oninput="admin.clientData.propiedad=this.value">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Ubicación</label>
+                <input type="text" class="form-input" id="client_ubicacion" placeholder="Ej: Itapúa, Paraguay" oninput="admin.clientData.ubicacion=this.value">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Lote / Talhão</label>
+                <input type="text" class="form-input" id="client_lote" placeholder="Ej: Lote 5A, Zona Alta" oninput="admin.clientData.lote=this.value">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Área (ha)</label>
+                <input type="text" class="form-input" id="client_area" placeholder="Ej: 120 ha" oninput="admin.clientData.area=this.value">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Responsable Técnico</label>
+                <input type="text" class="form-input" id="client_responsable" placeholder="Ej: Ing. Agr. Juan Pérez" oninput="admin.clientData.responsable=this.value">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Laboratorio</label>
+                <input type="text" class="form-input" id="client_laboratorio" placeholder="Ej: INPOFOS / IAC" oninput="admin.clientData.laboratorio=this.value">
+              </div>
+              <div class="form-group">
+                <label class="form-label">N° Muestra</label>
+                <input type="text" class="form-input" id="client_nMuestra" placeholder="Ej: M-2026-0342" oninput="admin.clientData.nMuestra=this.value">
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="fullReport">
+          <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
+            <h3>Sin datos para el reporte</h3>
+            <p>Ingresá datos de análisis de suelo y/o foliar primero</p>
+            <button class="btn btn-primary" onclick="admin.showView('soil')" style="margin-top:16px">Cargar Análisis</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== NUTRIENT MAPS ===== -->
+      <!-- ===== GIS DASHBOARD ===== -->
+      <div id="view-gis-dashboard" class="view">
+        <!-- Top: Field Info Bar -->
+        <div class="card gis-field-bar" style="margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+            <div style="flex:1;min-width:200px">
+              <div class="card-title" style="margin-bottom:2px">Lote / Talhão</div>
+              <div id="gisFieldInfo" style="font-size:13px;color:var(--text-muted)">
+                Sin perímetro cargado — Cargue un KML/GeoJSON o use Demo
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <span id="gisBoundaryBadge" class="method-tag" style="display:none">Perímetro</span>
+              <span id="gisSamplesBadge" class="method-tag" style="display:none;background:var(--info)">0 pts</span>
+            </div>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-sm btn-outline" onclick="admin.loadDemoBoundary()">Demo Lote</button>
+              <button class="btn btn-sm btn-secondary" onclick="admin.importFieldBoundary()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;margin-right:4px"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                KML / GeoJSON
+              </button>
+              <button class="btn btn-sm btn-outline" onclick="admin.loadDemoSamples()">Demo Muestras</button>
+              <button class="btn btn-sm btn-secondary" onclick="admin.importSamplesJSON()">Importar Puntos</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Map + Control Panel -->
+        <div class="gis-layout">
+          <!-- Left: Big Map -->
+          <div class="gis-map-panel">
+            <div class="map-container" id="gisMap" style="height:100%;border-radius:10px"></div>
+          </div>
+
+          <!-- Right: Control Panel -->
+          <div class="gis-control-panel">
+            <!-- Tab Bar -->
+            <div class="gis-tabs">
+              <button class="gis-tab active" data-gistab="fertility" onclick="admin.switchGISTab('fertility')">Fertilidad</button>
+              <button class="gis-tab" data-gistab="zones" onclick="admin.switchGISTab('zones')">Zonas Manejo</button>
+              <button class="gis-tab" data-gistab="vrt" onclick="admin.switchGISTab('vrt')">VRT</button>
+            </div>
+
+            <!-- FERTILITY TAB -->
+            <div class="gis-tab-content active" id="gisTab-fertility">
+              <div class="gis-control-group">
+                <label class="form-label">Nutriente</label>
+                <select class="form-input" id="gisNutrient">
+                  <option value="pH_H2O">pH (H₂O)</option>
+                  <option value="P" selected>Fósforo (P)</option>
+                  <option value="K">Potasio (K)</option>
+                  <option value="Ca">Calcio (Ca)</option>
+                  <option value="Mg">Magnesio (Mg)</option>
+                  <option value="MO">Materia Orgánica</option>
+                  <option value="V">Saturación (V%)</option>
+                  <option value="S">Azufre (S)</option>
+                  <option value="B">Boro (B)</option>
+                  <option value="Cu">Cobre (Cu)</option>
+                  <option value="Fe">Hierro (Fe)</option>
+                  <option value="Mn">Manganeso (Mn)</option>
+                  <option value="Zn">Zinc (Zn)</option>
+                  <option value="Al">Aluminio (Al)</option>
+                  <option value="clay">Arcilla</option>
+                </select>
+              </div>
+              <div class="gis-control-row">
+                <div class="gis-control-group" style="flex:1">
+                  <label class="form-label">Resolución</label>
+                  <select class="form-input" id="gisResolution">
+                    <option value="50">50² rápido</option>
+                    <option value="80" selected>80² estándar</option>
+                    <option value="120">120² HD</option>
+                    <option value="200">200² Ultra</option>
+                  </select>
+                </div>
+                <div class="gis-control-group" style="flex:1">
+                  <label class="form-label">IDW Power</label>
+                  <select class="form-input" id="gisPower">
+                    <option value="1">p=1</option>
+                    <option value="2" selected>p=2</option>
+                    <option value="3">p=3</option>
+                  </select>
+                </div>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+                <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer">
+                  <input type="checkbox" id="gisShowLabels" checked> Etiquetas
+                </label>
+                <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer">
+                  <input type="checkbox" id="gisShowPoints" checked> Puntos
+                </label>
+                <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer">
+                  <input type="checkbox" id="gisClipBoundary" checked> Recortar
+                </label>
+              </div>
+              <button class="btn btn-primary" style="width:100%" onclick="admin.generateGISMap('fertility')">
+                Generar Mapa de Fertilidad
+              </button>
+              <div id="gisLegend" style="margin-top:12px"></div>
+              <div id="gisStats" style="margin-top:8px"></div>
+            </div>
+
+            <!-- ZONES TAB -->
+            <div class="gis-tab-content" id="gisTab-zones">
+              <div class="gis-control-group">
+                <label class="form-label">Base para Zonas</label>
+                <select class="form-input" id="gisZoneBase">
+                  <option value="pH_H2O">pH</option>
+                  <option value="P">Fósforo</option>
+                  <option value="K">Potasio</option>
+                  <option value="V" selected>V% (Saturación)</option>
+                  <option value="MO">Materia Orgánica</option>
+                  <option value="clay">Arcilla (Textura)</option>
+                  <option value="Ca">Calcio</option>
+                  <option value="Mg">Magnesio</option>
+                </select>
+              </div>
+              <div class="gis-control-group">
+                <label class="form-label">Número de Zonas</label>
+                <select class="form-input" id="gisNumZones">
+                  <option value="2">2 zonas</option>
+                  <option value="3" selected>3 zonas</option>
+                  <option value="4">4 zonas</option>
+                  <option value="5">5 zonas</option>
+                  <option value="7">7 zonas</option>
+                </select>
+              </div>
+              <button class="btn btn-primary" style="width:100%" onclick="admin.generateGISMap('zones')">
+                Generar Zonas de Manejo
+              </button>
+              <div id="gisZoneLegend" style="margin-top:12px"></div>
+              <div id="gisZoneStats" style="margin-top:8px"></div>
+            </div>
+
+            <!-- VRT TAB -->
+            <div class="gis-tab-content" id="gisTab-vrt">
+              <div class="gis-control-group">
+                <label class="form-label">Nutriente a prescribir</label>
+                <select class="form-input" id="gisVrtNutrient">
+                  <option value="P">Fósforo (P₂O₅)</option>
+                  <option value="K">Potasio (K₂O)</option>
+                  <option value="Ca">Calcio</option>
+                  <option value="Mg">Magnesio</option>
+                  <option value="S">Azufre</option>
+                </select>
+              </div>
+              <div class="gis-control-row">
+                <div class="gis-control-group" style="flex:1">
+                  <label class="form-label">Meta (t/ha)</label>
+                  <input type="number" class="form-input" id="gisVrtYield" placeholder="100">
+                </div>
+                <div class="gis-control-group" style="flex:1">
+                  <label class="form-label">Fuente</label>
+                  <select class="form-input" id="gisVrtSource"></select>
+                </div>
+              </div>
+              <div style="display:flex;gap:8px">
+                <button class="btn btn-primary" style="flex:1" onclick="admin.generateGISMap('vrt')">Generar VRT</button>
+                <button class="btn btn-secondary" onclick="admin.exportGISPrescription()">GeoJSON</button>
+                <button class="btn btn-secondary" onclick="admin.exportGISPrescriptionSHP()" title="Shapefile para John Deere, Case IH, New Holland">SHP</button>
+              </div>
+              <div id="gisVrtLegend" style="margin-top:12px"></div>
+              <div id="gisVrtStats" style="margin-top:8px"></div>
+            </div>
+
+            <!-- DOWNLOAD SECTION (below tabs) -->
+            <div style="border-top:1px solid var(--border);padding:10px 12px;flex-shrink:0">
+            <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:8px">Descargar Mapas PDF</div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <button class="btn btn-sm btn-outline" style="width:100%;text-align:left;font-size:11px" onclick="admin.downloadAllNutrientMapsPDF()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;margin-right:6px;flex-shrink:0"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Todos los Nutrientes (PDF)
+              </button>
+              <div style="display:flex;gap:4px;flex-wrap:wrap">
+                <button class="btn btn-sm btn-outline" style="font-size:10px;padding:3px 6px" onclick="admin.downloadNutrientMapPDF('pH_H2O')">pH</button>
+                <button class="btn btn-sm btn-outline" style="font-size:10px;padding:3px 6px" onclick="admin.downloadNutrientMapPDF('P')">P</button>
+                <button class="btn btn-sm btn-outline" style="font-size:10px;padding:3px 6px" onclick="admin.downloadNutrientMapPDF('K')">K</button>
+                <button class="btn btn-sm btn-outline" style="font-size:10px;padding:3px 6px" onclick="admin.downloadNutrientMapPDF('Ca')">Ca</button>
+                <button class="btn btn-sm btn-outline" style="font-size:10px;padding:3px 6px" onclick="admin.downloadNutrientMapPDF('Mg')">Mg</button>
+                <button class="btn btn-sm btn-outline" style="font-size:10px;padding:3px 6px" onclick="admin.downloadNutrientMapPDF('MO')">MO</button>
+                <button class="btn btn-sm btn-outline" style="font-size:10px;padding:3px 6px" onclick="admin.downloadNutrientMapPDF('V')">V%</button>
+                <button class="btn btn-sm btn-outline" style="font-size:10px;padding:3px 6px" onclick="admin.downloadNutrientMapPDF('S')">S</button>
+                <button class="btn btn-sm btn-outline" style="font-size:10px;padding:3px 6px" onclick="admin.downloadNutrientMapPDF('B')">B</button>
+                <button class="btn btn-sm btn-outline" style="font-size:10px;padding:3px 6px" onclick="admin.downloadNutrientMapPDF('Cu')">Cu</button>
+                <button class="btn btn-sm btn-outline" style="font-size:10px;padding:3px 6px" onclick="admin.downloadNutrientMapPDF('Fe')">Fe</button>
+                <button class="btn btn-sm btn-outline" style="font-size:10px;padding:3px 6px" onclick="admin.downloadNutrientMapPDF('Mn')">Mn</button>
+                <button class="btn btn-sm btn-outline" style="font-size:10px;padding:3px 6px" onclick="admin.downloadNutrientMapPDF('Zn')">Zn</button>
+                <button class="btn btn-sm btn-outline" style="font-size:10px;padding:3px 6px" onclick="admin.downloadNutrientMapPDF('Al')">Al</button>
+                <button class="btn btn-sm btn-outline" style="font-size:10px;padding:3px 6px" onclick="admin.downloadNutrientMapPDF('clay')">Arc</button>
+              </div>
+              <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-top:6px">Mapas de Relaciones</div>
+              <div style="display:flex;gap:4px;flex-wrap:wrap">
+                <button class="btn btn-sm btn-outline" style="font-size:10px;padding:3px 6px" onclick="admin.downloadRelationshipMapPDF('Ca_Mg')">Ca/Mg</button>
+                <button class="btn btn-sm btn-outline" style="font-size:10px;padding:3px 6px" onclick="admin.downloadRelationshipMapPDF('Ca_K')">Ca/K</button>
+                <button class="btn btn-sm btn-outline" style="font-size:10px;padding:3px 6px" onclick="admin.downloadRelationshipMapPDF('Mg_K')">Mg/K</button>
+                <button class="btn btn-sm btn-outline" style="font-size:10px;padding:3px 6px" onclick="admin.downloadRelationshipMapPDF('CaMg_K')">(Ca+Mg)/K</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+      <div id="view-nutrient-maps" class="view">
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-header">
+            <div><div class="card-title">Mapas de Interpolación de Nutrientes</div><div class="card-subtitle">IDW desde puntos de muestreo</div></div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span id="boundaryStatus" class="boundary-status" style="font-size:11px;color:var(--text-muted)">Sin perímetro</span>
+              <button class="btn btn-sm btn-outline" onclick="admin.loadDemoBoundary()">Demo Lote</button>
+              <button class="btn btn-sm btn-secondary" onclick="admin.importFieldBoundary()">Cargar Perímetro</button>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Nutriente</label>
+              <select class="form-input" id="mapNutrient" onchange="admin.updateNutrientMap()">
+                <option value="pH_H2O">pH</option><option value="P">Fósforo (P)</option><option value="K">Potasio (K)</option>
+                <option value="Ca">Calcio (Ca)</option><option value="Mg">Magnesio (Mg)</option><option value="MO">Mat. Orgánica</option>
+                <option value="V">V%</option><option value="S">Azufre (S)</option><option value="B">Boro (B)</option>
+                <option value="Cu">Cobre (Cu)</option><option value="Fe">Hierro (Fe)</option><option value="Mn">Manganeso (Mn)</option><option value="Zn">Zinc (Zn)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Resolución</label>
+              <select class="form-input" id="mapResolution">
+                <option value="50">50×50 (rápido)</option>
+                <option value="80" selected>80×80 (estándar)</option>
+                <option value="120">120×120 (HD)</option>
+                <option value="200">200×200 (Ultra HD)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Potencia IDW</label>
+              <select class="form-input" id="mapPower">
+                <option value="1">1 (suave)</option>
+                <option value="2" selected>2 (estándar)</option>
+                <option value="3">3 (fuerte)</option>
+              </select>
+            </div>
+            <div class="form-group" style="display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap">
+              <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;white-space:nowrap">
+                <input type="checkbox" id="mapShowLabels" checked> Etiquetas
+              </label>
+              <button class="btn btn-outline" onclick="admin.loadDemoSamples()">Demo GPS</button>
+              <button class="btn btn-primary" onclick="admin.generateNutrientMap()">Generar Mapa</button>
+            </div>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div><div class="map-container map-container-full" id="nutrientMap"></div></div>
+          <div>
+            <div id="mapLegend"></div>
+            <div id="mapStats" style="margin-top:16px"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== PRESCRIPTION VRT ===== -->
+      <div id="view-prescription" class="view">
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-header">
+            <div><div class="card-title">Mapa de Prescripción - Tasa Variable</div><div class="card-subtitle">Genera mapas VRT para controladores</div></div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <button class="btn btn-sm btn-secondary" onclick="admin.importFieldBoundary()">Cargar Perímetro</button>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Nutriente a prescribir</label>
+              <select class="form-input" id="prescNutrient">
+                <option value="P">Fósforo (P₂O₅)</option><option value="K">Potasio (K₂O)</option>
+                <option value="Ca">Calcio (Ca)</option><option value="Mg">Magnesio (Mg)</option><option value="S">Azufre (S)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Meta rendimiento</label>
+              <input type="number" class="form-input" id="prescYield" placeholder="t/ha">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Fuente fertilizante</label>
+              <select class="form-input" id="prescSource"></select>
+            </div>
+            <div class="form-group" style="display:flex;align-items:flex-end;gap:8px">
+              <button class="btn btn-primary" onclick="admin.generatePrescription()">Generar</button>
+              <button class="btn btn-secondary" onclick="admin.exportPrescription()">Exportar</button>
+            </div>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div><div class="map-container map-container-full" id="prescMap"></div></div>
+          <div>
+            <div id="prescLegend"></div>
+            <div id="prescZones" style="margin-top:16px"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== SAMPLES / LAB ===== -->
+      <div id="view-samples" class="view">
+        <div class="card">
+          <div class="card-header">
+            <div><div class="card-title">Muestras y Resultados de Laboratorio</div><div class="card-subtitle">Datos georreferenciados con resultados</div></div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-sm btn-outline" onclick="admin.loadDemoSamples()">Demo GPS</button>
+              <button class="btn btn-sm btn-primary" onclick="admin.importSamplesJSON()">Importar JSON</button>
+              <button class="btn btn-sm btn-secondary" onclick="admin.importLabCSV()">Importar Lab CSV</button>
+            </div>
+          </div>
+          <div id="samplesTable"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== PIX ADMIN AUTH (SHA-256 hash-based) =====
+const PIX_USERS = {
+  '35c2fabe3ad3825ba4952264a2f2d48f71f200660f760639fad6ce10d35ab88a': // Ncamargo
+    '8a9ad96dea8664765877bdd6a1e5a8c30aaacef38b3e301b6f34d13d7b1c374b'
+};
+
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+(function checkAuth() {
+  const s = sessionStorage.getItem('pix_auth');
+  if (s === 'authenticated') {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('appLayout').style.display = '';
+    const savedUser = sessionStorage.getItem('pix_user');
+    if (savedUser) {
+      const ud = document.getElementById('sidebarUserName');
+      if (ud) ud.textContent = savedUser.charAt(0).toUpperCase() + savedUser.slice(1);
+      const av = document.getElementById('sidebarUserAvatar');
+      if (av) av.textContent = savedUser.charAt(0).toUpperCase();
+    }
+  }
+})();
+
+async function pixLogin(e) {
+  e.preventDefault();
+  const user = document.getElementById('loginUser').value.trim().toLowerCase();
+  const pass = document.getElementById('loginPass').value;
+  const errEl = document.getElementById('loginError');
+
+  const userHash = await sha256(user);
+  const passHash = await sha256(pass);
+
+  if (PIX_USERS[userHash] && PIX_USERS[userHash] === passHash) {
+    sessionStorage.setItem('pix_auth', 'authenticated');
+    sessionStorage.setItem('pix_user', user);
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('appLayout').style.display = '';
+    errEl.style.display = 'none';
+    // Update user display if exists
+    const ud = document.getElementById('sidebarUserName');
+    if (ud) ud.textContent = user.charAt(0).toUpperCase() + user.slice(1);
+    const av = document.getElementById('sidebarUserAvatar');
+    if (av) av.textContent = user.charAt(0).toUpperCase();
+  } else {
+    errEl.style.display = 'block';
+    document.getElementById('loginPass').value = '';
+    document.getElementById('loginPass').focus();
+  }
+  return false;
+}
+
+function pixLogout() {
+  sessionStorage.removeItem('pix_auth');
+  sessionStorage.removeItem('pix_user');
+  document.getElementById('loginScreen').style.display = '';
+  document.getElementById('appLayout').style.display = 'none';
+  document.getElementById('loginUser').value = '';
+  document.getElementById('loginPass').value = '';
+}
+</script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="js/crops-data.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/interpolation.js"></script>
+<script src="js/report-generator.js"></script>
+<script src="js/admin-app.js"></script>
+<script>
+// Register PWA Service Worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    console.log('PIX Admin SW registered', reg.scope);
+  }).catch(err => console.warn('SW registration failed:', err));
+}
+
+// PWA Install prompt
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  // Show install button in sidebar
+  const btn = document.getElementById('pwaInstallBtn');
+  if (btn) btn.style.display = '';
+});
+
+function pixInstallApp() {
+  if (!deferredInstallPrompt) {
+    alert('Para instalar:\n\n Android: Menú (3 puntos) → "Instalar app" o "Agregar a pantalla de inicio"\n\n iPhone: Botón compartir (↑) → "Agregar a pantalla de inicio"');
+    return;
+  }
+  deferredInstallPrompt.prompt();
+  deferredInstallPrompt.userChoice.then(r => {
+    if (r.outcome === 'accepted') console.log('PIX Admin installed');
+    deferredInstallPrompt = null;
+    const btn = document.getElementById('pwaInstallBtn');
+    if (btn) btn.style.display = 'none';
+  });
+}
+
+window.addEventListener('appinstalled', () => {
+  console.log('PIX Admin PWA installed');
+  const btn = document.getElementById('pwaInstallBtn');
+  if (btn) btn.style.display = 'none';
+});
+</script>
+</body>
+</html>

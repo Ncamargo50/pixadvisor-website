@@ -1,0 +1,46 @@
+{
+  "name": "PIX Admin - Pixadvisor Agricultura de Precisión",
+  "short_name": "PIX Admin",
+  "description": "Panel de administración para agricultura de precisión - análisis de suelo, mapas GIS, reportes profesionales",
+  "start_url": "/pix-admin/index.html",
+  "scope": "/pix-admin/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0F1B2D",
+  "theme_color": "#7FD633",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "img/LOGO-PIX.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "img/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "img/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "img/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "img/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "lang": "es",
+  "dir": "ltr"
+}
