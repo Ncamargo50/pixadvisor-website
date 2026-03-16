@@ -1,5 +1,5 @@
 // PIX Muestreo - Service Worker for Offline Support
-const CACHE_NAME = 'pix-muestreo-v5';
+const CACHE_NAME = 'pix-muestreo-v6';
 const TILE_CACHE = 'pix-tiles-v1';
 const DATA_CACHE = 'pix-data-v1';
 
@@ -23,6 +23,21 @@ const STATIC_ASSETS = [
   'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'
 ];
 
+// App files that should use network-first strategy (always get latest)
+const NETWORK_FIRST_PATHS = [
+  '/pix-muestreo/',
+  '/pix-muestreo/index.html',
+  '/pix-muestreo/manifest.json',
+  '/pix-muestreo/css/app.css',
+  '/pix-muestreo/js/app.js',
+  '/pix-muestreo/js/db.js',
+  '/pix-muestreo/js/map.js',
+  '/pix-muestreo/js/gps.js',
+  '/pix-muestreo/js/scanner.js',
+  '/pix-muestreo/js/sync.js',
+  '/pix-muestreo/js/drive.js'
+];
+
 // Install - cache static assets
 self.addEventListener('install', event => {
   event.waitUntil(
@@ -41,11 +56,11 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
-// Fetch - cache-first for static, network-first for API, cache tiles
+// Fetch handler
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
-  // Cache map tiles
+  // Cache map tiles (cache-first)
   if (url.hostname.includes('tile.openstreetmap.org') || (url.hostname.includes('mt') && url.hostname.includes('google'))) {
     event.respondWith(
       caches.open(TILE_CACHE).then(cache =>
@@ -67,7 +82,27 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Static assets - cache first
+  // App HTML/JS/CSS files - NETWORK FIRST (always get latest, fallback to cache offline)
+  const isAppFile = NETWORK_FIRST_PATHS.some(p => url.pathname === p || url.pathname === p + 'index.html');
+  if (isAppFile || event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).then(response => {
+        if (response.ok) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+        }
+        return response;
+      }).catch(() => {
+        // Offline - serve from cache
+        return caches.match(event.request).then(cached => {
+          return cached || caches.match('/pix-muestreo/index.html');
+        });
+      })
+    );
+    return;
+  }
+
+  // Everything else (icons, external libs) - cache first
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached;
