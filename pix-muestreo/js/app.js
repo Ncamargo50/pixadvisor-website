@@ -1080,8 +1080,22 @@ if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.
 if ('serviceWorker' in navigator) {
   const swPath = location.pathname.includes('/pix-muestreo/') ? '/pix-muestreo/sw.js' : '/sw.js';
   const swScope = location.pathname.includes('/pix-muestreo/') ? '/pix-muestreo/' : '/';
-  navigator.serviceWorker.register(swPath, { scope: swScope })
-    .then(reg => console.log('SW registered:', reg.scope))
+  navigator.serviceWorker.register(swPath, { scope: swScope, updateViaCache: 'none' })
+    .then(reg => {
+      console.log('SW registered:', reg.scope);
+      // Force check for updates
+      reg.update();
+      // When new SW is found and activated, reload to get latest files
+      reg.addEventListener('updatefound', () => {
+        const newSW = reg.installing;
+        newSW.addEventListener('statechange', () => {
+          if (newSW.state === 'activated' && navigator.serviceWorker.controller) {
+            console.log('New SW activated, reloading...');
+            window.location.reload();
+          }
+        });
+      });
+    })
     .catch(e => console.log('SW error:', e));
 }
 
