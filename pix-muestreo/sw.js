@@ -1,23 +1,23 @@
 // PIX Muestreo - Service Worker for Offline Support
-const CACHE_NAME = 'pix-muestreo-v4';
+const CACHE_NAME = 'pix-muestreo-v5';
 const TILE_CACHE = 'pix-tiles-v1';
 const DATA_CACHE = 'pix-data-v1';
 
 const STATIC_ASSETS = [
-  '/pixadvisor-coleta/',
-  '/pixadvisor-coleta/index.html',
-  '/pixadvisor-coleta/manifest.json',
-  '/pixadvisor-coleta/css/app.css',
-  '/pixadvisor-coleta/js/app.js',
-  '/pixadvisor-coleta/js/db.js',
-  '/pixadvisor-coleta/js/map.js',
-  '/pixadvisor-coleta/js/gps.js',
-  '/pixadvisor-coleta/js/scanner.js',
-  '/pixadvisor-coleta/js/sync.js',
-  '/pixadvisor-coleta/js/drive.js',
-  '/pixadvisor-coleta/js/agent-field.js',
-  '/pixadvisor-coleta/icons/icon-192.png',
-  '/pixadvisor-coleta/icons/icon-512.png',
+  '/pix-muestreo/',
+  '/pix-muestreo/index.html',
+  '/pix-muestreo/manifest.json',
+  '/pix-muestreo/css/app.css',
+  '/pix-muestreo/js/app.js',
+  '/pix-muestreo/js/db.js',
+  '/pix-muestreo/js/map.js',
+  '/pix-muestreo/js/gps.js',
+  '/pix-muestreo/js/scanner.js',
+  '/pix-muestreo/js/sync.js',
+  '/pix-muestreo/js/drive.js',
+  '/pix-muestreo/js/agent-field.js',
+  '/pix-muestreo/icons/icon-192.png',
+  '/pix-muestreo/icons/icon-512.png',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
   'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js',
@@ -78,7 +78,7 @@ self.addEventListener('fetch', event => {
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         }
         return response;
-      }).catch(() => caches.match('/pixadvisor-coleta/index.html'));
+      }).catch(() => caches.match('/pix-muestreo/index.html'));
     })
   );
 });

@@ -2,9 +2,9 @@
   "name": "PIX Muestreo - Pixadvisor",
   "short_name": "PIX Muestreo",
   "description": "App de muestreo de suelo georreferenciado - Pixadvisor Agricultura de Precisión",
-  "id": "/pixadvisor-coleta/",
-  "start_url": "/pixadvisor-coleta/",
-  "scope": "/pixadvisor-coleta/",
+  "id": "/pix-muestreo/",
+  "start_url": "/pix-muestreo/",
+  "scope": "/pix-muestreo/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0F1B2D",
@@ -13,12 +13,14 @@
     {
       "src": "icons/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "icons/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
