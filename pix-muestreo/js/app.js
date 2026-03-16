@@ -1088,18 +1088,22 @@ if ('serviceWorker' in navigator) {
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredInstallPrompt = e;
-  // Show auto-install button if install overlay is visible
-  const autoBtn = document.getElementById('autoInstallBtn');
-  if (autoBtn) autoBtn.style.display = 'block';
+  // Update button if install screen is visible
+  const btn = document.getElementById('mainInstallBtn');
+  if (btn) btn.textContent = '⬇ DESCARGAR APP AHORA';
+  const status = document.getElementById('installStatus');
+  if (status) { status.textContent = 'App lista para instalar'; status.style.color = '#7FD633'; }
+  // Hide manual guide if shown
+  const guide = document.getElementById('manualGuide');
+  if (guide) guide.style.display = 'none';
 });
 
 window.addEventListener('appinstalled', () => {
   appIsInstalled = true;
   deferredInstallPrompt = null;
-  const autoBtn = document.getElementById('autoInstallBtn');
-  if (autoBtn) autoBtn.style.display = 'none';
-  // Auto-continue to app after install
-  showApp();
+  const status = document.getElementById('installStatus');
+  if (status) { status.textContent = '✓ App instalada correctamente'; status.style.color = '#7FD633'; }
+  setTimeout(() => showApp(), 1500);
 });
 
 // Init app
@@ -1127,10 +1131,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 function showInstallScreen() {
   document.getElementById('loginOverlay').style.display = 'none';
   document.getElementById('installOverlay').style.display = 'flex';
-  // If beforeinstallprompt already fired, show the auto button
+  // If beforeinstallprompt already fired, update button text
   if (deferredInstallPrompt) {
-    const autoBtn = document.getElementById('autoInstallBtn');
-    if (autoBtn) autoBtn.style.display = 'block';
+    const btn = document.getElementById('mainInstallBtn');
+    if (btn) btn.textContent = '⬇ DESCARGAR APP AHORA';
+    const status = document.getElementById('installStatus');
+    if (status) { status.textContent = 'App lista para instalar'; status.style.color = '#7FD633'; }
   }
 }
 
@@ -1145,16 +1151,45 @@ function skipInstall() {
   showApp();
 }
 
-// Auto-install using beforeinstallprompt
+// Install handler - auto if available, otherwise show manual guide
 async function pixInstall() {
+  const btn = document.getElementById('mainInstallBtn');
+  const status = document.getElementById('installStatus');
+  const guide = document.getElementById('manualGuide');
+
   if (deferredInstallPrompt) {
+    // Auto-install available
+    btn.textContent = 'Instalando...';
+    btn.style.opacity = '0.7';
     deferredInstallPrompt.prompt();
     const result = await deferredInstallPrompt.userChoice;
     if (result.outcome === 'accepted') {
-      const autoBtn = document.getElementById('autoInstallBtn');
-      if (autoBtn) autoBtn.textContent = '✓ Instalando...';
+      btn.textContent = '✓ Instalando...';
+      if (status) { status.textContent = 'Descargando app...'; status.style.color = '#7FD633'; }
+    } else {
+      btn.textContent = '⬇ DESCARGAR APP';
+      btn.style.opacity = '1';
+      if (status) { status.textContent = 'Instalación cancelada'; status.style.color = '#f59e0b'; }
     }
     deferredInstallPrompt = null;
+  } else {
+    // No auto-install - show manual instructions
+    btn.textContent = '👆 SEGUÍ LOS PASOS ABAJO';
+    btn.style.background = 'linear-gradient(135deg,#f59e0b,#ea580c)';
+    if (status) { status.textContent = 'Usá el menú de tu navegador para instalar'; status.style.color = '#f59e0b'; }
+    if (guide) {
+      guide.style.display = 'block';
+      // Detect platform and highlight relevant guide
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      if (isIOS) {
+        document.getElementById('androidGuide').style.opacity = '0.4';
+        document.getElementById('iosGuide').style.borderColor = '#0ea5e9';
+      } else {
+        document.getElementById('iosGuide').style.opacity = '0.4';
+        document.getElementById('androidGuide').style.borderColor = '#7FD633';
+      }
+      guide.scrollIntoView({ behavior: 'smooth' });
+    }
   }
 }
 

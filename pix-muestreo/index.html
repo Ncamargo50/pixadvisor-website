@@ -39,41 +39,42 @@
     <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(127,214,51,0.15);border-radius:24px;padding:40px 32px;max-width:380px;width:90%;text-align:center;backdrop-filter:blur(20px);margin:20px auto;">
         <img src="icons/icon-192.png" alt="PIX" style="width:80px;height:80px;border-radius:20px;filter:drop-shadow(0 0 24px rgba(127,214,51,0.4));margin-bottom:16px;">
         <h2 style="color:white;font-size:1.4rem;font-weight:700;margin:0 0 6px;">Instalar PIX Muestreo</h2>
-        <p style="color:#94a3b8;font-size:0.85rem;margin:0 0 24px;">Instalá la app en tu celular para trabajar 100% offline</p>
+        <p style="color:#94a3b8;font-size:0.85rem;margin:0 0 20px;">Instalá la app en tu celular para trabajar 100% offline</p>
 
-        <!-- Auto install button (shown when beforeinstallprompt fires) -->
-        <button id="autoInstallBtn" onclick="pixInstall()" style="display:none;width:100%;padding:16px;border-radius:14px;border:none;background:linear-gradient(135deg,#7FD633,#0d9488);color:#0F1B2D;font-size:16px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;margin-bottom:16px;box-shadow:0 4px 20px rgba(127,214,51,0.3);">
-            ⬇ DESCARGAR APP AHORA
+        <!-- Main install button - ALWAYS visible -->
+        <button id="mainInstallBtn" onclick="pixInstall()" style="width:100%;padding:18px;border-radius:14px;border:none;background:linear-gradient(135deg,#7FD633,#0d9488);color:#0F1B2D;font-size:17px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;margin-bottom:8px;box-shadow:0 4px 20px rgba(127,214,51,0.3);letter-spacing:0.5px;">
+            ⬇ DESCARGAR APP
         </button>
+        <p id="installStatus" style="color:#7FD633;font-size:0.75rem;margin:0 0 20px;min-height:16px;"></p>
 
-        <!-- Manual instructions (always visible) -->
-        <div style="text-align:left;margin-bottom:20px;">
+        <!-- Manual instructions -->
+        <div id="manualGuide" style="display:none;text-align:left;margin-bottom:20px;">
+            <p style="color:#f59e0b;font-size:13px;font-weight:600;margin:0 0 12px;text-align:center;">👆 Seguí estos pasos en tu navegador:</p>
             <!-- Android -->
-            <div style="background:rgba(127,214,51,0.08);border:1px solid rgba(127,214,51,0.15);border-radius:14px;padding:16px;margin-bottom:12px;">
-                <div style="color:#7FD633;font-weight:700;font-size:14px;margin-bottom:10px;">📱 Android (Chrome)</div>
-                <div style="color:#cbd5e1;font-size:13px;line-height:1.7;">
-                    <strong style="color:white;">1.</strong> Tocá los <strong style="color:white;">3 puntos ⋮</strong> arriba a la derecha<br>
-                    <strong style="color:white;">2.</strong> Seleccioná <strong style="color:white;">"Instalar aplicación"</strong><br>
-                    <strong style="color:white;">3.</strong> Confirmá tocando <strong style="color:white;">"Instalar"</strong><br>
-                    <span style="color:#94a3b8;font-size:11px;">La app aparecerá en tu pantalla de inicio</span>
+            <div id="androidGuide" style="background:rgba(127,214,51,0.1);border:2px solid rgba(127,214,51,0.3);border-radius:14px;padding:16px;margin-bottom:12px;">
+                <div style="color:#7FD633;font-weight:700;font-size:15px;margin-bottom:10px;">📱 Android (Chrome)</div>
+                <div style="color:#e2e8f0;font-size:14px;line-height:2;">
+                    <strong style="color:#7FD633;font-size:18px;">1.</strong> Tocá <strong style="color:white;background:rgba(255,255,255,0.1);padding:2px 8px;border-radius:6px;">⋮</strong> (3 puntos arriba a la derecha)<br>
+                    <strong style="color:#7FD633;font-size:18px;">2.</strong> Tocá <strong style="color:white;background:rgba(127,214,51,0.2);padding:2px 8px;border-radius:6px;">"Instalar aplicación"</strong><br>
+                    <strong style="color:#7FD633;font-size:18px;">3.</strong> Tocá <strong style="color:white;background:rgba(127,214,51,0.2);padding:2px 8px;border-radius:6px;">"Instalar"</strong>
                 </div>
             </div>
             <!-- iPhone -->
-            <div style="background:rgba(14,165,233,0.08);border:1px solid rgba(14,165,233,0.15);border-radius:14px;padding:16px;">
-                <div style="color:#0ea5e9;font-weight:700;font-size:14px;margin-bottom:10px;">🍎 iPhone (Safari)</div>
-                <div style="color:#cbd5e1;font-size:13px;line-height:1.7;">
-                    <strong style="color:white;">1.</strong> Tocá el botón <strong style="color:white;">Compartir ⬆</strong> abajo<br>
-                    <strong style="color:white;">2.</strong> Buscá <strong style="color:white;">"Agregar a pantalla de inicio"</strong><br>
-                    <strong style="color:white;">3.</strong> Tocá <strong style="color:white;">"Agregar"</strong><br>
-                    <span style="color:#94a3b8;font-size:11px;">Debe abrirse en Safari (no Chrome)</span>
+            <div id="iosGuide" style="background:rgba(14,165,233,0.1);border:2px solid rgba(14,165,233,0.3);border-radius:14px;padding:16px;">
+                <div style="color:#0ea5e9;font-weight:700;font-size:15px;margin-bottom:10px;">🍎 iPhone (Safari)</div>
+                <div style="color:#e2e8f0;font-size:14px;line-height:2;">
+                    <strong style="color:#0ea5e9;font-size:18px;">1.</strong> Tocá <strong style="color:white;background:rgba(255,255,255,0.1);padding:2px 8px;border-radius:6px;">⬆ Compartir</strong> (abajo)<br>
+                    <strong style="color:#0ea5e9;font-size:18px;">2.</strong> Tocá <strong style="color:white;background:rgba(14,165,233,0.2);padding:2px 8px;border-radius:6px;">"Agregar a inicio"</strong><br>
+                    <strong style="color:#0ea5e9;font-size:18px;">3.</strong> Tocá <strong style="color:white;background:rgba(14,165,233,0.2);padding:2px 8px;border-radius:6px;">"Agregar"</strong>
                 </div>
+                <p style="color:#94a3b8;font-size:11px;margin:8px 0 0;">Debe abrirse en Safari, no Chrome</p>
             </div>
         </div>
 
         <button onclick="skipInstall()" style="width:100%;padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:#94a3b8;font-size:14px;font-weight:500;cursor:pointer;font-family:Inter,sans-serif;">
             Continuar sin instalar →
         </button>
-        <p style="color:#475569;font-size:0.7rem;margin-top:14px;">Una vez instalada, funciona sin internet</p>
+        <p style="color:#475569;font-size:0.7rem;margin-top:14px;">La app quedará en tu pantalla de inicio</p>
     </div>
 </div>
 
