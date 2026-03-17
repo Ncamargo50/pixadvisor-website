@@ -367,8 +367,67 @@ class PixApp {
     }
   }
 
-  autoDetectPoint() {
-    // Not implemented in simplified version
+  // Auto-detect nearest point when user is within detection radius
+  // DataFarm methodology: auto-populate project/field/point from GPS position
+  async autoDetectPoint() {
+    if (!gpsNav.currentPosition || this.isNavigating) return;
+
+    const pos = gpsNav.currentPosition;
+    const points = await pixDB.getAllByIndex('points', 'fieldId', this.currentField.id);
+    const pending = points.filter(p => p.status === 'pending');
+
+    for (const pt of pending) {
+      const dist = gpsNav.distanceTo(pos.lat, pos.lng, pt.lat, pt.lng);
+      const detectionRadius = this._gpsSettings?.detectionRadius || 15;
+
+      if (dist < detectionRadius && pos.accuracy < detectionRadius * 2) {
+        // Auto-select this point for collection
+        this.currentPoint = pt;
+        gpsNav.setTarget(pt.lat, pt.lng, pt.name);
+        document.getElementById('navTargetName').textContent = `Punto ${pt.name}`;
+        pixMap.updatePointStatus(pt.id, 'current');
+
+        if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+        this.toast(`Punto ${pt.name} detectado (${Math.round(dist)}m)`, 'success');
+        break;
+      }
+    }
+  }
+
+  // Auto-detect field from GPS position (DataFarm auto-populate feature)
+  // Checks all fields in current project to find which one contains the GPS position
+  async autoDetectField() {
+    if (!this.currentProject || !gpsNav.currentPosition) return null;
+
+    const pos = gpsNav.currentPosition;
+    const fields = await pixDB.getAllByIndex('fields', 'projectId', this.currentProject.id);
+
+    for (const field of fields) {
+      if (!field.boundary) continue;
+
+      // Check if GPS position is inside field boundary polygon
+      const features = field.boundary.features || [field.boundary];
+      for (const feature of features) {
+        const coords = feature.geometry?.coordinates?.[0];
+        if (!coords || coords.length < 3) continue;
+
+        // Point-in-polygon ray casting
+        let inside = false;
+        const x = pos.lng, y = pos.lat;
+        for (let i = 0, j = coords.length - 1; i < coords.length; j = i++) {
+          const xi = coords[i][0], yi = coords[i][1];
+          const xj = coords[j][0], yj = coords[j][1];
+          if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) {
+            inside = !inside;
+          }
+        }
+
+        if (inside) {
+          return field;
+        }
+      }
+    }
+    return null;
   }
 
   // ===== GPS SETTINGS =====
@@ -384,6 +443,15 @@ class PixApp {
     if (avgSamples) document.getElementById('gpsAvgSamples').value = avgSamples;
     const kalman = await pixDB.getSetting('gps_kalmanEnabled');
     if (kalman !== null && kalman !== undefined) document.getElementById('gpsKalmanEnabled').value = kalman;
+    const detRadius = await pixDB.getSetting('gps_detectionRadius');
+
+    // Store settings for quick access
+    this._gpsSettings = {
+      minAccuracy: parseFloat(minAcc) || 5,
+      avgSamples: parseInt(avgSamples) || 10,
+      kalmanEnabled: kalman !== '0',
+      detectionRadius: parseFloat(detRadius) || 15
+    };
   }
 
   // ===== OFFLINE TILE DOWNLOAD =====
@@ -483,6 +551,9 @@ class PixApp {
     // Set default collector
     const collector = await pixDB.getSetting('collectorName');
     if (collector) document.getElementById('collectorField').value = collector;
+
+    // Auto-adjust depth based on previous samples (DataFarm feature)
+    this.autoAdjustDepth();
 
     // Show modal
     document.getElementById('collectModal').classList.add('active');
@@ -1112,6 +1183,179 @@ class PixApp {
       btn.classList.add('active');
       this.toast('Grabando recorrido GPS', '');
     }
+  }
+
+  // ===== CONTORNAR TALHÃO (DataFarm feature: field perimeter mapping via GPS) =====
+
+  // Start GPS boundary tracing: walk around field perimeter recording positions
+  startBoundaryTrace() {
+    if (this._boundaryTracing) {
+      this.stopBoundaryTrace();
+      return;
+    }
+
+    if (!gpsNav.currentPosition) {
+      this.toast('Esperá señal GPS antes de iniciar', 'warning');
+      return;
+    }
+
+    this._boundaryTracing = true;
+    this._boundaryPositions = [];
+    this._boundaryPolyline = null;
+
+    // Start GPS tracking
+    gpsNav.startTracking();
+
+    // Record positions at regular intervals (every 3 seconds)
+    this._boundaryInterval = setInterval(() => {
+      if (!gpsNav.currentPosition) return;
+
+      const pos = gpsNav.currentPosition;
+      // Only add if accuracy is reasonable and moved > 2m from last point
+      if (pos.accuracy > 20) return;
+
+      const last = this._boundaryPositions[this._boundaryPositions.length - 1];
+      if (last) {
+        const dist = gpsNav.distanceTo(pos.lat, pos.lng, last.lat, last.lng);
+        if (dist < 2) return; // didn't move enough
+      }
+
+      this._boundaryPositions.push({ lat: pos.lat, lng: pos.lng, accuracy: pos.accuracy });
+
+      // Draw polyline on map
+      if (this._boundaryPolyline) {
+        pixMap.map.removeLayer(this._boundaryPolyline);
+      }
+      const latlngs = this._boundaryPositions.map(p => [p.lat, p.lng]);
+      this._boundaryPolyline = L.polyline(latlngs, {
+        color: '#7FD633', weight: 3, dashArray: '8,6', opacity: 0.9
+      }).addTo(pixMap.map);
+
+      // Show point count
+      const btn = document.getElementById('boundaryBtn');
+      if (btn) btn.textContent = `Trazando (${this._boundaryPositions.length} pts)`;
+    }, 3000);
+
+    const btn = document.getElementById('boundaryBtn');
+    if (btn) {
+      btn.classList.add('active');
+      btn.textContent = 'Trazando...';
+    }
+    this.toast('Caminá alrededor del lote. Trazando perímetro...', 'success');
+  }
+
+  // Stop boundary tracing and save as field boundary GeoJSON
+  async stopBoundaryTrace() {
+    if (!this._boundaryTracing) return;
+
+    clearInterval(this._boundaryInterval);
+    this._boundaryTracing = false;
+    gpsNav.stopTracking();
+
+    const positions = this._boundaryPositions || [];
+    if (positions.length < 4) {
+      this.toast('Necesitás al menos 4 puntos para un perímetro', 'warning');
+      this._cleanupBoundaryTrace();
+      return;
+    }
+
+    // Close the polygon (first point = last point)
+    const coords = positions.map(p => [p.lng, p.lat]);
+    coords.push(coords[0]); // close ring
+
+    // Create GeoJSON polygon
+    const geojson = {
+      type: 'FeatureCollection',
+      features: [{
+        type: 'Feature',
+        geometry: { type: 'Polygon', coordinates: [coords] },
+        properties: {
+          name: this.currentField?.name || 'Campo',
+          tracedAt: new Date().toISOString(),
+          pointCount: positions.length,
+          method: 'GPS boundary trace'
+        }
+      }]
+    };
+
+    // Calculate area (Shoelace formula)
+    let area = 0;
+    for (let i = 0; i < positions.length; i++) {
+      const j = (i + 1) % positions.length;
+      // Convert to meters using average latitude
+      const avgLat = (positions[i].lat + positions[j].lat) / 2;
+      const dx = (positions[j].lng - positions[i].lng) * 111320 * Math.cos(avgLat * Math.PI / 180);
+      const dy = (positions[j].lat - positions[i].lat) * 111320;
+      area += positions[i].lat * dx - positions[j].lat * dx;
+    }
+    area = Math.abs(area / 2) / 10000; // to hectares
+
+    // Save to field in DB
+    if (this.currentField) {
+      this.currentField.boundary = geojson;
+      this.currentField.area = Math.round(area * 100) / 100;
+      await pixDB.put('fields', this.currentField);
+
+      // Reload field on map
+      this.loadFieldOnMap(this.currentField);
+      this.toast(`Perímetro guardado: ${positions.length} puntos, ${area.toFixed(1)} ha`, 'success');
+    }
+
+    this._cleanupBoundaryTrace();
+  }
+
+  _cleanupBoundaryTrace() {
+    if (this._boundaryPolyline && pixMap.map) {
+      pixMap.map.removeLayer(this._boundaryPolyline);
+    }
+    this._boundaryPositions = [];
+    this._boundaryPolyline = null;
+    const btn = document.getElementById('boundaryBtn');
+    if (btn) {
+      btn.classList.remove('active');
+      btn.textContent = 'Contornar';
+    }
+  }
+
+  // ===== AUTO-DEPTH ADJUSTMENT (DataFarm feature) =====
+  // Automatically sets depth based on last collected sample or field plan
+  async autoAdjustDepth() {
+    if (!this.currentField || !this.currentPoint) return;
+
+    // Check if there are previous samples for this field to determine depth pattern
+    const samples = await pixDB.getAllByIndex('samples', 'fieldId', this.currentField.id);
+
+    // If same point has been sampled at 0-20, suggest 20-40 next
+    const pointSamples = samples.filter(s => s.pointId === this.currentPoint.id);
+    const usedDepths = pointSamples.map(s => s.depth);
+
+    const depthSequence = ['0-20', '20-40', '40-60', '60-80', '80-100'];
+    let suggestedDepth = '0-20'; // default
+
+    // Find first depth not yet sampled at this point
+    for (const d of depthSequence) {
+      if (!usedDepths.includes(d)) {
+        suggestedDepth = d;
+        break;
+      }
+    }
+
+    // If all depths taken, use most common depth from other points in field
+    if (usedDepths.length >= depthSequence.length && samples.length > 0) {
+      const depthCounts = {};
+      for (const s of samples) {
+        depthCounts[s.depth] = (depthCounts[s.depth] || 0) + 1;
+      }
+      suggestedDepth = Object.entries(depthCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || '0-20';
+    }
+
+    // Apply auto-depth
+    const depthBtn = document.querySelector(`.depth-chip[data-depth="${suggestedDepth}"]`);
+    if (depthBtn) {
+      this.selectDepth(depthBtn, suggestedDepth);
+    }
+
+    return suggestedDepth;
   }
 
   // Center map
