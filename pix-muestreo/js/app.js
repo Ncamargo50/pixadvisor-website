@@ -1462,14 +1462,24 @@ if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.
   appIsInstalled = true;
 }
 
-// Register SW BEFORE login (required for PWA installability)
+// Register SW with forced update on every load
 if ('serviceWorker' in navigator) {
   const base = location.pathname.replace(/\/[^/]*$/, '/');
   const swPath = base + 'sw.js';
   const swScope = base;
   navigator.serviceWorker.register(swPath, { scope: swScope })
-    .then(reg => console.log('SW registered:', reg.scope))
+    .then(reg => {
+      console.log('SW registered:', reg.scope);
+      reg.update();
+      reg.addEventListener('updatefound', () => {
+        const nw = reg.installing;
+        if (nw) nw.addEventListener('statechange', () => {
+          if (nw.state === 'activated') location.reload();
+        });
+      });
+    })
     .catch(e => console.log('SW error:', e));
+  navigator.serviceWorker.addEventListener('controllerchange', () => location.reload());
 }
 
 window.addEventListener('beforeinstallprompt', (e) => {

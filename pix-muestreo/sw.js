@@ -1,5 +1,5 @@
 // PIX Muestreo - Service Worker for Offline Support
-const CACHE_NAME = 'pix-muestreo-v7';
+const CACHE_NAME = 'pix-muestreo-v8';
 const TILE_CACHE = 'pix-tiles-v1';
 const DATA_CACHE = 'pix-data-v1';
 
@@ -70,17 +70,19 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Static assets - cache first
+  // App files - network first (ensures updates are loaded immediately)
+  // Falls back to cache only when offline
   event.respondWith(
-    caches.match(event.request).then(cached => {
-      if (cached) return cached;
-      return fetch(event.request).then(response => {
-        if (response.ok) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-        }
-        return response;
-      }).catch(() => caches.match('/pix-muestreo/index.html'));
+    fetch(event.request).then(response => {
+      if (response.ok) {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+      }
+      return response;
+    }).catch(() => {
+      return caches.match(event.request).then(cached => {
+        return cached || caches.match('/pix-muestreo/index.html');
+      });
     })
   );
 });
