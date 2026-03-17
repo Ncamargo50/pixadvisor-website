@@ -1,5 +1,5 @@
 // PIX Muestreo - Service Worker for Offline Support
-const CACHE_NAME = 'pix-muestreo-v5';
+const CACHE_NAME = 'pix-muestreo-v7';
 const TILE_CACHE = 'pix-tiles-v1';
 const DATA_CACHE = 'pix-data-v1';
 
@@ -18,6 +18,8 @@ const STATIC_ASSETS = [
   '/pix-muestreo/js/agent-field.js',
   '/pix-muestreo/icons/icon-192.png',
   '/pix-muestreo/icons/icon-512.png',
+  '/pix-muestreo/icons/globe-only-192.png',
+  '/pix-muestreo/icons/globe-only-512.png',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
   'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js',
