@@ -529,55 +529,120 @@ class InterpretationEngine {
 
   // ==================== FERTILIZATION RECOMMENDATIONS ====================
 
+  // Get yield profile for a crop at a given yield target
+  static getYieldProfile(crop, yieldTarget) {
+    if (!crop.yieldProfiles || !crop.yieldProfiles.length) {
+      return { label: 'Default', extractionMult: 1.0, efficiencyMult: 1.0 };
+    }
+    // Find matching profile by yield range
+    for (const profile of crop.yieldProfiles) {
+      if (yieldTarget >= profile.range[0] && yieldTarget < profile.range[1]) {
+        return profile;
+      }
+    }
+    // If above max range, use last (highest) profile
+    if (yieldTarget >= crop.yieldProfiles[crop.yieldProfiles.length - 1].range[1]) {
+      return crop.yieldProfiles[crop.yieldProfiles.length - 1];
+    }
+    // If below min range, use first (lowest) profile
+    return crop.yieldProfiles[0];
+  }
+
+  // Base micronutrient doses (kg/ha) by soil class at default yield
+  static _baseMicroDose(micro, soilClass) {
+    const baseDoses = {
+      mb: { B: 3.0, Cu: 3.0, Fe: 10.0, Mn: 8.0, Zn: 6.0 },
+      b:  { B: 2.0, Cu: 2.0, Fe: 6.0,  Mn: 5.0, Zn: 4.0 },
+      m:  { B: 1.0, Cu: 1.0, Fe: 3.0,  Mn: 3.0, Zn: 2.0 }
+    };
+    return baseDoses[soilClass]?.[micro] || 0;
+  }
+
   static calculateFertilization(labData, cropId, yieldTarget) {
     const crop = CROPS_DB[cropId];
     if (!crop) return { error: 'Cultivo no encontrado' };
 
     yieldTarget = yieldTarget || crop.defaultYield;
-    const results = { crop: crop.name, yieldTarget, yieldUnit: crop.yieldUnit, nutrients: [] };
+
+    // Get yield profile: adjusts extraction and efficiency based on yield tier
+    const yieldProfile = this.getYieldProfile(crop, yieldTarget);
+    const extractionMult = yieldProfile.extractionMult;
+    const efficiencyMult = yieldProfile.efficiencyMult;
+
+    const results = {
+      crop: crop.name,
+      yieldTarget,
+      yieldUnit: crop.yieldUnit,
+      yieldProfile: yieldProfile.label,
+      yieldRange: crop.yieldRange,
+      nutrients: [],
+      warnings: []
+    };
+
+    // Warn if yield target is near or beyond crop limits
+    if (yieldTarget > crop.yieldRange[1] * 0.95) {
+      results.warnings.push(`Rendimiento objetivo (${yieldTarget} ${crop.yieldUnit}) cercano al máximo del cultivo. Verificar viabilidad agronómica.`);
+    }
 
     // For each macronutrient, calculate demand - supply = net need
     const macros = ['N', 'P2O5', 'K2O', 'Ca', 'Mg', 'S'];
 
     for (const nutrient of macros) {
-      // Total extraction (demand)
-      let extraction = 0;
-      if (crop.id === 'cana') {
-        // Caña: extraction is per ton of cane
-        extraction = (crop.extraction[nutrient] || 0) * yieldTarget;
-      } else if (['tomate', 'pimenton', 'papa', 'maracuya', 'palta'].includes(crop.id)) {
-        // Horticolas/frutales: extraction per ton of product
-        extraction = (crop.extraction[nutrient] || 0) * yieldTarget;
-      } else {
-        // Granos: extraction is total per ha at yield (already in kg/ha at 1 t/ha, multiply by yield)
-        extraction = (crop.extraction[nutrient] || 0) * yieldTarget;
-      }
+      // Base extraction coefficient (kg nutrient / ton product)
+      const baseExtraction = crop.extraction[nutrient] || 0;
+
+      // Adjusted extraction: scales with yield profile
+      // Higher yields = slightly more extraction per ton (luxury consumption, diminishing returns)
+      const adjustedExtractionPerTon = baseExtraction * extractionMult;
+
+      // Total demand = adjusted extraction per ton × yield target
+      const extraction = adjustedExtractionPerTon * yieldTarget;
 
       // Soil supply estimation
       let soilSupply = 0;
-      const soilValue = parseFloat(labData[this._nutrientToSoilKey(nutrient)]) || 0;
-      const cls = this.classifySoil(this._nutrientToSoilKey(nutrient), soilValue, cropId);
+      const soilKey = this._nutrientToSoilKey(nutrient);
+      const soilValue = parseFloat(labData[soilKey]) || 0;
+      const cls = this.classifySoil(soilKey, soilValue, cropId);
 
-      // Supply factor based on soil level
+      // Supply factor based on soil fertility class
       const supplyFactors = { mb: 0.0, b: 0.15, m: 0.40, a: 0.70, ma: 1.0 };
-      const supplyFactor = supplyFactors[cls.class] || 0.3;
+      const supplyFactor = supplyFactors[cls.class] !== undefined ? supplyFactors[cls.class] : 0.3;
       soilSupply = extraction * supplyFactor;
 
-      // Special case: soja N from Bradyrhizobium
+      // Special case: soja N from biological fixation (Bradyrhizobium)
+      // Fixation efficiency depends on soil conditions (pH, Al saturation)
       if (crop.id === 'soja' && nutrient === 'N') {
-        soilSupply = extraction * 0.85; // 85% from fixation
+        let fixationRate = 0.85; // 85% default from BNF in good conditions
+        const pH = parseFloat(labData.pH_H2O) || 0;
+        const Al = parseFloat(labData.Al) || 0;
+        const SB = (parseFloat(labData.Ca) || 0) + (parseFloat(labData.Mg) || 0) + (parseFloat(labData.K) || 0);
+        const mPct = (Al > 0 && SB > 0) ? (Al / (SB + Al)) * 100 : 0;
+
+        // Reduce fixation under stress: low pH or high Al saturation
+        if (pH > 0 && pH < 5.0) fixationRate *= 0.75;
+        else if (pH >= 5.0 && pH < 5.5) fixationRate *= 0.90;
+        if (mPct > 20) fixationRate *= 0.80;
+        else if (mPct > 10) fixationRate *= 0.90;
+
+        soilSupply = extraction * Math.min(fixationRate, 0.90);
+        if (fixationRate < 0.75) {
+          results.warnings.push('Fijación biológica de N reducida por pH bajo o Al elevado. Considerar encalar antes de sembrar soja.');
+        }
       }
 
       // Net need
       const netNeed = Math.max(0, extraction - soilSupply);
 
-      // Efficiency correction
-      const efficiency = crop.efficiency[nutrient] || 0.50;
+      // Efficiency correction: adjusted by yield profile
+      // Higher yields → lower absorption efficiency (diminishing returns)
+      const baseEfficiency = crop.efficiency[nutrient] || 0.50;
+      const efficiency = Math.max(0.10, Math.min(0.95, baseEfficiency * efficiencyMult));
       const doseKgHa = netNeed / efficiency;
 
       results.nutrients.push({
         nutrient,
         label: this._nutrientLabel(nutrient),
+        extractionPerTon: Math.round(adjustedExtractionPerTon * 1000) / 1000,
         extraction: Math.round(extraction * 10) / 10,
         soilSupply: Math.round(soilSupply * 10) / 10,
         soilLevel: cls.label,
@@ -585,7 +650,6 @@ class InterpretationEngine {
         netNeed: Math.round(netNeed * 10) / 10,
         efficiency: Math.round(efficiency * 100),
         doseKgHa: Math.round(doseKgHa * 10) / 10,
-        // For perennial crops, calculate per plant
         doseGPlant: crop.perennial && crop.plantsPerHa
           ? Math.round((doseKgHa / crop.plantsPerHa) * 1000 * 10) / 10
           : null,
@@ -593,32 +657,38 @@ class InterpretationEngine {
       });
     }
 
-    // Micronutrient recommendations
+    // Micronutrient recommendations — now yield-dependent
+    // Yield ratio = how far above/below default yield the target is
+    const yieldRatio = yieldTarget / (crop.defaultYield || 1);
     const micros = ['B', 'Cu', 'Fe', 'Mn', 'Zn'];
+
     for (const micro of micros) {
       const soilValue = parseFloat(labData[micro]) || 0;
       const cls = this.classifySoil(micro, soilValue, cropId);
-      let dose = 0;
 
-      if (cls.class === 'mb') dose = { B: 3, Cu: 3, Fe: 10, Mn: 8, Zn: 6 }[micro] || 5;
-      else if (cls.class === 'b') dose = { B: 2, Cu: 2, Fe: 6, Mn: 5, Zn: 4 }[micro] || 3;
-      else if (cls.class === 'm') dose = { B: 1, Cu: 1, Fe: 3, Mn: 3, Zn: 2 }[micro] || 1;
-      // Alto/Muy alto: no application needed
+      const baseDose = this._baseMicroDose(micro, cls.class);
+      if (baseDose <= 0) continue; // Alto/Muy alto: no application needed
 
-      if (dose > 0) {
-        results.nutrients.push({
-          nutrient: micro,
-          label: micro,
-          soilLevel: cls.label,
-          soilClass: cls.class,
-          doseKgHa: dose,
-          doseGPlant: crop.perennial && crop.plantsPerHa
-            ? Math.round((dose / crop.plantsPerHa) * 1000 * 10) / 10
-            : null,
-          unit: 'kg/ha',
-          isMicro: true
-        });
-      }
+      // Scale micronutrient dose with yield ratio:
+      // Higher yield targets need proportionally more micronutrients
+      // Capped at 1.5x base dose to avoid over-application
+      const yieldFactor = Math.min(1.5, Math.max(0.7, yieldRatio));
+      const dose = Math.round(baseDose * yieldFactor * 10) / 10;
+
+      results.nutrients.push({
+        nutrient: micro,
+        label: micro,
+        soilLevel: cls.label,
+        soilClass: cls.class,
+        doseKgHa: dose,
+        baseDose: baseDose,
+        yieldFactor: Math.round(yieldFactor * 100) / 100,
+        doseGPlant: crop.perennial && crop.plantsPerHa
+          ? Math.round((dose / crop.plantsPerHa) * 1000 * 10) / 10
+          : null,
+        unit: 'kg/ha',
+        isMicro: true
+      });
     }
 
     return results;
@@ -808,8 +878,26 @@ class InterpretationEngine {
     return labels[nutrient] || nutrient;
   }
 
-  // Get all available crop IDs
+  // Get all available crop IDs with yield info
   static getCropList() {
-    return Object.values(CROPS_DB).map(c => ({ id: c.id, name: c.name, scientific: c.scientific }));
+    return Object.values(CROPS_DB).map(c => ({
+      id: c.id,
+      name: c.name,
+      scientific: c.scientific,
+      yieldUnit: c.yieldUnit,
+      yieldRange: c.yieldRange,
+      defaultYield: c.defaultYield,
+      yieldProfiles: c.yieldProfiles || []
+    }));
+  }
+
+  // Get yield profiles for a specific crop
+  static getYieldProfiles(cropId) {
+    const crop = CROPS_DB[cropId];
+    if (!crop) return [];
+    return (crop.yieldProfiles || []).map(p => ({
+      ...p,
+      isDefault: p.range[0] <= crop.defaultYield && crop.defaultYield < p.range[1]
+    }));
   }
 }

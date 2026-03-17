@@ -505,11 +505,21 @@ class KrigingEngine {
         const mean = sum / count;
         const variance = (sumSq / count) - (mean * mean);
 
+        // Report IDW fallback statistics
+        const fallbackCount = KrigingEngine._fallbackCount || 0;
+        const totalCells = resolution * resolution;
+        const fallbackPct = totalCells > 0 ? ((fallbackCount / totalCells) * 100).toFixed(1) : 0;
+        if (fallbackCount > 0) {
+            console.warn(`KrigingEngine: ${fallbackCount}/${totalCells} celdas (${fallbackPct}%) usaron IDW fallback por matrices singulares.`);
+        }
+        // Reset counter for next interpolation
+        KrigingEngine._fallbackCount = 0;
+
         return {
             grid,
             bounds,
             resolution,
-            stats: { min, max, mean, variance },
+            stats: { min, max, mean, variance, idwFallbackCount: fallbackCount, idwFallbackPct: parseFloat(fallbackPct) },
             method: 'kriging',
             variogramParams
         };
@@ -561,8 +571,12 @@ class KrigingEngine {
         // Solve the system
         const weights = KrigingEngine._solveLinearSystem(K, b);
 
-        // If system is singular, fall back to IDW
+        // If system is singular, fall back to IDW with warning
         if (!weights) {
+            KrigingEngine._fallbackCount = (KrigingEngine._fallbackCount || 0) + 1;
+            if (KrigingEngine._fallbackCount <= 3) {
+                console.warn(`KrigingEngine: matriz singular en (${targetLat.toFixed(5)}, ${targetLng.toFixed(5)}), usando IDW fallback (ocurrencia #${KrigingEngine._fallbackCount})`);
+            }
             return KrigingEngine._idwFallback(points, nearest, targetLat, targetLng);
         }
 
@@ -575,6 +589,10 @@ class KrigingEngine {
             }
         }
         if (hasInvalid) {
+            KrigingEngine._fallbackCount = (KrigingEngine._fallbackCount || 0) + 1;
+            if (KrigingEngine._fallbackCount <= 3) {
+                console.warn(`KrigingEngine: pesos inválidos en (${targetLat.toFixed(5)}, ${targetLng.toFixed(5)}), usando IDW fallback`);
+            }
             return KrigingEngine._idwFallback(points, nearest, targetLat, targetLng);
         }
 

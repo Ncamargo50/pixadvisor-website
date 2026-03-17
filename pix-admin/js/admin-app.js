@@ -176,9 +176,96 @@ class PixAdmin {
     document.getElementById('globalCrop').value = cropId;
     document.getElementById('prescYield').value = crop.defaultYield;
 
+    // Update yield target controls
+    this._updateYieldControls(crop);
+
     // Update dashboard stats
     document.getElementById('statCrop').textContent = crop.name;
     document.getElementById('statYield').textContent = `${crop.defaultYield} ${crop.yieldUnit}`;
+  }
+
+  // Build/update yield target controls with range slider and profile indicator
+  _updateYieldControls(crop) {
+    const container = document.getElementById('yieldTargetControl');
+    if (!container) return;
+
+    const profiles = crop.yieldProfiles || [];
+    const currentProfile = InterpretationEngine.getYieldProfile(crop, this.yieldTarget);
+
+    container.innerHTML = `
+      <div class="yield-control-group">
+        <label class="form-label">Rendimiento Esperado</label>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <input type="range" id="yieldSlider"
+            min="${crop.yieldRange[0]}" max="${crop.yieldRange[1]}"
+            step="${(crop.yieldRange[1] - crop.yieldRange[0]) > 50 ? 5 : (crop.yieldRange[1] - crop.yieldRange[0]) > 10 ? 1 : 0.1}"
+            value="${this.yieldTarget}"
+            style="flex:1;accent-color:var(--primary)"
+            oninput="admin.setYieldTarget(parseFloat(this.value))">
+          <input type="number" id="yieldInput"
+            min="${crop.yieldRange[0]}" max="${crop.yieldRange[1]}"
+            step="${(crop.yieldRange[1] - crop.yieldRange[0]) > 50 ? 5 : (crop.yieldRange[1] - crop.yieldRange[0]) > 10 ? 1 : 0.1}"
+            value="${this.yieldTarget}"
+            style="width:70px;padding:4px 6px;background:var(--dark-3);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);text-align:center;font-size:13px"
+            onchange="admin.setYieldTarget(parseFloat(this.value))">
+          <span style="font-size:12px;color:var(--text-muted);white-space:nowrap">${crop.yieldUnit}</span>
+        </div>
+        <div id="yieldProfileBadge" style="display:flex;align-items:center;gap:6px;font-size:12px">
+          <span style="padding:2px 8px;border-radius:10px;background:${this._yieldProfileColor(currentProfile)};color:#fff;font-weight:500">${currentProfile.label}</span>
+          <span style="color:var(--text-muted)">Extracción: ×${currentProfile.extractionMult.toFixed(2)} | Eficiencia: ×${currentProfile.efficiencyMult.toFixed(2)}</span>
+        </div>
+        ${profiles.length > 0 ? `
+        <div style="display:flex;gap:4px;margin-top:6px">
+          ${profiles.map(p => `<button class="btn-xs ${p.label === currentProfile.label ? 'active' : ''}"
+            onclick="admin.setYieldTarget(${(p.range[0] + p.range[1]) / 2})"
+            style="flex:1;padding:3px 4px;font-size:10px;border-radius:4px;border:1px solid var(--border);background:${p.label === currentProfile.label ? 'var(--primary)' : 'var(--dark-3)'};color:${p.label === currentProfile.label ? '#000' : 'var(--text-muted)'};cursor:pointer"
+            >${p.label.split('(')[0].trim()}</button>`).join('')}
+        </div>` : ''}
+      </div>`;
+  }
+
+  _yieldProfileColor(profile) {
+    if (!profile || !profile.label) return '#6b7280';
+    if (profile.label.startsWith('Bajo')) return '#f97316';
+    if (profile.label.startsWith('Medio')) return '#22c55e';
+    if (profile.label.startsWith('Alto')) return '#3b82f6';
+    if (profile.label.startsWith('Muy alto')) return '#8b5cf6';
+    return '#6b7280';
+  }
+
+  setYieldTarget(value) {
+    const crop = CROPS_DB[this.cropId];
+    if (!crop) return;
+
+    // Clamp to valid range
+    value = Math.max(crop.yieldRange[0], Math.min(crop.yieldRange[1], value));
+    this.yieldTarget = value;
+
+    // Sync slider and input
+    const slider = document.getElementById('yieldSlider');
+    const input = document.getElementById('yieldInput');
+    if (slider) slider.value = value;
+    if (input) input.value = value;
+
+    // Update profile badge
+    const currentProfile = InterpretationEngine.getYieldProfile(crop, value);
+    const badge = document.getElementById('yieldProfileBadge');
+    if (badge) {
+      badge.innerHTML = `
+        <span style="padding:2px 8px;border-radius:10px;background:${this._yieldProfileColor(currentProfile)};color:#fff;font-weight:500">${currentProfile.label}</span>
+        <span style="color:var(--text-muted)">Extracción: ×${currentProfile.extractionMult.toFixed(2)} | Eficiencia: ×${currentProfile.efficiencyMult.toFixed(2)}</span>`;
+    }
+
+    // Update prescription yield if exists
+    const prescYield = document.getElementById('prescYield');
+    if (prescYield) prescYield.value = value;
+
+    // Update GIS VRT yield if exists
+    const gisYield = document.getElementById('gisVrtYield');
+    if (gisYield) gisYield.value = value;
+
+    // Update dashboard
+    document.getElementById('statYield').textContent = `${value} ${crop.yieldUnit}`;
   }
 
   updateDashboard() {
@@ -490,20 +577,36 @@ class PixAdmin {
 
     // Fertilization
     html += '<div class="card"><div class="card-title" style="margin-bottom:16px">Recomendación de Fertilización</div>';
-    html += `<div style="margin-bottom:12px;color:var(--text-muted);font-size:13px">Cultivo: <strong>${fert.crop}</strong> | Meta: <strong>${fert.yieldTarget} ${fert.yieldUnit}</strong></div>`;
-    html += '<table class="data-table"><thead><tr><th>Nutriente</th><th>Extracción</th><th>Suelo</th><th>Nec. Neta</th><th>Efic.</th><th>Dosis kg/ha</th></tr></thead><tbody>';
+    html += `<div style="margin-bottom:8px;color:var(--text-muted);font-size:13px">Cultivo: <strong>${fert.crop}</strong> | Meta: <strong>${fert.yieldTarget} ${fert.yieldUnit}</strong></div>`;
+    // Yield profile indicator
+    if (fert.yieldProfile) {
+      const profileColor = this._yieldProfileColor({ label: fert.yieldProfile });
+      html += `<div style="margin-bottom:12px;display:flex;align-items:center;gap:8px;font-size:12px">
+        <span style="padding:2px 8px;border-radius:10px;background:${profileColor};color:#fff;font-weight:500">${fert.yieldProfile}</span>
+        <span style="color:var(--text-muted)">Las exigencias nutricionales se ajustan según el rendimiento esperado</span>
+      </div>`;
+    }
+    // Warnings from yield analysis
+    if (fert.warnings && fert.warnings.length > 0) {
+      for (const w of fert.warnings) {
+        html += `<div class="alert alert-warning" style="margin-bottom:8px">${w}</div>`;
+      }
+    }
+    html += '<table class="data-table"><thead><tr><th>Nutriente</th><th>Extrac./t</th><th>Extrac. Total</th><th>Suelo</th><th>Nec. Neta</th><th>Efic.</th><th>Dosis kg/ha</th></tr></thead><tbody>';
     for (const n of fert.nutrients.filter(x => !x.isMicro)) {
-      html += `<tr><td>${n.label}</td><td>${n.extraction}</td><td><span class="badge badge-${n.soilClass}">${n.soilLevel}</span></td>
-        <td>${n.netNeed}</td><td>${n.efficiency}%</td><td class="cell-value" style="color:var(--teal)">${n.doseKgHa}</td></tr>`;
+      const perTonStr = n.extractionPerTon !== undefined ? n.extractionPerTon : '';
+      html += `<tr><td>${n.label}</td><td style="color:var(--text-muted);font-size:12px">${perTonStr}</td><td>${n.extraction}</td><td><span class="badge badge-${n.soilClass}">${n.soilLevel}</span></td>
+        <td>${n.netNeed}</td><td>${n.efficiency}%</td><td class="cell-value" style="color:var(--teal)">${n.doseKgHa}${n.doseGPlant ? ` <span style="color:var(--text-muted);font-size:11px">(${n.doseGPlant} g/pl)</span>` : ''}</td></tr>`;
     }
     html += '</tbody></table>';
 
     // Micros
     const micros = fert.nutrients.filter(x => x.isMicro);
     if (micros.length > 0) {
-      html += '<div style="margin-top:16px"><div class="form-label">Micronutrientes (kg/ha)</div><div class="grid-4">';
+      html += '<div style="margin-top:16px"><div class="form-label">Micronutrientes (kg/ha) — ajustados por rendimiento</div><div class="grid-4">';
       for (const m of micros) {
-        html += `<div class="stat-card"><div class="stat-value" style="font-size:20px">${m.doseKgHa}</div><div class="stat-label">${m.label} <span class="badge badge-${m.soilClass}" style="margin-left:4px">${m.soilLevel}</span></div></div>`;
+        const yieldTag = m.yieldFactor && m.yieldFactor !== 1 ? ` <span style="font-size:10px;color:var(--text-dim)">(×${m.yieldFactor})</span>` : '';
+        html += `<div class="stat-card"><div class="stat-value" style="font-size:20px">${m.doseKgHa}${yieldTag}</div><div class="stat-label">${m.label} <span class="badge badge-${m.soilClass}" style="margin-left:4px">${m.soilLevel}</span></div></div>`;
       }
       html += '</div></div>';
     }
@@ -2021,10 +2124,22 @@ class PixAdmin {
 
     // Fertilization
     html += '<div class="card"><div class="card-title" style="margin-bottom:16px">Recomendación de Fertilización</div>';
-    html += `<div style="margin-bottom:12px;color:var(--text-muted);font-size:13px">Cultivo: <strong>${fert.crop}</strong> | Meta: <strong>${fert.yieldTarget} ${fert.yieldUnit}</strong></div>`;
-    html += '<table class="data-table"><thead><tr><th>Nutriente</th><th>Extracción</th><th>Suelo</th><th>Nec. Neta</th><th>Efic.</th><th>Dosis kg/ha</th></tr></thead><tbody>';
+    html += `<div style="margin-bottom:8px;color:var(--text-muted);font-size:13px">Cultivo: <strong>${fert.crop}</strong> | Meta: <strong>${fert.yieldTarget} ${fert.yieldUnit}</strong></div>`;
+    if (fert.yieldProfile) {
+      const profileColor = this._yieldProfileColor({ label: fert.yieldProfile });
+      html += `<div style="margin-bottom:12px;display:flex;align-items:center;gap:8px;font-size:12px">
+        <span style="padding:2px 8px;border-radius:10px;background:${profileColor};color:#fff;font-weight:500">${fert.yieldProfile}</span>
+      </div>`;
+    }
+    if (fert.warnings && fert.warnings.length > 0) {
+      for (const w of fert.warnings) {
+        html += `<div class="alert alert-warning" style="margin-bottom:8px">${w}</div>`;
+      }
+    }
+    html += '<table class="data-table"><thead><tr><th>Nutriente</th><th>Extrac./t</th><th>Extrac. Total</th><th>Suelo</th><th>Nec. Neta</th><th>Efic.</th><th>Dosis kg/ha</th></tr></thead><tbody>';
     for (const n of fert.nutrients.filter(x => !x.isMicro)) {
-      html += `<tr><td>${n.label}</td><td>${n.extraction}</td><td><span class="badge badge-${n.soilClass}">${n.soilLevel}</span></td>
+      const perTonStr = n.extractionPerTon !== undefined ? n.extractionPerTon : '';
+      html += `<tr><td>${n.label}</td><td style="color:var(--text-muted);font-size:12px">${perTonStr}</td><td>${n.extraction}</td><td><span class="badge badge-${n.soilClass}">${n.soilLevel}</span></td>
         <td>${n.netNeed}</td><td>${n.efficiency}%</td><td class="cell-value" style="color:var(--teal)">${n.doseKgHa}</td></tr>`;
     }
     html += '</tbody></table></div>';

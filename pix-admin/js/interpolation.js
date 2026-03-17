@@ -654,29 +654,84 @@ class InterpolationEngine {
 
   // ==================== PRESCRIPTION MAP ====================
 
-  static generatePrescription(gridResult, nutrient, cropId, yieldTarget, fertSource) {
+  /**
+   * Generate prescription map with DataFarm-style dose calculation.
+   * Uses yield-adjusted extraction, response curves, and dose safety limits.
+   *
+   * @param {Object} gridResult - Interpolated nutrient grid from IDW/Kriging
+   * @param {string} nutrient - Soil nutrient key (P, K, Ca, Mg, S)
+   * @param {string} cropId - Crop identifier
+   * @param {number} yieldTarget - Target yield in crop units
+   * @param {string} fertSource - Fertilizer source key
+   * @param {Object} [options] - Optional overrides
+   * @param {number} [options.minDose=0] - Minimum dose (kg/ha)
+   * @param {number} [options.maxDose] - Maximum dose cap (kg/ha)
+   * @param {string} [options.managementType='normal'] - 'corrective'|'normal'|'maintenance'
+   */
+  static generatePrescription(gridResult, nutrient, cropId, yieldTarget, fertSource, options = {}) {
     const crop = CROPS_DB[cropId];
     if (!crop || !gridResult) return null;
 
     const { grid, resolution, bounds, latStep, lngStep } = gridResult;
     const prescGrid = [];
     let totalDose = 0, minDose = Infinity, maxDose = -Infinity, cellCount = 0;
+    const warnings = [];
 
     const nutrientToFert = { 'P': 'P2O5', 'K': 'K2O', 'Ca': 'Ca', 'Mg': 'Mg', 'S': 'S' };
     const fertKey = nutrientToFert[nutrient] || nutrient;
-    const extraction = (crop.extraction[fertKey] || 0) * yieldTarget;
-    const efficiency = crop.efficiency[fertKey] || 0.50;
+
+    // Yield-adjusted extraction (uses yieldProfile system)
+    const yieldProfile = typeof InterpretationEngine !== 'undefined' && InterpretationEngine.getYieldProfile
+      ? InterpretationEngine.getYieldProfile(crop, yieldTarget)
+      : { extractionMult: 1.0, efficiencyMult: 1.0 };
+
+    const baseExtraction = crop.extraction[fertKey] || 0;
+    const adjustedExtraction = baseExtraction * yieldProfile.extractionMult * yieldTarget;
+    const baseEfficiency = crop.efficiency[fertKey] || 0.50;
+    const efficiency = Math.max(0.10, Math.min(0.95, baseEfficiency * yieldProfile.efficiencyMult));
+
+    // Management type multiplier (DataFarm methodology)
+    //   corrective: build soil fertility → higher doses
+    //   normal: standard replacement + correction
+    //   maintenance: replace export only → lower doses
+    const managementType = options.managementType || 'normal';
+    const mgmtMultiplier = { corrective: 1.3, normal: 1.0, maintenance: 0.7 }[managementType] || 1.0;
+
+    // Supply factor response curve (DataFarm-style: soil class → proportion supplied by soil)
+    const supplyFactors = { mb: 0.0, b: 0.15, m: 0.40, a: 0.70, ma: 1.0 };
+
+    // Dose safety limits
+    const userMinDose = options.minDose || 0;
+    // Max dose per nutrient (agronomic safety): prevents over-application
+    const safetyMaxDoses = {
+      N: 200, P2O5: 250, K2O: 200, Ca: 3000, Mg: 500, S: 80,
+      B: 5, Cu: 6, Fe: 20, Mn: 15, Zn: 10
+    };
+    const userMaxDose = options.maxDose || safetyMaxDoses[fertKey] || 500;
 
     for (let i = 0; i < resolution; i++) {
       prescGrid[i] = [];
       for (let j = 0; j < resolution; j++) {
         const soilValue = grid[i][j];
         const cls = InterpretationEngine.classifySoil(nutrient, soilValue, cropId);
-        const supplyFactors = { mb: 0.0, b: 0.15, m: 0.40, a: 0.70, ma: 1.0 };
-        const supplyFactor = supplyFactors[cls.class] || 0.3;
-        const dose = Math.max(0, extraction - extraction * supplyFactor) / efficiency;
 
-        prescGrid[i][j] = { soilValue, soilClass: cls.class, dose: Math.round(dose * 10) / 10 };
+        // Calculate dose using response curve
+        const supplyFactor = supplyFactors[cls.class] !== undefined ? supplyFactors[cls.class] : 0.3;
+        const soilSupply = adjustedExtraction * supplyFactor;
+        const netNeed = Math.max(0, adjustedExtraction - soilSupply);
+
+        // Apply management type and efficiency
+        let dose = (netNeed / efficiency) * mgmtMultiplier;
+
+        // Clamp to safety limits
+        dose = Math.max(userMinDose, Math.min(userMaxDose, dose));
+
+        prescGrid[i][j] = {
+          soilValue,
+          soilClass: cls.class,
+          dose: Math.round(dose * 10) / 10,
+          netNeed: Math.round(netNeed * 10) / 10
+        };
         totalDose += dose;
         if (dose < minDose) minDose = dose;
         if (dose > maxDose) maxDose = dose;
@@ -684,20 +739,31 @@ class InterpolationEngine {
       }
     }
 
+    // Warn if doses hit safety cap
+    if (maxDose >= userMaxDose * 0.99) {
+      warnings.push(`Dosis máxima alcanzó el límite de seguridad (${userMaxDose} kg/ha ${fertKey}). Verificar con agrónomo.`);
+    }
+
     const source = FERTILIZER_SOURCES[fertSource];
     const sourceContent = source ? (source[fertKey] || 0) : 0;
+    const meanDose = cellCount > 0 ? totalDose / cellCount : 0;
 
     return {
       grid: prescGrid, bounds, resolution, nutrient, fertKey, cropId, yieldTarget,
+      managementType,
+      yieldProfile: yieldProfile.label || 'Default',
+      warnings,
       stats: {
         minDose: Math.round(minDose * 10) / 10,
         maxDose: Math.round(maxDose * 10) / 10,
-        meanDose: Math.round((totalDose / cellCount) * 10) / 10,
-        totalDose: Math.round(totalDose / cellCount)
+        meanDose: Math.round(meanDose * 10) / 10,
+        totalDose: Math.round(meanDose),
+        extractionPerTon: Math.round(baseExtraction * yieldProfile.extractionMult * 1000) / 1000,
+        efficiency: Math.round(efficiency * 100)
       },
       source: source ? {
         name: source.name, content: sourceContent,
-        meanProductKgHa: sourceContent > 0 ? Math.round(((totalDose / cellCount) / sourceContent) * 100) : 0
+        meanProductKgHa: sourceContent > 0 ? Math.round((meanDose / sourceContent) * 100) : 0
       } : null
     };
   }
@@ -923,9 +989,16 @@ class InterpolationEngine {
 
   // ==================== SHAPEFILE EXPORT (VRT for farm equipment) ====================
 
-  // Generate a binary Shapefile (.shp/.shx/.dbf/.prj) ZIP for prescription maps
-  // Compatible with John Deere GreenStar, Case IH AFS, New Holland IntelliView, generic ISOBUS
-  static prescriptionToSHP(prescResult, polygon) {
+  /**
+   * Generate a binary Shapefile (.shp/.shx/.dbf/.prj) ZIP for prescription maps.
+   * Compatible with John Deere GreenStar, Case IH AFS, New Holland IntelliView, generic ISOBUS.
+   *
+   * @param {Object} prescResult - Prescription result from generatePrescription()
+   * @param {Array} polygon - Field boundary polygon
+   * @param {Object} [options] - Export options
+   * @param {string} [options.crs='wgs84'] - 'wgs84' or 'utm' (auto-detect UTM zone from centroid)
+   */
+  static prescriptionToSHP(prescResult, polygon, options = {}) {
     const { grid, bounds, resolution, fertKey, source, stats } = prescResult;
     const latStep = (bounds.maxLat - bounds.minLat) / resolution;
     const lngStep = (bounds.maxLng - bounds.minLng) / resolution;
@@ -958,8 +1031,51 @@ class InterpolationEngine {
 
     // === Build binary shapefile components ===
 
-    // 1. .prj - WGS84
-    const prj = 'GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]]';
+    // 1. .prj - Projection (WGS84 geographic or UTM)
+    const useCrs = options.crs || 'wgs84';
+    let prj;
+
+    if (useCrs === 'utm') {
+      // Auto-detect UTM zone from field centroid
+      const centLng = (bounds.minLng + bounds.maxLng) / 2;
+      const centLat = (bounds.minLat + bounds.maxLat) / 2;
+      const utmZone = Math.floor((centLng + 180) / 6) + 1;
+      const hemisphere = centLat >= 0 ? 'N' : 'S';
+      const epsg = centLat >= 0 ? 32600 + utmZone : 32700 + utmZone;
+      const falseNorthing = centLat >= 0 ? 0 : 10000000;
+
+      prj = `PROJCS["WGS 84 / UTM zone ${utmZone}${hemisphere}",GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["False_Easting",500000.0],PARAMETER["False_Northing",${falseNorthing}.0],PARAMETER["Central_Meridian",${(utmZone - 1) * 6 - 180 + 3}.0],PARAMETER["Scale_Factor",0.9996],PARAMETER["Latitude_Of_Origin",0.0],UNIT["Meter",1.0]]`;
+
+      // Convert coordinates to UTM
+      const toUTM = (lng, lat) => {
+        // Simplified UTM conversion (accurate to ~1m for small fields)
+        const d2r = Math.PI / 180;
+        const a = 6378137.0; // WGS84 semi-major axis
+        const f = 1 / 298.257223563;
+        const e = Math.sqrt(2 * f - f * f);
+        const e2 = e * e / (1 - e * e);
+        const centralMeridian = (utmZone - 1) * 6 - 180 + 3;
+
+        const phi = lat * d2r;
+        const lambda = (lng - centralMeridian) * d2r;
+        const N = a / Math.sqrt(1 - e * e * Math.sin(phi) * Math.sin(phi));
+        const T = Math.tan(phi) * Math.tan(phi);
+        const C = e2 * Math.cos(phi) * Math.cos(phi);
+        const A = Math.cos(phi) * lambda;
+        const M = a * ((1 - e*e/4 - 3*e*e*e*e/64) * phi - (3*e*e/8 + 3*e*e*e*e/32) * Math.sin(2*phi) + (15*e*e*e*e/256) * Math.sin(4*phi));
+
+        const easting = 500000 + 0.9996 * N * (A + (1-T+C)*A*A*A/6 + (5-18*T+T*T)*A*A*A*A*A/120);
+        const northing = falseNorthing + 0.9996 * (M + N * Math.tan(phi) * (A*A/2 + (5-T+9*C+4*C*C)*A*A*A*A/24));
+        return [easting, northing];
+      };
+
+      // Convert all zone coordinates to UTM
+      for (const z of zones) {
+        z.coords = z.coords.map(([lng, lat]) => toUTM(lng, lat));
+      }
+    } else {
+      prj = 'GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]]';
+    }
 
     // 2. .dbf - dBASE III fields: DOSE (N,10,1), PRODUCT (N,10,0), ZONE (N,5,0)
     const dbfFields = [
@@ -1026,17 +1142,28 @@ class InterpolationEngine {
     const shx = new ArrayBuffer(shxFileLen * 2);
     const shxView = new DataView(shx);
 
+    // Compute actual bounding box from zone coordinates
+    let bbMinX = Infinity, bbMinY = Infinity, bbMaxX = -Infinity, bbMaxY = -Infinity;
+    for (const z of zones) {
+      for (const [x, y] of z.coords) {
+        if (x < bbMinX) bbMinX = x;
+        if (y < bbMinY) bbMinY = y;
+        if (x > bbMaxX) bbMaxX = x;
+        if (y > bbMaxY) bbMaxY = y;
+      }
+    }
+
     // SHP/SHX headers
     const writeShpHeader = (view, fileLen) => {
       view.setInt32(0, 9994); // file code (big-endian)
       view.setInt32(24, fileLen); // file length in 16-bit words (big-endian)
       view.setInt32(28, 1000, true); // version
       view.setInt32(32, 5, true); // shape type: Polygon
-      // Bounding box
-      view.setFloat64(36, bounds.minLng, true);
-      view.setFloat64(44, bounds.minLat, true);
-      view.setFloat64(52, bounds.maxLng, true);
-      view.setFloat64(60, bounds.maxLat, true);
+      // Bounding box (adapts to CRS: WGS84 or UTM)
+      view.setFloat64(36, bbMinX, true);
+      view.setFloat64(44, bbMinY, true);
+      view.setFloat64(52, bbMaxX, true);
+      view.setFloat64(60, bbMaxY, true);
     };
     writeShpHeader(shpView, shpFileLen);
     writeShpHeader(shxView, shxFileLen);

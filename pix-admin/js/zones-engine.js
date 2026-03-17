@@ -91,7 +91,9 @@ class ZonesEngine {
     2: ['Baja', 'Alta'],
     3: ['Baja', 'Media', 'Alta'],
     4: ['Baja', 'Media-Baja', 'Media-Alta', 'Alta'],
-    5: ['Baja', 'Media-Baja', 'Media', 'Media-Alta', 'Alta']
+    5: ['Baja', 'Media-Baja', 'Media', 'Media-Alta', 'Alta'],
+    6: ['Muy Baja', 'Baja', 'Media-Baja', 'Media-Alta', 'Alta', 'Muy Alta'],
+    7: ['Muy Baja', 'Baja', 'Media-Baja', 'Media', 'Media-Alta', 'Alta', 'Muy Alta']
   };
 
   // ==================== PRIMARY PIPELINE: SATELLITE + TOPOGRAPHY ====================
@@ -136,12 +138,13 @@ class ZonesEngine {
 
     const w = customWeights || this.COMPOSITE_WEIGHTS;
 
-    // --- Determine zone count from area ---
+    // --- Determine zone count ---
+    // User can set numZones directly (2-7) or let it auto-calculate from area
     let numZones = config.numZones;
     if (!numZones) {
       numZones = this._zoneCountByArea(areaHa);
     }
-    numZones = Math.max(2, Math.min(numZones, 5));
+    numZones = Math.max(2, Math.min(numZones, 7));
 
     const { ndviCampaigns, ndreCampaigns, eviCampaigns, dem, cellSize } = satelliteData;
     const rows = dem.length;
@@ -203,7 +206,12 @@ class ZonesEngine {
       }
     }
 
-    // --- Step 6: Classify zones using percentiles ---
+    // --- Step 6: Classify zones ---
+    // Two methods (DataFarm methodology):
+    //   usePercentiles=true  (default): equal-area zones via percentile cuts
+    //   usePercentiles=false: equal-interval zones via direct value thresholds
+    const usePercentiles = config.usePercentiles !== false; // default true
+
     const flatScores = [];
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
@@ -212,7 +220,13 @@ class ZonesEngine {
     }
     flatScores.sort((a, b) => a - b);
 
-    const cuts = this._percentileCuts(flatScores, numZones);
+    let cuts;
+    if (usePercentiles) {
+      cuts = this._percentileCuts(flatScores, numZones);
+    } else {
+      // Direct classification: equal-interval breaks based on value range
+      cuts = this._equalIntervalCuts(flatScores, numZones);
+    }
 
     const zoneGrid = Array.from({ length: rows }, () => new Array(cols).fill(0));
     for (let r = 0; r < rows; r++) {
@@ -455,6 +469,27 @@ class ZonesEngine {
       const p = z / numZones; // e.g. for 4 zones: 0.25, 0.50, 0.75
       const idx = Math.max(0, Math.min(Math.floor(p * n), n - 1));
       cuts.push(sortedValues[idx]);
+    }
+    return cuts;
+  }
+
+  /**
+   * Compute equal-interval cuts for direct zone classification (DataFarm method).
+   * Divides value range into equal-width intervals instead of equal-area percentiles.
+   * @param {number[]} sortedValues - Pre-sorted array of values
+   * @param {number} numZones
+   * @returns {number[]} Cut point values
+   */
+  static _equalIntervalCuts(sortedValues, numZones) {
+    if (sortedValues.length === 0) return [];
+    const minVal = sortedValues[0];
+    const maxVal = sortedValues[sortedValues.length - 1];
+    const range = maxVal - minVal;
+    if (range <= 0) return new Array(numZones - 1).fill(minVal);
+
+    const cuts = [];
+    for (let z = 1; z < numZones; z++) {
+      cuts.push(minVal + (z / numZones) * range);
     }
     return cuts;
   }
@@ -2852,40 +2887,91 @@ class ZonesEngine {
    * @param {number} numZones - Number of zones
    * @returns {{ prescriptionGrid: number[][], dosesPerZone: number[], totalDose: number, unit: string }}
    */
-  static zonesToPrescription(zoneGrid, stats, cropId, nutrient, numZones) {
+  /**
+   * Generate a prescription map from management zones with DataFarm-style dose calculation.
+   * Uses crop extraction rates, yield profiles, soil classification, and response curves.
+   *
+   * @param {number[][]} zoneGrid - Zone assignment grid (0-indexed)
+   * @param {Array<Object>} stats - Zone statistics (with .mean property)
+   * @param {string} cropId - Crop identifier from CROPS_DB
+   * @param {string} nutrient - Soil nutrient (e.g. 'P', 'K', 'Ca', 'Mg', 'S')
+   * @param {number} numZones - Number of zones
+   * @param {Object} [options] - Additional options
+   * @param {number} [options.yieldTarget] - Yield target (defaults to crop.defaultYield)
+   * @param {string} [options.managementType='normal'] - 'corrective'|'normal'|'maintenance'
+   * @returns {{ prescriptionGrid, dosesPerZone, totalDose, unit, warnings }}
+   */
+  static zonesToPrescription(zoneGrid, stats, cropId, nutrient, numZones, options = {}) {
     const rows = zoneGrid.length;
     const cols = zoneGrid[0].length;
+    const warnings = [];
 
     // Look up crop requirements from CROPS_DB
     const cropDef = typeof CROPS_DB !== 'undefined' ? CROPS_DB[cropId] : null;
-    let targetLevel = null;
-    let unit = 'kg/ha';
+    const unit = 'kg/ha';
 
-    if (cropDef && cropDef.nutrientTargets && cropDef.nutrientTargets[nutrient]) {
-      targetLevel = cropDef.nutrientTargets[nutrient];
-      unit = cropDef.nutrientUnit || 'kg/ha';
+    // Nutrient key mapping (soil key → fertilizer key)
+    const nutrientToFert = { 'P': 'P2O5', 'K': 'K2O' };
+    const fertKey = nutrientToFert[nutrient] || nutrient;
+
+    // Yield-adjusted extraction
+    const yieldTarget = options.yieldTarget || (cropDef ? cropDef.defaultYield : 1);
+    let extractionMult = 1.0, efficiencyMult = 1.0;
+    if (cropDef && typeof InterpretationEngine !== 'undefined' && InterpretationEngine.getYieldProfile) {
+      const profile = InterpretationEngine.getYieldProfile(cropDef, yieldTarget);
+      extractionMult = profile.extractionMult;
+      efficiencyMult = profile.efficiencyMult;
     }
 
-    // Calculate dose per zone: inversely proportional to current level
+    const baseExtraction = cropDef ? (cropDef.extraction[fertKey] || 0) : 0;
+    const totalExtraction = baseExtraction * extractionMult * yieldTarget;
+    const baseEfficiency = cropDef ? (cropDef.efficiency[fertKey] || 0.50) : 0.50;
+    const efficiency = Math.max(0.10, Math.min(0.95, baseEfficiency * efficiencyMult));
+
+    // Management type multiplier (DataFarm methodology)
+    const mgmtType = options.managementType || 'normal';
+    const mgmtMult = { corrective: 1.3, normal: 1.0, maintenance: 0.7 }[mgmtType] || 1.0;
+
+    // Supply factors by soil classification
+    const supplyFactors = { mb: 0.0, b: 0.15, m: 0.40, a: 0.70, ma: 1.0 };
+
+    // Dose safety limits
+    const safetyMax = { N: 200, P2O5: 250, K2O: 200, Ca: 3000, Mg: 500, S: 80 }[fertKey] || 500;
+
+    // Calculate dose per zone using soil class response curve
     const dosesPerZone = new Array(numZones).fill(0);
     let totalDose = 0;
     let totalPixels = 0;
 
     for (let z = 0; z < numZones; z++) {
       const zoneStat = stats[z];
-      if (!zoneStat || zoneStat.pixelCount === 0) continue;
+      if (!zoneStat || (zoneStat.pixelCount || 0) === 0) continue;
 
-      if (targetLevel !== null) {
-        // Dose = max(0, targetLevel - current mean)
-        dosesPerZone[z] = Math.max(0, Math.round((targetLevel - zoneStat.mean) * 100) / 100);
+      if (cropDef && totalExtraction > 0) {
+        // Classify zone mean value to get supply factor
+        const cls = typeof InterpretationEngine !== 'undefined'
+          ? InterpretationEngine.classifySoil(nutrient, zoneStat.mean || 0, cropId)
+          : { class: 'm' };
+
+        const supplyFactor = supplyFactors[cls.class] !== undefined ? supplyFactors[cls.class] : 0.3;
+        const soilSupply = totalExtraction * supplyFactor;
+        const netNeed = Math.max(0, totalExtraction - soilSupply);
+        let dose = (netNeed / efficiency) * mgmtMult;
+        dose = Math.max(0, Math.min(safetyMax, dose));
+        dosesPerZone[z] = Math.round(dose * 10) / 10;
       } else {
-        // Fallback: use inverse ranking (low zone = high dose)
+        // Fallback: inverse ranking (low zone = high dose, scaled 0-100)
         const rank = z / Math.max(numZones - 1, 1);
         dosesPerZone[z] = Math.round((1 - rank) * 100) / 100;
       }
 
-      totalDose += dosesPerZone[z] * zoneStat.pixelCount;
-      totalPixels += zoneStat.pixelCount;
+      totalDose += dosesPerZone[z] * (zoneStat.pixelCount || 1);
+      totalPixels += (zoneStat.pixelCount || 1);
+    }
+
+    // Warn if any zone hits safety cap
+    if (dosesPerZone.some(d => d >= safetyMax * 0.99)) {
+      warnings.push(`Dosis alcanzó límite de seguridad (${safetyMax} kg/ha ${fertKey}). Verificar con agrónomo.`);
     }
 
     // Build prescription grid
@@ -2900,7 +2986,10 @@ class ZonesEngine {
       prescriptionGrid,
       dosesPerZone,
       totalDose: totalPixels > 0 ? Math.round(totalDose / totalPixels * 100) / 100 : 0,
-      unit
+      unit,
+      managementType: mgmtType,
+      yieldTarget,
+      warnings
     };
   }
 
@@ -2948,7 +3037,7 @@ class ZonesEngine {
       errors.push('Se requieren limites geograficos (bounds)');
     }
 
-    if (!config.numZones || config.numZones < 2 || config.numZones > 7) {
+    if (config.numZones !== undefined && (config.numZones < 2 || config.numZones > 7)) {
       errors.push('numZones debe estar entre 2 y 7');
     }
 

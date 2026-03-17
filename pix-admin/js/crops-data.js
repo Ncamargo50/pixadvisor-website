@@ -8,6 +8,14 @@ const CROPS_DB = {
   cana: {
     id: 'cana', name: 'Caña de azúcar', scientific: 'Saccharum officinarum',
     yieldUnit: 't caña/ha', yieldRange: [40, 200], defaultYield: 100,
+    // Yield profiles: extraction multiplier & efficiency adjustment by yield tier
+    // At higher yields, extraction per ton may increase (luxury consumption) and efficiency may decrease
+    yieldProfiles: [
+      { label: 'Bajo (<60 t/ha)',      range: [40, 60],   extractionMult: 0.90, efficiencyMult: 1.10 },
+      { label: 'Medio (60-100 t/ha)',   range: [60, 100],  extractionMult: 1.00, efficiencyMult: 1.00 },
+      { label: 'Alto (100-140 t/ha)',   range: [100, 140], extractionMult: 1.05, efficiencyMult: 0.95 },
+      { label: 'Muy alto (>140 t/ha)',  range: [140, 200], extractionMult: 1.12, efficiencyMult: 0.90 }
+    ],
     soil: {
       pH_H2O:  { mb: [0,5.0], b: [5.0,5.5], m: [5.5,6.0], a: [6.0,6.5], ma: [6.5,14] },
       MO:      { mb: [0,10], b: [10,20], m: [20,30], a: [30,50], ma: [50,999] }, // g/dm³
@@ -53,6 +61,12 @@ const CROPS_DB = {
   soja: {
     id: 'soja', name: 'Soja', scientific: 'Glycine max',
     yieldUnit: 't/ha', yieldRange: [1.5, 5.0], defaultYield: 3.0,
+    yieldProfiles: [
+      { label: 'Bajo (<2.0 t/ha)',     range: [1.5, 2.0], extractionMult: 0.92, efficiencyMult: 1.10 },
+      { label: 'Medio (2.0-3.5 t/ha)', range: [2.0, 3.5], extractionMult: 1.00, efficiencyMult: 1.00 },
+      { label: 'Alto (3.5-4.5 t/ha)',  range: [3.5, 4.5], extractionMult: 1.08, efficiencyMult: 0.93 },
+      { label: 'Muy alto (>4.5 t/ha)', range: [4.5, 5.0], extractionMult: 1.15, efficiencyMult: 0.85 }
+    ],
     soil: {
       pH_H2O:  { mb: [0,5.0], b: [5.0,5.5], m: [5.5,6.0], a: [6.0,6.5], ma: [6.5,14] },
       MO:      { mb: [0,10], b: [10,20], m: [20,30], a: [30,50], ma: [50,999] },
@@ -94,6 +108,12 @@ const CROPS_DB = {
   maiz: {
     id: 'maiz', name: 'Maíz', scientific: 'Zea mays',
     yieldUnit: 't/ha', yieldRange: [3, 14], defaultYield: 8,
+    yieldProfiles: [
+      { label: 'Bajo (<5 t/ha)',      range: [3, 5],   extractionMult: 0.90, efficiencyMult: 1.10 },
+      { label: 'Medio (5-8 t/ha)',    range: [5, 8],   extractionMult: 1.00, efficiencyMult: 1.00 },
+      { label: 'Alto (8-11 t/ha)',    range: [8, 11],  extractionMult: 1.08, efficiencyMult: 0.93 },
+      { label: 'Muy alto (>11 t/ha)', range: [11, 14], extractionMult: 1.15, efficiencyMult: 0.88 }
+    ],
     soil: {
       pH_H2O:  { mb: [0,5.0], b: [5.0,5.5], m: [5.5,6.0], a: [6.0,6.5], ma: [6.5,14] },
       MO:      { mb: [0,10], b: [10,20], m: [20,30], a: [30,50], ma: [50,999] },
@@ -134,6 +154,12 @@ const CROPS_DB = {
   sorgo: {
     id: 'sorgo', name: 'Sorgo granífero', scientific: 'Sorghum bicolor',
     yieldUnit: 't/ha', yieldRange: [2, 10], defaultYield: 5,
+    yieldProfiles: [
+      { label: 'Bajo (<3 t/ha)',     range: [2, 3],  extractionMult: 0.90, efficiencyMult: 1.10 },
+      { label: 'Medio (3-6 t/ha)',   range: [3, 6],  extractionMult: 1.00, efficiencyMult: 1.00 },
+      { label: 'Alto (6-8 t/ha)',    range: [6, 8],  extractionMult: 1.08, efficiencyMult: 0.93 },
+      { label: 'Muy alto (>8 t/ha)', range: [8, 10], extractionMult: 1.15, efficiencyMult: 0.88 }
+    ],
     soil: {
       pH_H2O:  { mb: [0,5.0], b: [5.0,5.5], m: [5.5,6.0], a: [6.0,6.5], ma: [6.5,14] },
       MO:      { mb: [0,10], b: [10,20], m: [20,30], a: [30,50], ma: [50,999] },
@@ -174,6 +200,12 @@ const CROPS_DB = {
   girasol: {
     id: 'girasol', name: 'Girasol', scientific: 'Helianthus annuus',
     yieldUnit: 't/ha', yieldRange: [1.0, 3.5], defaultYield: 2.0,
+    yieldProfiles: [
+      { label: 'Bajo (<1.5 t/ha)',     range: [1.0, 1.5], extractionMult: 0.92, efficiencyMult: 1.10 },
+      { label: 'Medio (1.5-2.5 t/ha)', range: [1.5, 2.5], extractionMult: 1.00, efficiencyMult: 1.00 },
+      { label: 'Alto (2.5-3.0 t/ha)',  range: [2.5, 3.0], extractionMult: 1.08, efficiencyMult: 0.93 },
+      { label: 'Muy alto (>3.0 t/ha)', range: [3.0, 3.5], extractionMult: 1.15, efficiencyMult: 0.88 }
+    ],
     soil: {
       pH_H2O:  { mb: [0,5.0], b: [5.0,5.5], m: [5.5,6.0], a: [6.0,6.5], ma: [6.5,14] },
       MO:      { mb: [0,10], b: [10,20], m: [20,30], a: [30,50], ma: [50,999] },
@@ -215,6 +247,12 @@ const CROPS_DB = {
   chia: {
     id: 'chia', name: 'Chía', scientific: 'Salvia hispanica',
     yieldUnit: 't/ha', yieldRange: [0.5, 2.0], defaultYield: 1.0,
+    yieldProfiles: [
+      { label: 'Bajo (<0.7 t/ha)',     range: [0.5, 0.7], extractionMult: 0.92, efficiencyMult: 1.10 },
+      { label: 'Medio (0.7-1.2 t/ha)', range: [0.7, 1.2], extractionMult: 1.00, efficiencyMult: 1.00 },
+      { label: 'Alto (1.2-1.6 t/ha)',  range: [1.2, 1.6], extractionMult: 1.08, efficiencyMult: 0.93 },
+      { label: 'Muy alto (>1.6 t/ha)', range: [1.6, 2.0], extractionMult: 1.15, efficiencyMult: 0.88 }
+    ],
     soil: {
       pH_H2O:  { mb: [0,5.0], b: [5.0,5.5], m: [5.5,6.0], a: [6.0,7.0], ma: [7.0,14] },
       MO:      { mb: [0,10], b: [10,20], m: [20,30], a: [30,50], ma: [50,999] },
@@ -255,6 +293,12 @@ const CROPS_DB = {
   tomate: {
     id: 'tomate', name: 'Tomate', scientific: 'Solanum lycopersicum',
     yieldUnit: 't/ha', yieldRange: [30, 150], defaultYield: 80,
+    yieldProfiles: [
+      { label: 'Bajo (<50 t/ha)',      range: [30, 50],  extractionMult: 0.90, efficiencyMult: 1.10 },
+      { label: 'Medio (50-80 t/ha)',   range: [50, 80],  extractionMult: 1.00, efficiencyMult: 1.00 },
+      { label: 'Alto (80-120 t/ha)',   range: [80, 120], extractionMult: 1.08, efficiencyMult: 0.93 },
+      { label: 'Muy alto (>120 t/ha)', range: [120, 150], extractionMult: 1.15, efficiencyMult: 0.88 }
+    ],
     soil: {
       pH_H2O:  { mb: [0,5.0], b: [5.0,5.5], m: [5.5,6.0], a: [6.0,6.5], ma: [6.5,14] },
       MO:      { mb: [0,15], b: [15,25], m: [25,40], a: [40,60], ma: [60,999] },
@@ -295,6 +339,12 @@ const CROPS_DB = {
   pimenton: {
     id: 'pimenton', name: 'Pimentón / Ají', scientific: 'Capsicum annuum',
     yieldUnit: 't/ha', yieldRange: [15, 80], defaultYield: 40,
+    yieldProfiles: [
+      { label: 'Bajo (<25 t/ha)',     range: [15, 25], extractionMult: 0.90, efficiencyMult: 1.10 },
+      { label: 'Medio (25-45 t/ha)',  range: [25, 45], extractionMult: 1.00, efficiencyMult: 1.00 },
+      { label: 'Alto (45-65 t/ha)',   range: [45, 65], extractionMult: 1.08, efficiencyMult: 0.93 },
+      { label: 'Muy alto (>65 t/ha)', range: [65, 80], extractionMult: 1.15, efficiencyMult: 0.88 }
+    ],
     soil: {
       pH_H2O:  { mb: [0,5.0], b: [5.0,5.5], m: [5.5,6.0], a: [6.0,6.5], ma: [6.5,14] },
       MO:      { mb: [0,15], b: [15,25], m: [25,40], a: [40,60], ma: [60,999] },
@@ -335,6 +385,12 @@ const CROPS_DB = {
   papa: {
     id: 'papa', name: 'Papa', scientific: 'Solanum tuberosum',
     yieldUnit: 't/ha', yieldRange: [15, 60], defaultYield: 30,
+    yieldProfiles: [
+      { label: 'Bajo (<20 t/ha)',     range: [15, 20], extractionMult: 0.90, efficiencyMult: 1.10 },
+      { label: 'Medio (20-35 t/ha)',  range: [20, 35], extractionMult: 1.00, efficiencyMult: 1.00 },
+      { label: 'Alto (35-50 t/ha)',   range: [35, 50], extractionMult: 1.08, efficiencyMult: 0.93 },
+      { label: 'Muy alto (>50 t/ha)', range: [50, 60], extractionMult: 1.15, efficiencyMult: 0.88 }
+    ],
     soil: {
       pH_H2O:  { mb: [0,4.8], b: [4.8,5.3], m: [5.3,5.8], a: [5.8,6.3], ma: [6.3,14] },
       MO:      { mb: [0,15], b: [15,25], m: [25,40], a: [40,60], ma: [60,999] },
@@ -377,6 +433,12 @@ const CROPS_DB = {
     id: 'maracuya', name: 'Maracuyá', scientific: 'Passiflora edulis',
     yieldUnit: 't/ha', yieldRange: [10, 50], defaultYield: 25,
     perennial: true, spacing: '3x3m', plantsPerHa: 1111,
+    yieldProfiles: [
+      { label: 'Bajo (<15 t/ha)',     range: [10, 15], extractionMult: 0.90, efficiencyMult: 1.10 },
+      { label: 'Medio (15-30 t/ha)',  range: [15, 30], extractionMult: 1.00, efficiencyMult: 1.00 },
+      { label: 'Alto (30-40 t/ha)',   range: [30, 40], extractionMult: 1.10, efficiencyMult: 0.92 },
+      { label: 'Muy alto (>40 t/ha)', range: [40, 50], extractionMult: 1.18, efficiencyMult: 0.85 }
+    ],
     soil: {
       pH_H2O:  { mb: [0,5.0], b: [5.0,5.5], m: [5.5,6.0], a: [6.0,6.5], ma: [6.5,14] },
       MO:      { mb: [0,15], b: [15,25], m: [25,40], a: [40,60], ma: [60,999] },
@@ -419,6 +481,12 @@ const CROPS_DB = {
     id: 'palta', name: 'Palta / Aguacate', scientific: 'Persea americana',
     yieldUnit: 't/ha', yieldRange: [5, 25], defaultYield: 12,
     perennial: true, spacing: '7x7m', plantsPerHa: 204,
+    yieldProfiles: [
+      { label: 'Bajo (<8 t/ha)',      range: [5, 8],   extractionMult: 0.90, efficiencyMult: 1.10 },
+      { label: 'Medio (8-15 t/ha)',   range: [8, 15],  extractionMult: 1.00, efficiencyMult: 1.00 },
+      { label: 'Alto (15-20 t/ha)',   range: [15, 20], extractionMult: 1.10, efficiencyMult: 0.92 },
+      { label: 'Muy alto (>20 t/ha)', range: [20, 25], extractionMult: 1.18, efficiencyMult: 0.85 }
+    ],
     soil: {
       pH_H2O:  { mb: [0,5.0], b: [5.0,5.5], m: [5.5,6.0], a: [6.0,6.5], ma: [6.5,14] },
       MO:      { mb: [0,15], b: [15,25], m: [25,40], a: [40,60], ma: [60,999] },
