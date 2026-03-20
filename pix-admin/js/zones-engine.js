@@ -986,13 +986,23 @@ class ZonesEngine {
    * @param {number} k - Number of clusters
    * @returns {number[][]} Initial centroids
    */
-  static _kMeansPPInit(data, k) {
+  // Mulberry32 seeded PRNG for reproducible results
+  static _seededRandom(seed = 42) {
+    let t = seed + 0x6D2B79F5;
+    return function() {
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  static _kMeansPPInit(data, k, rng) {
     const n = data.length;
     const dim = data[0].length;
     const centroids = [];
 
-    // First centroid: random
-    const firstIdx = Math.floor(Math.random() * n);
+    // First centroid: seeded random
+    const firstIdx = Math.floor(rng() * n);
     centroids.push([...data[firstIdx]]);
 
     // Distance from each point to nearest centroid
@@ -1008,8 +1018,8 @@ class ZonesEngine {
         totalDist += dists[i];
       }
 
-      // Weighted random selection
-      let threshold = Math.random() * totalDist;
+      // Weighted random selection (seeded)
+      let threshold = rng() * totalDist;
       let selected = 0;
       for (let i = 0; i < n; i++) {
         threshold -= dists[i];
@@ -1043,8 +1053,9 @@ class ZonesEngine {
       return { assignments, centroids: data.slice(0, k).map(d => [...d]), iterations: 0, wcss: 0 };
     }
 
-    // Initialize centroids with k-means++
-    let centroids = this._kMeansPPInit(data, k);
+    // Initialize centroids with k-means++ (seeded for reproducibility)
+    const rng = this._seededRandom(42);
+    let centroids = this._kMeansPPInit(data, k, rng);
     let assignments = new Array(n).fill(0);
     let iterations = 0;
     let changed = true;
@@ -1082,6 +1093,14 @@ class ZonesEngine {
       for (let c = 0; c < k; c++) {
         if (counts[c] > 0) {
           centroids[c] = Array.from(sums[c], v => v / counts[c]);
+        } else {
+          // Reinitialize empty cluster: assign to point farthest from its centroid
+          let maxDist = -1, maxIdx = 0;
+          for (let i = 0; i < n; i++) {
+            const d = this._distSq(data[i], centroids[assignments[i]]);
+            if (d > maxDist) { maxDist = d; maxIdx = i; }
+          }
+          centroids[c] = [...data[maxIdx]];
         }
       }
     }
@@ -1093,6 +1112,147 @@ class ZonesEngine {
     }
 
     return { assignments, centroids, iterations, wcss };
+  }
+
+  /**
+   * Fuzzy C-Means clustering with membership matrix.
+   * Produces soft zone boundaries with gradual transitions.
+   *
+   * @param {number[][]} data - Feature vectors
+   * @param {number} c - Number of clusters
+   * @param {number} [m=2] - Fuzziness exponent (>1, typically 2)
+   * @param {number} [maxIter=100] - Maximum iterations
+   * @param {number} [epsilon=1e-5] - Convergence threshold
+   * @returns {{ assignments: number[], centroids: number[][], membership: number[][], fpi: number, nce: number, iterations: number }}
+   */
+  static fuzzyCMeans(data, c, m = 2, maxIter = 100, epsilon = 1e-5) {
+    const n = data.length;
+    const dim = data[0].length;
+    const rng = this._seededRandom(42);
+
+    // Initialize membership matrix randomly, then normalize rows to sum=1
+    let U = Array.from({ length: n }, () => {
+      const row = Array.from({ length: c }, () => rng());
+      const sum = row.reduce((s, v) => s + v, 0);
+      return row.map(v => v / sum);
+    });
+
+    let centroids = Array.from({ length: c }, () => new Float64Array(dim));
+    let iterations = 0;
+
+    for (let iter = 0; iter < maxIter; iter++) {
+      iterations++;
+
+      // Update centroids: v_j = Σ(u_ij^m * x_i) / Σ(u_ij^m)
+      for (let j = 0; j < c; j++) {
+        const num = new Float64Array(dim);
+        let den = 0;
+        for (let i = 0; i < n; i++) {
+          const w = Math.pow(U[i][j], m);
+          den += w;
+          for (let d = 0; d < dim; d++) num[d] += w * data[i][d];
+        }
+        centroids[j] = den > 0 ? Array.from(num, v => v / den) : centroids[j];
+      }
+
+      // Update membership: u_ij = 1 / Σ_k (d_ij/d_ik)^(2/(m-1))
+      let maxDelta = 0;
+      const newU = Array.from({ length: n }, () => new Array(c).fill(0));
+      const exp = 2 / (m - 1);
+
+      for (let i = 0; i < n; i++) {
+        const dists = centroids.map(cen => {
+          const d = this._distSq(data[i], cen);
+          return d < 1e-12 ? 1e-12 : d;
+        });
+
+        for (let j = 0; j < c; j++) {
+          let sum = 0;
+          for (let k = 0; k < c; k++) {
+            sum += Math.pow(dists[j] / dists[k], exp);
+          }
+          newU[i][j] = 1 / sum;
+          const delta = Math.abs(newU[i][j] - U[i][j]);
+          if (delta > maxDelta) maxDelta = delta;
+        }
+      }
+
+      U = newU;
+      if (maxDelta < epsilon) break;
+    }
+
+    // Hard assignments from membership
+    const assignments = U.map(row => row.indexOf(Math.max(...row)));
+
+    // FPI (Fuzziness Performance Index): 1 - (1/n) * Σ Σ u_ij^2
+    // Lower = crisper partitions (optimal k minimizes FPI)
+    let sumSqU = 0;
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < c; j++) sumSqU += U[i][j] * U[i][j];
+    }
+    const fpi = 1 - (sumSqU / n);
+
+    // NCE (Normalized Classification Entropy): -(1/n) * Σ Σ u_ij * ln(u_ij)
+    // Lower = less uncertainty (optimal k minimizes NCE)
+    let entropy = 0;
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < c; j++) {
+        if (U[i][j] > 0) entropy -= U[i][j] * Math.log(U[i][j]);
+      }
+    }
+    const nce = entropy / n;
+
+    return { assignments, centroids, membership: U, fpi, nce, iterations };
+  }
+
+  /**
+   * Silhouette score for cluster quality validation.
+   * Range [-1, 1]: higher = better separated clusters.
+   *
+   * @param {number[][]} data - Feature vectors
+   * @param {number[]} assignments - Cluster assignment per point
+   * @returns {{ mean: number, perPoint: number[] }}
+   */
+  static silhouetteScore(data, assignments) {
+    const n = data.length;
+    const k = Math.max(...assignments) + 1;
+    const scores = new Float64Array(n);
+
+    for (let i = 0; i < n; i++) {
+      const ci = assignments[i];
+
+      // a(i) = mean distance to same-cluster points
+      let aSum = 0, aCount = 0;
+      for (let j = 0; j < n; j++) {
+        if (j !== i && assignments[j] === ci) {
+          aSum += Math.sqrt(this._distSq(data[i], data[j]));
+          aCount++;
+        }
+      }
+      const a = aCount > 0 ? aSum / aCount : 0;
+
+      // b(i) = min over other clusters of mean distance
+      let b = Infinity;
+      for (let c = 0; c < k; c++) {
+        if (c === ci) continue;
+        let bSum = 0, bCount = 0;
+        for (let j = 0; j < n; j++) {
+          if (assignments[j] === c) {
+            bSum += Math.sqrt(this._distSq(data[i], data[j]));
+            bCount++;
+          }
+        }
+        if (bCount > 0) {
+          const avg = bSum / bCount;
+          if (avg < b) b = avg;
+        }
+      }
+
+      scores[i] = Math.max(a, b) > 0 ? (b - a) / Math.max(a, b) : 0;
+    }
+
+    const mean = scores.reduce((s, v) => s + v, 0) / n;
+    return { mean, perPoint: Array.from(scores) };
   }
 
   // ==================== MULTI-VARIABLE CLUSTERING ====================
@@ -1255,7 +1415,7 @@ class ZonesEngine {
           const diff = campaignGrids[t][r][c] - mean;
           sumSqDiff += diff * diff;
         }
-        const std = Math.sqrt(sumSqDiff / numCampaigns);
+        const std = numCampaigns > 1 ? Math.sqrt(sumSqDiff / (numCampaigns - 1)) : 0;
         const cv = mean !== 0 ? (std / Math.abs(mean)) * 100 : 0;
 
         meanGrid[r][c] = mean;
@@ -1823,35 +1983,70 @@ class ZonesEngine {
     const features = [];
 
     for (let z = 0; z < numZones; z++) {
-      // Collect all cells belonging to this zone and create simplified rectangles
-      const cells = [];
+      // Collect all cells belonging to this zone
+      const mask = Array.from({ length: rows }, () => new Uint8Array(cols));
+      let cellCount = 0;
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           if (zoneGrid[r][c] === z) {
-            cells.push([r, c]);
+            mask[r][c] = 1;
+            cellCount++;
           }
         }
       }
 
-      if (cells.length === 0) continue;
+      if (cellCount === 0) continue;
 
-      // Create simplified polygon using convex hull of zone cells
-      const points = cells.map(([r, c]) => [
-        bounds.minLng + (c + 0.5) * lngStep,
-        bounds.maxLat - (r + 0.5) * latStep
-      ]);
+      // Grid-cell outline: collect all boundary edges between zone/non-zone cells
+      // Each edge is stored as a segment [x1,y1]->[x2,y2] in grid coords
+      const edges = [];
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (!mask[r][c]) continue;
+          // Top edge: if row above is out or different zone
+          if (r === 0 || !mask[r - 1][c]) edges.push([[c, r], [c + 1, r]]);
+          // Bottom edge
+          if (r === rows - 1 || !mask[r + 1][c]) edges.push([[c + 1, r + 1], [c, r + 1]]);
+          // Left edge
+          if (c === 0 || !mask[r][c - 1]) edges.push([[c, r + 1], [c, r]]);
+          // Right edge
+          if (c === cols - 1 || !mask[r][c + 1]) edges.push([[c + 1, r], [c + 1, r + 1]]);
+        }
+      }
 
-      const hull = this._convexHull(points);
+      if (edges.length < 3) continue;
 
-      if (hull.length < 3) continue;
+      // Chain edges into a ring (follow connected edges)
+      const edgeMap = new Map();
+      for (const [from, to] of edges) {
+        const key = `${from[0]},${from[1]}`;
+        edgeMap.set(key, to);
+      }
+
+      const ring = [];
+      const start = edges[0][0];
+      let current = start;
+      let safety = edges.length + 1;
+      do {
+        const key = `${current[0]},${current[1]}`;
+        // Convert grid coords to geographic coords
+        ring.push([
+          bounds.minLng + current[0] * lngStep,
+          bounds.maxLat - current[1] * latStep
+        ]);
+        const next = edgeMap.get(key);
+        if (!next) break;
+        edgeMap.delete(key);
+        current = next;
+      } while ((current[0] !== start[0] || current[1] !== start[1]) && --safety > 0);
 
       // Close the ring
-      const ring = [...hull, hull[0]];
+      ring.push(ring[0]);
 
       const properties = {
         zone: z + 1,
-        pixelCount: cells.length,
-        areaFraction: Math.round((cells.length / (rows * cols)) * 10000) / 100
+        pixelCount: cellCount,
+        areaFraction: Math.round((cellCount / (rows * cols)) * 10000) / 100
       };
 
       if (stats && stats[z]) {
@@ -3060,5 +3255,633 @@ class ZonesEngine {
     warnings.push('Se recomienda usar datos satelitales (satelliteData) en lugar de muestras de suelo para mejor precision');
 
     return { valid: errors.length === 0, errors, warnings };
+  }
+
+  // ==================== S4.4 — cLHS (CONDITIONED LATIN HYPERCUBE SAMPLING) ====================
+
+  /**
+   * Conditioned Latin Hypercube Sampling (cLHS).
+   *
+   * Selects a spatially and statistically representative subset of points such that
+   * the marginal distributions of all variables and their correlation structure match
+   * the full population as closely as possible.
+   *
+   * Algorithm (Minasny & McBratney 2006):
+   *   1. Randomly draw nSamples points as initial sample.
+   *   2. Repeatedly try swapping one sample point with one non-sample point.
+   *   3. Accept swaps that decrease the objective function.
+   *   4. Objective = marginal criterion + correlation criterion.
+   *
+   * Marginal criterion:
+   *   For each variable, partition the population into nSamples equal-frequency
+   *   quantile classes.  For each class, count how many sample points fall in it.
+   *   The ideal count is exactly 1.  Penalty = sum over all classes of |count - 1|.
+   *
+   * Correlation criterion:
+   *   Frobenius norm of (R_sample − R_population), where R is the Pearson
+   *   correlation matrix of the attribute columns.
+   *
+   * @param {Array<{lat: number, lng: number, [attr: string]: number}>} points
+   *   Full population of points.  Every point must share the same set of numeric
+   *   attributes beyond lat/lng (e.g. ndvi, elevation, clay).
+   * @param {number} nSamples - Number of points to select.
+   * @param {number} [maxIterations=10000] - Simulated-annealing-free iteration budget.
+   * @returns {{
+   *   samples: Array<{lat: number, lng: number, [attr: string]: number}>,
+   *   indices: number[],
+   *   finalObjective: number,
+   *   iterations: number
+   * }}
+   */
+  static cLHS(points, nSamples, maxIterations = 10000) {
+    const n = points.length;
+    if (nSamples >= n) {
+      return { samples: [...points], indices: points.map((_, i) => i), finalObjective: 0, iterations: 0 };
+    }
+    if (nSamples < 1) throw new Error('cLHS: nSamples must be >= 1');
+
+    // --- Extract attribute names (exclude spatial coords) ---
+    const attrs = Object.keys(points[0]).filter(k => k !== 'lat' && k !== 'lng');
+    const nAttr = attrs.length;
+    if (nAttr === 0) throw new Error('cLHS: points must have at least one numeric attribute');
+
+    // --- Build attribute matrix [n × nAttr] ---
+    // attrMatrix[i][j] = value of attr j for point i
+    const attrMatrix = points.map(p => attrs.map(a => p[a]));
+
+    // --- Pre-compute population quantile class boundaries ---
+    // For each variable, sort the population values and define nSamples equal-frequency bins.
+    // classOf[j][i] = which bin (0..nSamples-1) population point i falls in for attr j.
+    const classOf = [];
+    for (let j = 0; j < nAttr; j++) {
+      const sorted = attrMatrix.map((row, idx) => ({ v: row[j], idx }))
+                               .sort((a, b) => a.v - b.v);
+      const binAssign = new Int32Array(n);
+      sorted.forEach(({ idx }, rank) => {
+        binAssign[idx] = Math.min(Math.floor(rank * nSamples / n), nSamples - 1);
+      });
+      classOf.push(binAssign);
+    }
+
+    // --- Pre-compute population correlation matrix ---
+    const popCorr = this._correlationMatrix(attrMatrix, nAttr);
+
+    // --- Helper: compute objective for a given sample index set ---
+    // sampleSet: Set<number> of indices
+    const computeObjective = (sampleSet) => {
+      const sampleIdxArr = [...sampleSet];
+      const m = sampleIdxArr.length;
+
+      // Marginal criterion
+      let marginal = 0;
+      for (let j = 0; j < nAttr; j++) {
+        const binCount = new Int32Array(nSamples);
+        for (const i of sampleIdxArr) {
+          binCount[classOf[j][i]]++;
+        }
+        for (let b = 0; b < nSamples; b++) {
+          marginal += Math.abs(binCount[b] - 1);
+        }
+      }
+
+      // Correlation criterion — Frobenius norm of (R_sample - R_pop)
+      const sampMatrix = sampleIdxArr.map(i => attrMatrix[i]);
+      const sampCorr = this._correlationMatrix(sampMatrix, nAttr);
+      let corrObj = 0;
+      for (let a = 0; a < nAttr; a++) {
+        for (let b = 0; b < nAttr; b++) {
+          const diff = sampCorr[a][b] - popCorr[a][b];
+          corrObj += diff * diff;
+        }
+      }
+      corrObj = Math.sqrt(corrObj); // Frobenius norm
+
+      return marginal + corrObj;
+    };
+
+    // --- Initialize: random sample without replacement ---
+    const rng = this._seededRandom(12345);
+    const allIndices = Array.from({ length: n }, (_, i) => i);
+    // Fisher-Yates partial shuffle for initial sample
+    for (let i = 0; i < nSamples; i++) {
+      const j = i + Math.floor(rng() * (n - i));
+      [allIndices[i], allIndices[j]] = [allIndices[j], allIndices[i]];
+    }
+
+    const sampleSet = new Set(allIndices.slice(0, nSamples));
+    const nonSampleSet = new Set(allIndices.slice(nSamples));
+
+    let currentObj = computeObjective(sampleSet);
+    let iters = 0;
+
+    // --- Iterative improvement ---
+    const sampleArr = [...sampleSet];    // maintained in sync with sampleSet
+    const nonSampleArr = [...nonSampleSet];
+
+    for (let iter = 0; iter < maxIterations; iter++) {
+      iters = iter + 1;
+
+      // Pick one random sample point and one random non-sample point
+      const si = Math.floor(rng() * sampleArr.length);
+      const ni = Math.floor(rng() * nonSampleArr.length);
+      const swapOut = sampleArr[si];
+      const swapIn  = nonSampleArr[ni];
+
+      // Apply swap tentatively
+      sampleSet.delete(swapOut);
+      sampleSet.add(swapIn);
+
+      const newObj = computeObjective(sampleSet);
+
+      if (newObj < currentObj) {
+        // Accept swap: update arrays
+        currentObj = newObj;
+        sampleArr[si] = swapIn;
+        nonSampleArr[ni] = swapOut;
+      } else {
+        // Reject swap: revert the set
+        sampleSet.delete(swapIn);
+        sampleSet.add(swapOut);
+      }
+
+      if (currentObj === 0) break; // Perfect solution found
+    }
+
+    const finalIndices = [...sampleSet];
+    return {
+      samples: finalIndices.map(i => points[i]),
+      indices: finalIndices,
+      finalObjective: currentObj,
+      iterations: iters
+    };
+  }
+
+  /**
+   * Compute Pearson correlation matrix for a data matrix (rows=observations, cols=variables).
+   * Returns an nAttr × nAttr matrix of correlation coefficients.
+   * @param {number[][]} matrix
+   * @param {number} nAttr
+   * @returns {number[][]}
+   * @private
+   */
+  static _correlationMatrix(matrix, nAttr) {
+    const n = matrix.length;
+    const corr = Array.from({ length: nAttr }, () => new Float64Array(nAttr));
+
+    if (n < 2) {
+      // Can't compute correlation; return identity
+      for (let i = 0; i < nAttr; i++) corr[i][i] = 1;
+      return corr;
+    }
+
+    // Compute means
+    const means = new Float64Array(nAttr);
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < nAttr; j++) {
+        means[j] += matrix[i][j];
+      }
+    }
+    for (let j = 0; j < nAttr; j++) means[j] /= n;
+
+    // Compute standard deviations (population std)
+    const stds = new Float64Array(nAttr);
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < nAttr; j++) {
+        const d = matrix[i][j] - means[j];
+        stds[j] += d * d;
+      }
+    }
+    for (let j = 0; j < nAttr; j++) stds[j] = Math.sqrt(stds[j] / n);
+
+    // Compute correlations
+    for (let a = 0; a < nAttr; a++) {
+      corr[a][a] = 1;
+      for (let b = a + 1; b < nAttr; b++) {
+        if (stds[a] === 0 || stds[b] === 0) {
+          corr[a][b] = 0;
+          corr[b][a] = 0;
+          continue;
+        }
+        let cov = 0;
+        for (let i = 0; i < n; i++) {
+          cov += (matrix[i][a] - means[a]) * (matrix[i][b] - means[b]);
+        }
+        cov /= n;
+        const r = cov / (stds[a] * stds[b]);
+        corr[a][b] = r;
+        corr[b][a] = r;
+      }
+    }
+
+    return corr;
+  }
+
+  // ==================== S4.5 — ADAPTIVE PCA MULTI-TEMPORAL ====================
+
+  /**
+   * Adaptive PCA for multi-temporal campaign data.
+   *
+   * Builds a joint feature matrix across all campaigns, standardizes it,
+   * and extracts principal components (PCs) using the power iteration method.
+   * Returns all PCs that together explain ≥80 % of total variance, along with
+   * their loadings — ready to use as clustering input features.
+   *
+   * @param {Array<{points: Array<{lat: number, lng: number, values: Object}>}>} campaigns
+   *   Each campaign is an object with a `points` array.  Every point must expose a
+   *   `values` object whose keys are nutrient/index names.  All campaigns must
+   *   reference the same spatial points in the same order.
+   * @returns {{
+   *   scores: number[][],          // [nPoints × nComponents] — PC scores per point
+   *   loadings: number[][],        // [nComponents × nFeatures] — eigenvector loadings
+   *   explainedVariance: number[], // Fraction of total variance explained by each PC
+   *   cumulativeVariance: number[],// Cumulative explained variance
+   *   featureNames: string[],      // Column labels: "<nutrient>_campaign<i>"
+   *   nComponents: number          // Number of PCs retained (explain ≥80 % variance)
+   * }}
+   */
+  static adaptivePCA(campaigns) {
+    if (!campaigns || campaigns.length === 0) throw new Error('adaptivePCA: campaigns array is empty');
+
+    const nCampaigns = campaigns.length;
+    const nPoints = campaigns[0].points.length;
+
+    // Collect the union of nutrient keys across all campaigns
+    const nutrientSet = new Set();
+    for (const campaign of campaigns) {
+      for (const pt of campaign.points) {
+        Object.keys(pt.values).forEach(k => nutrientSet.add(k));
+      }
+    }
+    const nutrients = [...nutrientSet].sort();
+    const nNutrients = nutrients.length;
+
+    // Build feature names: "<nutrient>_campaign0", "<nutrient>_campaign1", ...
+    const featureNames = [];
+    for (let c = 0; c < nCampaigns; c++) {
+      for (const nut of nutrients) {
+        featureNames.push(`${nut}_campaign${c}`);
+      }
+    }
+    const nFeatures = featureNames.length; // nNutrients × nCampaigns
+
+    // --- Build raw data matrix [nPoints × nFeatures] ---
+    // Missing values are filled with column mean (computed in the standardization step)
+    const X = Array.from({ length: nPoints }, () => new Float64Array(nFeatures));
+    const missing = Array.from({ length: nPoints }, () => new Uint8Array(nFeatures)); // 1 = missing
+
+    for (let c = 0; c < nCampaigns; c++) {
+      const pts = campaigns[c].points;
+      for (let i = 0; i < nPoints; i++) {
+        const vals = pts[i] ? pts[i].values : {};
+        for (let ni = 0; ni < nNutrients; ni++) {
+          const colIdx = c * nNutrients + ni;
+          const v = vals[nutrients[ni]];
+          if (v === undefined || v === null || isNaN(v)) {
+            missing[i][colIdx] = 1;
+          } else {
+            X[i][colIdx] = v;
+          }
+        }
+      }
+    }
+
+    // --- Standardize columns (z-scores): subtract mean, divide by std ---
+    // Missing cells use the column mean (treated as 0 after centering)
+    const colMeans = new Float64Array(nFeatures);
+    const colStds  = new Float64Array(nFeatures);
+
+    for (let f = 0; f < nFeatures; f++) {
+      let sum = 0, count = 0;
+      for (let i = 0; i < nPoints; i++) {
+        if (!missing[i][f]) { sum += X[i][f]; count++; }
+      }
+      colMeans[f] = count > 0 ? sum / count : 0;
+    }
+
+    for (let f = 0; f < nFeatures; f++) {
+      let ss = 0, count = 0;
+      for (let i = 0; i < nPoints; i++) {
+        if (!missing[i][f]) {
+          const d = X[i][f] - colMeans[f];
+          ss += d * d;
+          count++;
+        }
+      }
+      colStds[f] = count > 1 ? Math.sqrt(ss / (count - 1)) : 1;
+      if (colStds[f] === 0) colStds[f] = 1; // Constant column — avoid divide-by-zero
+    }
+
+    // Apply standardization (missing → 0 after centering)
+    for (let i = 0; i < nPoints; i++) {
+      for (let f = 0; f < nFeatures; f++) {
+        X[i][f] = missing[i][f] ? 0 : (X[i][f] - colMeans[f]) / colStds[f];
+      }
+    }
+
+    // --- Compute covariance matrix C [nFeatures × nFeatures] ---
+    // C = (X^T × X) / (nPoints - 1)
+    const C = Array.from({ length: nFeatures }, () => new Float64Array(nFeatures));
+    const denom = Math.max(nPoints - 1, 1);
+    for (let i = 0; i < nPoints; i++) {
+      for (let a = 0; a < nFeatures; a++) {
+        for (let b = a; b < nFeatures; b++) {
+          C[a][b] += X[i][a] * X[i][b];
+        }
+      }
+    }
+    for (let a = 0; a < nFeatures; a++) {
+      for (let b = a; b < nFeatures; b++) {
+        C[a][b] /= denom;
+        C[b][a] = C[a][b];
+      }
+    }
+
+    // --- Power iteration to extract top-k eigenvectors ---
+    // We extract eigenvectors one by one using deflation (Gram-Schmidt).
+    // Stop when cumulative explained variance reaches ≥80 % or all features exhausted.
+    const totalVariance = (() => {
+      let s = 0;
+      for (let f = 0; f < nFeatures; f++) s += C[f][f]; // trace = sum of eigenvalues
+      return s > 0 ? s : 1;
+    })();
+
+    const maxComponents = Math.min(nFeatures, nPoints);
+    const eigenvalues  = [];
+    const eigenvectors = []; // each is Float64Array(nFeatures)
+
+    // Deflated copy of C for successive extractions
+    const Cd = C.map(row => Float64Array.from(row));
+
+    const powerIteration = (mat, maxIter = 500, tol = 1e-9) => {
+      // Initialize vector with small random values for stability
+      const rng = this._seededRandom(eigenvalues.length + 1);
+      const v = new Float64Array(nFeatures);
+      for (let f = 0; f < nFeatures; f++) v[f] = rng() - 0.5;
+      this._vecNormalize(v);
+
+      let eigenval = 0;
+      for (let iter = 0; iter < maxIter; iter++) {
+        // w = mat · v
+        const w = new Float64Array(nFeatures);
+        for (let a = 0; a < nFeatures; a++) {
+          for (let b = 0; b < nFeatures; b++) {
+            w[a] += mat[a][b] * v[b];
+          }
+        }
+        const newEigenval = this._vecDot(v, w);
+        this._vecNormalize(w);
+
+        // Convergence check
+        let diff = 0;
+        for (let f = 0; f < nFeatures; f++) diff += (w[f] - v[f]) ** 2;
+        for (let f = 0; f < nFeatures; f++) v[f] = w[f];
+
+        if (Math.abs(newEigenval - eigenval) < tol && iter > 5) { eigenval = newEigenval; break; }
+        eigenval = newEigenval;
+      }
+      return { eigenval: Math.max(eigenval, 0), eigenvec: v };
+    };
+
+    let cumVariance = 0;
+    for (let comp = 0; comp < maxComponents; comp++) {
+      const { eigenval, eigenvec } = powerIteration(Cd);
+      if (eigenval <= 0) break;
+
+      eigenvalues.push(eigenval);
+      eigenvectors.push(eigenvec);
+      cumVariance += eigenval / totalVariance;
+
+      // Deflate: Cd ← Cd - eigenval * (v ⊗ v)
+      for (let a = 0; a < nFeatures; a++) {
+        for (let b = 0; b < nFeatures; b++) {
+          Cd[a][b] -= eigenval * eigenvec[a] * eigenvec[b];
+        }
+      }
+
+      if (cumVariance >= 0.80) break;
+    }
+
+    const nComponents = eigenvectors.length;
+    const explainedVariance = eigenvalues.map(ev => ev / totalVariance);
+    const cumulativeVariance = [];
+    let runSum = 0;
+    for (const ev of explainedVariance) { runSum += ev; cumulativeVariance.push(runSum); }
+
+    // --- Project data onto PCs: scores = X × V ---
+    // scores[i][comp] = projection of point i onto component comp
+    const scores = Array.from({ length: nPoints }, () => new Float64Array(nComponents));
+    for (let i = 0; i < nPoints; i++) {
+      for (let comp = 0; comp < nComponents; comp++) {
+        let dot = 0;
+        for (let f = 0; f < nFeatures; f++) dot += X[i][f] * eigenvectors[comp][f];
+        scores[i][comp] = dot;
+      }
+    }
+
+    // Convert to plain arrays for JSON-friendliness
+    return {
+      scores:             scores.map(row => Array.from(row)),
+      loadings:           eigenvectors.map(ev => Array.from(ev)),
+      explainedVariance,
+      cumulativeVariance,
+      featureNames,
+      nComponents
+    };
+  }
+
+  /** Normalize a Float64Array in-place to unit length. @private */
+  static _vecNormalize(v) {
+    let norm = 0;
+    for (let i = 0; i < v.length; i++) norm += v[i] * v[i];
+    norm = Math.sqrt(norm);
+    if (norm === 0) return;
+    for (let i = 0; i < v.length; i++) v[i] /= norm;
+  }
+
+  /** Dot product of two Float64Arrays. @private */
+  static _vecDot(a, b) {
+    let s = 0;
+    for (let i = 0; i < a.length; i++) s += a[i] * b[i];
+    return s;
+  }
+
+  // ==================== S4.6 — SPATIALLY CONSTRAINED K-MEANS ====================
+
+  /**
+   * Spatially Constrained K-Means clustering.
+   *
+   * Produces spatially contiguous management zones by penalizing cluster assignments
+   * that differ from the majority label among a point's spatial neighbors.  Neighbors
+   * are determined by a k-nearest-neighbor graph (k=8) built from geographic coordinates.
+   *
+   * Modified objective (per point i, cluster c):
+   *   cost(i, c) = (1 - alpha) * attribute_distance(i, centroid_c)
+   *              + alpha       * spatial_penalty(i, c)
+   *
+   * Spatial penalty for point i assigned to cluster c:
+   *   fraction of i's neighbors that are NOT in cluster c.
+   *
+   * This replaces isolated mis-clustered pixels with the dominant local cluster,
+   * producing geographically compact, contiguous zones.
+   *
+   * @param {Array<{lat: number, lng: number, [attr: string]: number|number[]}>} points
+   *   Points with geographic coordinates and numeric attributes.
+   *   If a point has a `features` property (number[]) it is used directly as the
+   *   attribute vector; otherwise all numeric keys except lat/lng are used.
+   * @param {number} k - Number of clusters (management zones).
+   * @param {number} [alpha=0.5] - Balance between attribute homogeneity (0) and
+   *   spatial contiguity (1).  0.3–0.6 recommended for most applications.
+   * @returns {{
+   *   assignments: number[],   // Cluster index for each point
+   *   centroids: number[][],   // Final attribute centroids
+   *   iterations: number,
+   *   wcss: number,            // Within-cluster sum of squares (attribute only)
+   *   spatialPenalty: number   // Final spatial penalty term (sum)
+   * }}
+   */
+  static spatiallyConstrainedKMeans(points, k, alpha = 0.5) {
+    const n = points.length;
+    if (n < k) throw new Error('spatiallyConstrainedKMeans: fewer points than clusters');
+
+    // --- Build attribute feature vectors ---
+    // If point has a `features` array, use it; else collect all numeric non-spatial keys.
+    const attrKeys = points[0].features
+      ? null
+      : Object.keys(points[0]).filter(key => key !== 'lat' && key !== 'lng' && typeof points[0][key] === 'number');
+
+    const getFeature = (pt) => pt.features ? pt.features : attrKeys.map(k => pt[k]);
+    const data = points.map(pt => getFeature(pt));
+    const dim = data[0].length;
+
+    // --- Build spatial k-NN adjacency graph (k=8 nearest neighbors by Haversine) ---
+    const KNN = 8;
+    // neighbors[i] = array of up to KNN point indices closest to point i (geographically)
+    const neighbors = this._buildKNNGraph(points, KNN);
+
+    // --- Initialize centroids with k-means++ ---
+    const rng = this._seededRandom(99);
+    let centroids = this._kMeansPPInit(data, k, rng);
+    let assignments = new Int32Array(n).fill(0);
+    let iterations = 0;
+    const maxIter = 200;
+
+    // --- Main loop ---
+    let changed = true;
+    while (changed && iterations < maxIter) {
+      changed = false;
+      iterations++;
+
+      // ---- Assignment step ----
+      for (let i = 0; i < n; i++) {
+        let bestCluster = assignments[i];
+        let bestCost = Infinity;
+
+        for (let c = 0; c < k; c++) {
+          // Attribute distance (squared Euclidean, normalized by dim for scale independence)
+          let attrDist = 0;
+          for (let d = 0; d < dim; d++) {
+            const diff = data[i][d] - centroids[c][d];
+            attrDist += diff * diff;
+          }
+          attrDist /= (dim || 1);
+
+          // Spatial penalty: fraction of neighbors NOT in cluster c
+          const nbrs = neighbors[i];
+          let diffNeighbors = 0;
+          for (const ni of nbrs) {
+            if (assignments[ni] !== c) diffNeighbors++;
+          }
+          const spatialPen = nbrs.length > 0 ? diffNeighbors / nbrs.length : 0;
+
+          const cost = (1 - alpha) * attrDist + alpha * spatialPen;
+          if (cost < bestCost) {
+            bestCost = cost;
+            bestCluster = c;
+          }
+        }
+
+        if (assignments[i] !== bestCluster) {
+          assignments[i] = bestCluster;
+          changed = true;
+        }
+      }
+
+      // ---- Update step: recompute centroids ----
+      const sums   = Array.from({ length: k }, () => new Float64Array(dim));
+      const counts = new Int32Array(k);
+
+      for (let i = 0; i < n; i++) {
+        const c = assignments[i];
+        counts[c]++;
+        for (let d = 0; d < dim; d++) sums[c][d] += data[i][d];
+      }
+
+      for (let c = 0; c < k; c++) {
+        if (counts[c] > 0) {
+          centroids[c] = Array.from(sums[c], v => v / counts[c]);
+        } else {
+          // Reinitialize empty cluster to the farthest point from its current centroid
+          let maxD = -1, maxIdx = 0;
+          for (let i = 0; i < n; i++) {
+            const d = this._distSq(data[i], centroids[assignments[i]]);
+            if (d > maxD) { maxD = d; maxIdx = i; }
+          }
+          centroids[c] = [...data[maxIdx]];
+        }
+      }
+    }
+
+    // --- Compute final metrics ---
+    let wcss = 0;
+    let totalSpatialPenalty = 0;
+
+    for (let i = 0; i < n; i++) {
+      wcss += this._distSq(data[i], centroids[assignments[i]]);
+      const nbrs = neighbors[i];
+      let diffNbrs = 0;
+      for (const ni of nbrs) {
+        if (assignments[ni] !== assignments[i]) diffNbrs++;
+      }
+      totalSpatialPenalty += nbrs.length > 0 ? diffNbrs / nbrs.length : 0;
+    }
+
+    return {
+      assignments: Array.from(assignments),
+      centroids,
+      iterations,
+      wcss,
+      spatialPenalty: totalSpatialPenalty
+    };
+  }
+
+  /**
+   * Build a k-nearest-neighbor graph from geographic point coordinates.
+   * Uses squared Euclidean distance on (lat, lng) — suitable for small fields
+   * where the flat-earth approximation is accurate.
+   *
+   * @param {Array<{lat: number, lng: number}>} points
+   * @param {number} knn - Number of neighbors per point
+   * @returns {number[][]} neighbors[i] = array of knn nearest point indices
+   * @private
+   */
+  static _buildKNNGraph(points, knn) {
+    const n = points.length;
+    const neighbors = [];
+
+    for (let i = 0; i < n; i++) {
+      // Compute squared Euclidean distance from point i to all others
+      const dists = [];
+      for (let j = 0; j < n; j++) {
+        if (j === i) continue;
+        const dlat = points[j].lat - points[i].lat;
+        const dlng = points[j].lng - points[i].lng;
+        dists.push({ j, d2: dlat * dlat + dlng * dlng });
+      }
+      // Partial sort to get the knn nearest (full sort is fine for field-scale point counts)
+      dists.sort((a, b) => a.d2 - b.d2);
+      neighbors.push(dists.slice(0, knn).map(e => e.j));
+    }
+
+    return neighbors;
   }
 }

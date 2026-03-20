@@ -1,4 +1,4 @@
-// GPS Navigation Module for PIX Muestreo
+// GPS Navigation Module for PIX Muestreo v2.0
 class GPSNavigator {
   constructor() {
     this.watchId = null;
@@ -11,7 +11,7 @@ class GPSNavigator {
     this.accuracy = null;
 
     // Kalman filter state for position smoothing
-    this.kalman = { lat: null, lng: null, variance: 1, processNoise: 0.00001, initialized: false };
+    this.kalman = { lat: null, lng: null, variance: 1, processNoise: 0.0001, initialized: false };
 
     // GPS warm-up detection
     this.warmupReadings = [];
@@ -21,6 +21,50 @@ class GPSNavigator {
     // Position stabilization detection
     this.recentPositions = []; // last 10 positions
     this.isStabilized = false;
+
+    // Wake Lock for background GPS (prevents screen/CPU sleep)
+    this._wakeLock = null;
+    this._webLock = null;
+  }
+
+  // Request Wake Lock to keep GPS active with screen off
+  async requestWakeLock() {
+    // Screen Wake Lock API
+    if ('wakeLock' in navigator) {
+      try {
+        this._wakeLock = await navigator.wakeLock.request('screen');
+        this._wakeLock.addEventListener('release', () => {
+          console.log('[GPS] Wake lock released');
+          // Re-acquire on visibility change
+          if (this.isTracking) this._reacquireWakeLock();
+        });
+        console.log('[GPS] Wake lock acquired');
+      } catch (e) { console.log('[GPS] Wake lock failed:', e.message); }
+    }
+    // Web Locks API (keeps service worker alive)
+    if ('locks' in navigator) {
+      try {
+        navigator.locks.request('pix-gps-tracking', { mode: 'exclusive' }, () => {
+          return new Promise(resolve => { this._webLock = resolve; });
+        });
+        console.log('[GPS] Web lock acquired');
+      } catch (e) { console.log('[GPS] Web lock failed:', e.message); }
+    }
+  }
+
+  async _reacquireWakeLock() {
+    if (document.visibilityState === 'visible' && this.isTracking) {
+      try {
+        this._wakeLock = await navigator.wakeLock.request('screen');
+        console.log('[GPS] Wake lock re-acquired');
+      } catch (e) { /* silently fail */ }
+    }
+  }
+
+  releaseWakeLock() {
+    if (this._wakeLock) { try { this._wakeLock.release(); } catch(e){} this._wakeLock = null; }
+    if (this._webLock) { this._webLock(); this._webLock = null; }
+    console.log('[GPS] All locks released');
   }
 
   // Start watching position
@@ -30,6 +74,9 @@ class GPSNavigator {
     }
 
     this.onPositionUpdate = callback;
+
+    // Re-acquire wake lock when app comes back to foreground
+    document.addEventListener('visibilitychange', () => this._reacquireWakeLock());
 
     this.watchId = navigator.geolocation.watchPosition(
       pos => {
@@ -54,11 +101,14 @@ class GPSNavigator {
         };
         this.accuracy = pos.coords.accuracy;
 
-        // Check position stabilization
-        this._checkStabilization();
+        // Check position stabilization using RAW (unfiltered) positions
+        this._checkStabilization(pos.coords.latitude, pos.coords.longitude);
 
-        // Record track
+        // Record track (circular buffer, max 10000 positions to prevent memory growth)
         if (this.isTracking) {
+          if (this.trackPositions.length >= 10000) {
+            this.trackPositions.shift();
+          }
           this.trackPositions.push({
             lat: pos.coords.latitude,
             lng: pos.coords.longitude,
@@ -460,13 +510,13 @@ class GPSNavigator {
    * Verifica si la posición GPS se ha estabilizado.
    * Las últimas 5 posiciones deben estar dentro de 2m entre sí.
    */
-  _checkStabilization() {
-    if (!this.currentPosition) return;
+  _checkStabilization(rawLat, rawLng) {
+    if (rawLat == null || rawLng == null) return;
 
     this.recentPositions.push({
-      lat: this.currentPosition.lat,
-      lng: this.currentPosition.lng,
-      timestamp: this.currentPosition.timestamp
+      lat: rawLat,
+      lng: rawLng,
+      timestamp: Date.now()
     });
 
     // Mantener solo las últimas 10 posiciones

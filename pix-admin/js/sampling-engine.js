@@ -879,7 +879,22 @@ class SamplingEngine {
       '#DC2828', '#F58C32', '#FAD232', '#82C846', '#1E8C32', '#1E648C', '#503C96'
     ];
 
-    const layerGroup = L.layerGroup();
+    // Use marker clustering for large point sets (500+) to maintain performance.
+    // When clustering is active, labels (permanent tooltips) are suppressed because
+    // they create visual noise on clustered views and hurt rendering performance.
+    const useCluster = points.length >= 500 && typeof L.markerClusterGroup === 'function';
+    let layerGroup;
+
+    if (useCluster) {
+      layerGroup = L.markerClusterGroup({
+        maxClusterRadius: 40,
+        showCoverageOnHover: false,
+        zoomToBoundsOnClick: true,
+        disableClusteringAtZoom: 16
+      });
+    } else {
+      layerGroup = L.layerGroup();
+    }
 
     for (const pt of points) {
       const color = pt.zone ? (zoneColors[(pt.zone - 1) % zoneColors.length]) : '#2196F3';
@@ -907,7 +922,8 @@ class SamplingEngine {
         `</div>`;
       marker.bindPopup(popupContent);
 
-      if (showLabels) {
+      // Skip permanent labels when clustering — too many tooltips kill performance
+      if (showLabels && !useCluster) {
         marker.bindTooltip(pt.id, {
           permanent: true,
           direction: 'top',

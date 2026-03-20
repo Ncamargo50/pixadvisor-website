@@ -8,32 +8,40 @@
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="img/icon-192.png">
   <meta name="theme-color" content="#7FD633">
+  <meta name="description" content="PIX Admin - Dashboard GIS de agricultura de precisión. Análisis de suelo y foliar, interpolación espacial (IDW/Kriging), zonas de manejo y prescripción VRT.">
+  <meta property="og:title" content="PIX Admin - Pixadvisor Agricultura de Precisión">
+  <meta property="og:description" content="Dashboard GIS profesional para análisis de suelo, foliar, interpolación espacial y prescripción de tasa variable.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://pixadvisor.network/pix-admin/img/Logo.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="PIX Admin">
   <meta name="mobile-web-app-capable" content="yes">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
   <link rel="stylesheet" href="css/admin.css">
 </head>
 <body>
 
 <!-- ===== LOGIN SCREEN ===== -->
-<div id="loginScreen" class="login-overlay">
+<div id="loginScreen" class="login-overlay" role="dialog" aria-label="Inicio de sesión" aria-modal="true">
   <div class="login-card">
-    <img src="img/Logo.png" alt="Pixadvisor" class="login-logo">
+    <img src="img/Logo.png" alt="Pixadvisor - Agricultura de Precisión" class="login-logo">
     <h2>PIX Admin</h2>
     <p>Ingrese sus credenciales para acceder al panel de administración</p>
-    <form id="loginForm" onsubmit="return pixLogin(event)">
+    <!-- Nota: Autenticación local/demo. Los datos se almacenan solo en IndexedDB del navegador del usuario. -->
+    <form id="loginForm" onsubmit="return pixLogin(event)" aria-label="Formulario de inicio de sesión">
       <div class="login-field">
         <label for="loginUser">Usuario</label>
-        <input type="text" id="loginUser" placeholder="Usuario" autocomplete="username" required>
+        <input type="text" id="loginUser" placeholder="Usuario" autocomplete="username" required aria-required="true">
       </div>
       <div class="login-field">
         <label for="loginPass">Contraseña</label>
-        <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password" required>
+        <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password" required aria-required="true">
       </div>
-      <div id="loginError" class="login-error" style="display:none">Usuario o contraseña incorrectos</div>
+      <div id="loginError" class="login-error" style="display:none" role="alert" aria-live="assertive">Usuario o contraseña incorrectos</div>
       <button type="submit" class="login-btn">Ingresar</button>
     </form>
     <div class="login-footer">Pixadvisor — Agricultura de Precisión</div>
@@ -42,12 +50,12 @@
 
 <div class="app-layout" id="appLayout" style="display:none">
   <!-- ===== SIDEBAR ===== -->
-  <aside class="sidebar" id="sidebar">
+  <aside class="sidebar" id="sidebar" role="complementary" aria-label="Navegación principal">
     <div class="sidebar-brand">
       <img src="img/Logo.png" alt="Pixadvisor" class="sidebar-logo">
       <h2>PIX Admin<small>Agricultura de Precisión</small></h2>
     </div>
-    <nav class="sidebar-nav">
+    <nav class="sidebar-nav" aria-label="Menú del panel">
       <!-- Dashboard (direct link) -->
       <button class="nav-link active" data-view="dashboard" onclick="admin.showView('dashboard')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
@@ -144,6 +152,9 @@
           <svg class="nav-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
         </button>
         <div class="nav-group-items">
+          <button class="nav-sub-link" data-view="service-orders" onclick="admin.showView('service-orders')">
+            <span style="display:flex;align-items:center;gap:6px">Ordenes de Servicio<span class="nav-pro-badge" style="background:#7FD633;color:#000;font-size:9px;padding:1px 5px;border-radius:4px">NEW</span></span>
+          </button>
           <button class="nav-sub-link" data-view="samples" onclick="admin.showView('samples')">Muestras / Lab</button>
           <button class="nav-sub-link" data-view="manage-crops" onclick="admin.showView('manage-crops')">Cultivos</button>
           <button class="nav-sub-link" data-view="manage-clients" onclick="admin.showView('manage-clients')">Clientes</button>
@@ -173,7 +184,7 @@
   </aside>
 
   <!-- ===== MAIN ===== -->
-  <div class="main-area">
+  <main class="main-area" role="main">
     <header class="main-header">
       <button class="btn-secondary btn-sm" onclick="document.getElementById('sidebar').classList.toggle('open')" style="display:none" id="menuBtn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
@@ -183,7 +194,8 @@
         <div class="header-subtitle" id="headerSubtitle">Resumen general</div>
       </div>
       <div class="header-actions" style="display:flex;align-items:center;gap:12px">
-        <select class="form-input" id="globalCrop" onchange="admin.setCrop(this.value)" style="width:200px;padding:6px 10px;font-size:13px"></select>
+        <label for="globalCrop" class="sr-only">Seleccionar cultivo</label>
+        <select class="form-input" id="globalCrop" onchange="admin.setCrop(this.value)" style="width:200px;padding:6px 10px;font-size:13px" aria-label="Seleccionar cultivo"></select>
         <div id="yieldTargetControl"></div>
       </div>
     </header>
@@ -674,6 +686,52 @@
             </div>
           </div>
           <div id="samplesTable"></div>
+        </div>
+      </div>
+
+      <!-- ===== SERVICE ORDERS ===== -->
+      <div id="view-service-orders" class="view">
+        <div class="os-header-bar">
+          <div class="os-stats-row" id="osStatsRow">
+            <div class="os-stat"><span class="os-stat-value" id="osTotalCount">0</span><span class="os-stat-label">Total</span></div>
+            <div class="os-stat os-stat-pending"><span class="os-stat-value" id="osPendingCount">0</span><span class="os-stat-label">Pendientes</span></div>
+            <div class="os-stat os-stat-progress"><span class="os-stat-value" id="osProgressCount">0</span><span class="os-stat-label">En curso</span></div>
+            <div class="os-stat os-stat-done"><span class="os-stat-value" id="osDoneCount">0</span><span class="os-stat-label">Completadas</span></div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <select class="form-input" id="osFilterStatus" onchange="admin.filterOrders()" style="width:150px;padding:6px 10px;font-size:13px">
+              <option value="all">Todos los estados</option>
+              <option value="draft">Borrador</option>
+              <option value="pending">Pendiente</option>
+              <option value="in_progress">En curso</option>
+              <option value="completed">Completada</option>
+              <option value="cancelled">Cancelada</option>
+            </select>
+            <button class="btn btn-primary btn-sm" onclick="admin.createServiceOrder()">+ Nueva Orden</button>
+          </div>
+        </div>
+        <div id="osTableContainer"></div>
+      </div>
+
+      <!-- OS Creation/Edit Modal -->
+      <div class="modal-overlay" id="osModal">
+        <div class="modal-content os-modal-content">
+          <div class="modal-header">
+            <h3 id="osModalTitle">Nueva Orden de Servicio</h3>
+            <button class="btn-close" onclick="admin.closeOSModal()">&times;</button>
+          </div>
+          <div class="modal-body" id="osModalBody"></div>
+        </div>
+      </div>
+
+      <!-- OS Share Modal -->
+      <div class="modal-overlay" id="osShareModal">
+        <div class="modal-content" style="max-width:480px">
+          <div class="modal-header">
+            <h3>Compartir Orden de Servicio</h3>
+            <button class="btn-close" onclick="document.getElementById('osShareModal').classList.remove('active')">&times;</button>
+          </div>
+          <div class="modal-body" id="osShareBody"></div>
         </div>
       </div>
 
@@ -1555,7 +1613,7 @@
       </div>
 
     </div>
-  </div>
+  </main>
 </div>
 
 <script>
@@ -1591,26 +1649,38 @@ async function pixLogin(e) {
   const pass = document.getElementById('loginPass').value;
   const errEl = document.getElementById('loginError');
 
+  // Try IndexedDB multi-user auth first
+  if (typeof admin !== 'undefined' && admin._db) {
+    const dbUser = await admin.verifyAdminUser(user, pass);
+    if (dbUser) {
+      _completeLogin(user, errEl);
+      return false;
+    }
+  }
+
+  // Fallback: legacy SHA-256 hash comparison
   const userHash = await sha256(user);
   const passHash = await sha256(pass);
-
   if (PIX_USERS[userHash] && PIX_USERS[userHash] === passHash) {
-    sessionStorage.setItem('pix_auth', 'authenticated');
-    sessionStorage.setItem('pix_user', user);
-    document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('appLayout').style.display = '';
-    errEl.style.display = 'none';
-    // Update user display if exists
-    const ud = document.getElementById('sidebarUserName');
-    if (ud) ud.textContent = user.charAt(0).toUpperCase() + user.slice(1);
-    const av = document.getElementById('sidebarUserAvatar');
-    if (av) av.textContent = user.charAt(0).toUpperCase();
+    _completeLogin(user, errEl);
   } else {
     errEl.style.display = 'block';
     document.getElementById('loginPass').value = '';
     document.getElementById('loginPass').focus();
   }
   return false;
+}
+
+function _completeLogin(user, errEl) {
+  sessionStorage.setItem('pix_auth', 'authenticated');
+  sessionStorage.setItem('pix_user', user);
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('appLayout').style.display = '';
+  errEl.style.display = 'none';
+  const ud = document.getElementById('sidebarUserName');
+  if (ud) ud.textContent = user.charAt(0).toUpperCase() + user.slice(1);
+  const av = document.getElementById('sidebarUserAvatar');
+  if (av) av.textContent = user.charAt(0).toUpperCase();
 }
 
 function pixLogout() {
@@ -1623,7 +1693,9 @@ function pixLogout() {
 }
 </script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="js/utils.js"></script>
 <script src="js/crops-data.js"></script>
 <script src="js/engine.js"></script>
 <script src="js/interpolation.js"></script>
@@ -1634,6 +1706,12 @@ function pixLogout() {
 <script src="js/admin-app.js"></script>
 <script src="js/agent-admin.js"></script>
 <script>
+// Pre-fetch DRIS/IBRA norms so they are ready before any leaf analysis is requested.
+// The engine caches the result; concurrent calls are deduplicated automatically.
+InterpretationEngine.loadNorms('data/ibra-norms.json')
+  .then(() => console.log('DRIS/IBRA norms loaded'))
+  .catch(err => console.warn('Could not load DRIS/IBRA norms:', err));
+
 // Register PWA Service Worker
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').then(reg => {

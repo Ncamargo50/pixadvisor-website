@@ -3,6 +3,66 @@
 
 class InterpretationEngine {
 
+  // ==================== DRIS/IBRA NORM LOADING ====================
+
+  // Load DRIS/IBRA norms from external JSON file.
+  // Call once at app startup: await InterpretationEngine.loadNorms()
+  // Optional basePath defaults to 'data/ibra-norms.json' (relative to page).
+  // Returns the loaded norms object, or throws on fetch/parse failure.
+  static async loadNorms(basePath) {
+    // Return immediately if already loaded
+    if (InterpretationEngine._drisNorms) {
+      return InterpretationEngine._drisNorms;
+    }
+    // Deduplicate concurrent calls — return the same in-flight promise
+    if (InterpretationEngine._drisCachePromise) {
+      return InterpretationEngine._drisCachePromise;
+    }
+
+    const url = basePath || 'data/ibra-norms.json';
+    InterpretationEngine._drisCachePromise = fetch(url)
+      .then(res => {
+        if (!res.ok) throw new Error(`Failed to load ibra-norms.json: ${res.status} ${res.statusText}`);
+        return res.json();
+      })
+      .then(json => {
+        InterpretationEngine._drisNorms     = json.norms;
+        InterpretationEngine._drisNutrients = json.nutrients;
+        return json.norms;
+      })
+      .catch(err => {
+        // Clear the promise so a retry is possible
+        InterpretationEngine._drisCachePromise = null;
+        throw err;
+      });
+
+    return InterpretationEngine._drisCachePromise;
+  }
+
+  // Internal helper: return norms for a crop from the loaded cache.
+  // Falls back to the legacy global DRIS_NORMS if it exists (backwards compat).
+  static _getNormsForCrop(cropId) {
+    if (InterpretationEngine._drisNorms) {
+      return InterpretationEngine._drisNorms[cropId] || null;
+    }
+    // Legacy fallback: global variable from crops-data.js (if still present)
+    if (typeof DRIS_NORMS !== 'undefined') {
+      return DRIS_NORMS[cropId] || null;
+    }
+    return null;
+  }
+
+  // Internal helper: return the nutrient list from cache or legacy global.
+  static _getDrisNutrients() {
+    if (InterpretationEngine._drisNutrients) {
+      return InterpretationEngine._drisNutrients;
+    }
+    if (typeof DRIS_NUTRIENTS !== 'undefined') {
+      return DRIS_NUTRIENTS;
+    }
+    return ['N','P','K','Ca','Mg','S','B','Cu','Fe','Mn','Zn'];
+  }
+
   // ==================== UNIT CONVERSION ====================
 
   // Convert a value from user-selected units to internal units (mmolc/dm³, g/dm³, %)
@@ -789,15 +849,15 @@ class InterpretationEngine {
 
   // Calculate DRIS indices for leaf analysis
   static calculateDRIS(leafData, cropId) {
-    const norms = DRIS_NORMS[cropId];
+    const norms = this._getNormsForCrop(cropId);
     if (!norms) return { error: 'Sin normas DRIS para este cultivo', indices: {}, order: [] };
 
-    const nutrients = DRIS_NUTRIENTS.filter(n => leafData[n] !== undefined && leafData[n] !== null);
+    const nutrients = this._getDrisNutrients().filter(n => leafData[n] !== undefined && leafData[n] !== null);
     if (nutrients.length < 3) return { error: 'Se requieren al menos 3 nutrientes foliares', indices: {}, order: [] };
 
-    // Build all pairwise functions f(A/B)
-    // f(A/B) = [(A/B - a/b) / s] * (100/CV) when A/B > a/b
-    // f(A/B) = [(A/B - a/b) / s] * (100/CV) when A/B < a/b
+    // Build all pairwise functions f(A/B) — Jones (1981) asymmetric DRIS
+    // f(A/B) = ((A/B)/(a/b) - 1) * 1000/CV  when A/B > a/b
+    // f(A/B) = (1 - (a/b)/(A/B)) * 1000/CV  when A/B < a/b
     const functions = {};
 
     for (const [ratio, norm] of Object.entries(norms)) {
@@ -808,12 +868,19 @@ class InterpretationEngine {
       if (parseFloat(leafData[B]) === 0) continue;
 
       const observed = parseFloat(leafData[A]) / parseFloat(leafData[B]);
-      const cv = (norm.std / norm.mean) * 100;
-      // Beaufils (1973) function
-      const f = ((observed - norm.mean) / norm.std) * (1000 / cv);
+      if (observed === 0) continue;
+      const normRatio = norm.mean;
+      const cv = (norm.std / normRatio) * 100;
+      if (cv === 0) continue;
+      // Jones (1981) asymmetric function
+      let f;
+      if (observed > normRatio) {
+        f = ((observed / normRatio) - 1) * (1000 / cv);
+      } else {
+        f = (1 - (normRatio / observed)) * (1000 / cv);
+      }
 
-      if (!functions[ratio]) functions[ratio] = {};
-      functions[ratio] = { A, B, observed, norm_mean: norm.mean, norm_std: norm.std, f };
+      functions[ratio] = { A, B, observed, norm_mean: normRatio, norm_std: norm.std, f };
     }
 
     // Calculate index for each nutrient: I(A) = [Σf(A/B) - Σf(B/A)] / n
@@ -861,6 +928,79 @@ class InterpretationEngine {
     };
   }
 
+  // ==================== CND (Compositional Nutrient Diagnosis) ====================
+  // Parent & Dafir (1992) - Log-ratio approach, superior to DRIS for multi-nutrient
+
+  static calculateCND(leafData, cropId) {
+    const norms = this._getNormsForCrop(cropId);
+    if (!norms) return { error: 'Sin normas para este cultivo', indices: {}, order: [] };
+
+    const nutrients = this._getDrisNutrients().filter(n => leafData[n] !== undefined && leafData[n] !== null && parseFloat(leafData[n]) > 0);
+    if (nutrients.length < 3) return { error: 'Se requieren al menos 3 nutrientes foliares positivos', indices: {}, order: [] };
+
+    // Step 1: Geometric mean of all nutrient concentrations
+    const values = nutrients.map(n => parseFloat(leafData[n]));
+    const logSum = values.reduce((s, v) => s + Math.log(v), 0);
+    const gMean = Math.exp(logSum / nutrients.length);
+
+    // Step 2: Row-centered log-ratios (clr transform)
+    const clr = {};
+    for (let i = 0; i < nutrients.length; i++) {
+      clr[nutrients[i]] = Math.log(values[i] / gMean);
+    }
+
+    // Step 3: CND indices using norm mean/std of log-ratios
+    // Approximate from DRIS norms: use mean ratio norms to derive expected clr
+    const indices = {};
+    for (const n of nutrients) {
+      // Simple CND: standardize the clr value
+      // Use nutrient concentration norms if available, otherwise use ratio-derived
+      let normMean = 0;
+      let normStd = 1;
+      let count = 0;
+
+      for (const [ratio, norm] of Object.entries(norms)) {
+        const [A, B] = ratio.split('/');
+        if (A === n && nutrients.includes(B)) {
+          normMean += Math.log(norm.mean);
+          normStd = Math.max(normStd, norm.std / norm.mean);
+          count++;
+        } else if (B === n && nutrients.includes(A)) {
+          normMean -= Math.log(norm.mean);
+          count++;
+        }
+      }
+
+      if (count > 0) normMean /= count;
+      indices[n] = Math.round(((clr[n] - normMean) / normStd) * 10) / 10;
+    }
+
+    // CND r² (imbalance index, analogous to IBN)
+    const r2 = Object.values(indices).reduce((s, v) => s + v * v, 0);
+    const r2m = nutrients.length > 0 ? Math.round((r2 / nutrients.length) * 10) / 10 : 0;
+
+    const order = Object.entries(indices)
+      .map(([nutrient, index]) => {
+        let status = 'adecuado';
+        if (index < -10) status = 'deficiente';
+        else if (index < -5) status = 'limitante';
+        else if (index > 10) status = 'excesivo';
+        else if (index > 5) status = 'consumo lujoso';
+        return { nutrient, index, status };
+      })
+      .sort((a, b) => a.index - b.index);
+
+    return {
+      method: 'CND',
+      indices,
+      order,
+      r2: Math.round(r2 * 10) / 10,
+      r2m,
+      balanced: r2m < 20,
+      clrValues: clr
+    };
+  }
+
   // ==================== HELPERS ====================
 
   static _nutrientToSoilKey(nutrient) {
@@ -901,3 +1041,8 @@ class InterpretationEngine {
     }));
   }
 }
+
+// Static cache properties for DRIS/IBRA norms loaded from ibra-norms.json
+InterpretationEngine._drisNorms         = null; // { cropId: { 'N/P': { mean, std }, ... } }
+InterpretationEngine._drisNutrients     = null; // ['N','P','K','Ca','Mg','S','B','Cu','Fe','Mn','Zn']
+InterpretationEngine._drisCachePromise  = null; // In-flight fetch Promise (deduplicates concurrent calls)

@@ -109,14 +109,16 @@ class InterpolationEngine {
     if (options.autoSubsamples !== false && allPoints.length === points.length && allPoints.length >= 3) {
       const extraPts = [];
       const spreadM = options.subsampleSpread || 50; // ~50m spread
-      const spreadDeg = spreadM / 111320; // rough meters to degrees
+      const spreadDegLat = spreadM / 111320; // meters to degrees latitude
+      const avgLat = allPoints.reduce((s, p) => s + p.lat, 0) / allPoints.length;
+      const spreadDegLng = spreadM / (111320 * Math.cos(avgLat * Math.PI / 180)); // corrected for longitude
       const subWeight = 0.35;
       for (const pt of allPoints) {
         // 4 virtual sub-points at cardinal directions
-        extraPts.push({ lat: pt.lat + spreadDeg, lng: pt.lng, value: pt.value, weight: subWeight });
-        extraPts.push({ lat: pt.lat - spreadDeg, lng: pt.lng, value: pt.value, weight: subWeight });
-        extraPts.push({ lat: pt.lat, lng: pt.lng + spreadDeg, value: pt.value, weight: subWeight });
-        extraPts.push({ lat: pt.lat, lng: pt.lng - spreadDeg, value: pt.value, weight: subWeight });
+        extraPts.push({ lat: pt.lat + spreadDegLat, lng: pt.lng, value: pt.value, weight: subWeight });
+        extraPts.push({ lat: pt.lat - spreadDegLat, lng: pt.lng, value: pt.value, weight: subWeight });
+        extraPts.push({ lat: pt.lat, lng: pt.lng + spreadDegLng, value: pt.value, weight: subWeight });
+        extraPts.push({ lat: pt.lat, lng: pt.lng - spreadDegLng, value: pt.value, weight: subWeight });
       }
       allPoints = allPoints.concat(extraPts);
     }
@@ -177,6 +179,28 @@ class InterpolationEngine {
         points: points.length
       }
     };
+  }
+
+  /**
+   * Async IDW interpolation using a Web Worker to avoid blocking the main thread.
+   * @param {Array} points - Array of {lat, lng, value, weight?}
+   * @param {Object} bounds - {minLat, maxLat, minLng, maxLng}
+   * @param {Object} options - {resolution, power, smooth}
+   * @returns {Promise<{type: string, grid: number[][], stats: {min: number, max: number, mean: number}}>}
+   */
+  static async interpolateIDWAsync(points, bounds, options = {}) {
+    return new Promise((resolve, reject) => {
+      const worker = new Worker('js/workers/interpolation-worker.js');
+      worker.onmessage = (e) => {
+        worker.terminate();
+        resolve(e.data);
+      };
+      worker.onerror = (e) => {
+        worker.terminate();
+        reject(e);
+      };
+      worker.postMessage({ type: 'idw', points, bounds, options });
+    });
   }
 
   // 3x3 Gaussian kernel smooth
@@ -903,6 +927,15 @@ class InterpolationEngine {
     const ranges = options.cropId && CROPS_DB[options.cropId]?.soil?.[nutrient]
       ? CROPS_DB[options.cropId].soil[nutrient] : null;
 
+    // Use marker clustering for large point sets (500+) to maintain performance
+    const useCluster = points.length >= 500 && typeof L.markerClusterGroup === 'function';
+    const clusterGroup = useCluster ? L.markerClusterGroup({
+      maxClusterRadius: 40,
+      showCoverageOnHover: false,
+      zoomToBoundsOnClick: true,
+      disableClusteringAtZoom: 16
+    }) : null;
+
     for (const p of points) {
       let fillColor = '#fff';
       if (ranges) {
@@ -919,9 +952,22 @@ class InterpolationEngine {
       }).bindPopup(`
         <div style="text-align:center;font-weight:bold;font-size:14px">${p.value}</div>
         <div style="text-align:center;font-size:11px;color:#666">${nutrient} — Punto ${p.name || ''}</div>
-      `).addTo(map);
+      `);
+
+      if (useCluster) {
+        clusterGroup.addLayer(marker);
+      } else {
+        marker.addTo(map);
+      }
       markers.push(marker);
     }
+
+    if (useCluster) {
+      clusterGroup.addTo(map);
+      // Attach cluster group reference so callers can remove it via map.removeLayer()
+      markers._clusterGroup = clusterGroup;
+    }
+
     return markers;
   }
 
@@ -1131,7 +1177,7 @@ class InterpolationEngine {
     // 3. .shp + .shx — Polygon type (5)
     const numRings = 1;
     const ptsPerZone = 5; // closed polygon
-    const recordContentLen = (4 + 4*8 + 4 + 4 + 4*numRings + 4*2*ptsPerZone) / 2; // in 16-bit words
+    const recordContentLen = (4 + 4*8 + 4 + 4 + 4*numRings + 8*2*ptsPerZone) / 2; // in 16-bit words (Float64=8 bytes per coord)
     const shpRecordLen = recordContentLen + 4; // +4 for record header
 
     const shpFileLen = 50 + zones.length * (shpRecordLen + 4); // 50 = 100-byte header / 2
@@ -1679,5 +1725,281 @@ class InterpolationEngine {
     }
     const latPad = (maxLat-minLat)*0.1||0.001, lngPad = (maxLng-minLng)*0.1||0.001;
     return { minLat: minLat-latPad, maxLat: maxLat+latPad, minLng: minLng-lngPad, maxLng: maxLng+lngPad };
+  }
+
+  // ==================== ISO-XML EXPORT (ISOBUS ISO 11783 TaskData) ====================
+
+  /**
+   * Generate ISO 11783 TaskData XML for prescription maps.
+   * Compatible with ISOBUS-capable equipment (John Deere, CLAAS, Fendt, Amazone, etc.).
+   *
+   * @param {Array<{dose: number, zone: number|string, coords: Array<[number,number]>, product_kg: number}>} zones
+   *   Zone objects. Each `coords` entry is [lng, lat] forming a closed polygon ring.
+   * @param {Object} [metadata] - Additional metadata
+   * @param {string} [metadata.nutrient='N'] - Nutrient identifier (e.g. 'N', 'P2O5', 'K2O')
+   * @param {string} [metadata.cropId] - Crop identifier
+   * @param {string} [metadata.unit='kg/ha'] - Application rate unit
+   * @param {string} [metadata.taskName] - Custom task name
+   * @param {string} [metadata.fieldName] - Field/lot name
+   * @param {string} [metadata.clientName] - Customer/farm name
+   * @returns {string} Valid ISO 11783 TaskData XML string
+   */
+  static exportISOXML(zones, metadata = {}) {
+    if (!zones || zones.length === 0) return null;
+
+    const nutrient = metadata.nutrient || 'N';
+    const unit = metadata.unit || 'kg/ha';
+    const cropId = metadata.cropId || '';
+    const taskName = metadata.taskName || 'Prescripcion VRT';
+    const fieldName = metadata.fieldName || 'Campo';
+    const clientName = metadata.clientName || 'Pixadvisor';
+    const now = new Date();
+    const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
+
+    // XML-safe string escaping
+    const esc = (s) => String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+
+    // Compute dose statistics for DDI value range
+    const doses = zones.map(z => z.dose);
+    const minDose = Math.min(...doses);
+    const maxDose = Math.max(...doses);
+
+    // DDI (Data Dictionary Identifier) for application rate
+    // DDI 0006 = Setpoint Volume Per Area Application Rate (ml/m²)
+    // DDI 0001 = Setpoint Mass Per Area Application Rate (mg/m²)
+    // We use DDI 0001 for kg/ha → convert: 1 kg/ha = 100 mg/m²
+    const ddi = '0001';
+    const doseToISOValue = (doseKgHa) => Math.round(doseKgHa * 100); // kg/ha → mg/m²
+
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    xml += '<ISO11783_TaskData VersionMajor="4" VersionMinor="0" ManagementSoftwareManufacturer="Pixadvisor" ';
+    xml += 'ManagementSoftwareVersion="1.0" DataTransferOrigin="1">\n\n';
+
+    // Customer (CTR)
+    xml += `  <CTR A="CTR-1" B="${esc(clientName)}"/>\n\n`;
+
+    // Farm (FRM)
+    xml += `  <FRM A="FRM-1" B="${esc(clientName)}" I="CTR-1"/>\n\n`;
+
+    // Partfield / Field (PFD)
+    xml += `  <PFD A="PFD-1" C="${esc(fieldName)}" F="FRM-1">\n`;
+
+    // Field boundary polygon (PLN) — use convex hull of all zone coords
+    const allCoords = [];
+    for (const z of zones) {
+      for (const c of z.coords) {
+        allCoords.push(c);
+      }
+    }
+    if (allCoords.length > 0) {
+      // Compute bounding polygon from all zone coordinates (convex hull approximation via bbox)
+      let bMinLng = Infinity, bMinLat = Infinity, bMaxLng = -Infinity, bMaxLat = -Infinity;
+      for (const [lng, lat] of allCoords) {
+        if (lng < bMinLng) bMinLng = lng;
+        if (lat < bMinLat) bMinLat = lat;
+        if (lng > bMaxLng) bMaxLng = lng;
+        if (lat > bMaxLat) bMaxLat = lat;
+      }
+      xml += '    <PLN A="1" B="1">\n';
+      xml += '      <LSG A="1">\n';
+      xml += `        <PNT A="2" C="${bMinLat.toFixed(9)}" D="${bMinLng.toFixed(9)}"/>\n`;
+      xml += `        <PNT A="2" C="${bMinLat.toFixed(9)}" D="${bMaxLng.toFixed(9)}"/>\n`;
+      xml += `        <PNT A="2" C="${bMaxLat.toFixed(9)}" D="${bMaxLng.toFixed(9)}"/>\n`;
+      xml += `        <PNT A="2" C="${bMaxLat.toFixed(9)}" D="${bMinLng.toFixed(9)}"/>\n`;
+      xml += `        <PNT A="2" C="${bMinLat.toFixed(9)}" D="${bMinLng.toFixed(9)}"/>\n`;
+      xml += '      </LSG>\n';
+      xml += '    </PLN>\n';
+    }
+    xml += '  </PFD>\n\n';
+
+    // Product (PDT) — the fertilizer/nutrient product
+    xml += `  <PDT A="PDT-1" B="${esc(nutrient)} - Pixadvisor"/>\n\n`;
+
+    // Value Presentation (VPN) — defines how the DDI value is displayed
+    xml += `  <VPN A="VPN-1" B="0" C="0.01" D="0" E="${esc(unit)}"/>\n\n`;
+
+    // Crop Type (CTP) — optional, if crop specified
+    if (cropId) {
+      xml += `  <CTP A="CTP-1" B="${esc(cropId)}"/>\n\n`;
+    }
+
+    // Device (DVC) — generic VRT controller placeholder
+    xml += '  <DVC A="DVC-1" B="VRT Controller" D="FF000000000001" F="0000000000000000">\n';
+    xml += `    <DET A="DET-1" B="Seccion 1" C="1" D="0" E="DVC-1"/>\n`;
+    xml += `    <DPD A="0" B="${ddi}" C="3" D="DET-1" E="VPN-1"/>\n`;
+    xml += '  </DVC>\n\n';
+
+    // Task (TSK) with Treatment Zones
+    xml += `  <TSK A="TSK-1" B="${esc(taskName)}" C="CTR-1" D="FRM-1" E="PFD-1" F="0" `;
+    xml += `G="1" H="1" J="${dateStr}">\n`;
+
+    // Connection — link task to device
+    xml += '    <CNN A="DVC-1" B="DET-1" C="1"/>\n\n';
+
+    // Grid (GRD) type 2 = treatment zones
+    xml += '    <GRD A="GRD-1" B="2"/>\n\n';
+
+    // Treatment Zones (TZN) — one per prescription zone
+    for (let i = 0; i < zones.length; i++) {
+      const z = zones[i];
+      const isoRate = doseToISOValue(z.dose);
+      const zoneLabel = z.zone !== undefined ? z.zone : (i + 1);
+
+      xml += `    <TZN A="${i}" B="Zona ${zoneLabel} - ${z.dose} ${unit}">\n`;
+
+      // Polygon boundary for this zone
+      xml += '      <PLN A="1" B="1">\n';
+      xml += '        <LSG A="1">\n';
+      for (const [lng, lat] of z.coords) {
+        xml += `          <PNT A="2" C="${lat.toFixed(9)}" D="${lng.toFixed(9)}"/>\n`;
+      }
+      // Close the ring if not already closed
+      if (z.coords.length > 0) {
+        const first = z.coords[0];
+        const last = z.coords[z.coords.length - 1];
+        if (first[0] !== last[0] || first[1] !== last[1]) {
+          xml += `          <PNT A="2" C="${first[1].toFixed(9)}" D="${first[0].toFixed(9)}"/>\n`;
+        }
+      }
+      xml += '        </LSG>\n';
+      xml += '      </PLN>\n';
+
+      // Process Data Variable (PDV) — application rate for this zone
+      xml += `      <PDV A="${ddi}" B="${isoRate}" E="PDT-1"/>\n`;
+
+      xml += '    </TZN>\n';
+    }
+
+    xml += '  </TSK>\n\n';
+    xml += '</ISO11783_TaskData>';
+
+    return xml;
+  }
+
+  /**
+   * Generate ISO-XML from a prescription result (output of generatePrescription + prescriptionToSHP zones).
+   * Convenience wrapper that extracts zones from a prescription grid.
+   *
+   * @param {Object} prescResult - Result from generatePrescription()
+   * @param {Array} polygon - Field boundary polygon [[lat,lng], ...]
+   * @param {Object} [metadata] - Passed to exportISOXML
+   * @returns {string} ISO-XML string
+   */
+  static prescriptionToISOXML(prescResult, polygon, metadata = {}) {
+    if (!prescResult) return null;
+
+    const { grid, bounds, resolution, fertKey, source, stats } = prescResult;
+    const latStep = (bounds.maxLat - bounds.minLat) / resolution;
+    const lngStep = (bounds.maxLng - bounds.minLng) / resolution;
+
+    const zones = [];
+    for (let i = 0; i < resolution; i++) {
+      for (let j = 0; j < resolution; j++) {
+        const cell = grid[i][j];
+        if (cell.dose <= 0) continue;
+
+        const lat0 = bounds.minLat + i * latStep, lat1 = lat0 + latStep;
+        const lng0 = bounds.minLng + j * lngStep, lng1 = lng0 + lngStep;
+
+        // Check if center is inside polygon
+        if (polygon && polygon.length >= 3) {
+          const cx = (lng0 + lng1) / 2, cy = (lat0 + lat1) / 2;
+          if (!this._pointInPolygon(cx, cy, polygon)) continue;
+        }
+
+        zones.push({
+          coords: [[lng0,lat0],[lng1,lat0],[lng1,lat1],[lng0,lat1],[lng0,lat0]],
+          dose: Math.round(cell.dose * 10) / 10,
+          product_kg: source?.content > 0 ? Math.round((cell.dose / source.content) * 100) : 0,
+          zone: cell.soilClass || 0
+        });
+      }
+    }
+
+    if (zones.length === 0) return null;
+
+    // Merge metadata with prescription info
+    const isoMeta = {
+      nutrient: fertKey || metadata.nutrient || 'N',
+      ...metadata
+    };
+
+    return this.exportISOXML(zones, isoMeta);
+  }
+
+  /**
+   * Download ISO-XML as TASKDATA.XML file (standard ISOBUS filename).
+   * Creates and triggers a browser download of the TaskData XML.
+   *
+   * @param {Array} zones - Zone array for exportISOXML
+   * @param {Object} [metadata] - Metadata for exportISOXML
+   * @param {string} [filename='TASKDATA.XML'] - Download filename
+   */
+  static downloadISOXML(zones, metadata = {}, filename = 'TASKDATA.XML') {
+    const xml = this.exportISOXML(zones, metadata);
+    if (!xml) {
+      console.warn('InterpolationEngine.downloadISOXML: No zones to export');
+      return false;
+    }
+
+    const blob = new Blob([xml], { type: 'application/xml; charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+
+    // Cleanup
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    }, 200);
+
+    return true;
+  }
+
+  /**
+   * Download ISO-XML as a ZIP file containing TASKDATA/TASKDATA.XML
+   * (standard ISOBUS directory structure expected by most terminals).
+   *
+   * @param {Array} zones - Zone array for exportISOXML
+   * @param {Object} [metadata] - Metadata for exportISOXML
+   * @param {string} [zipName='TASKDATA.zip'] - Download filename
+   */
+  static downloadISOXMLZip(zones, metadata = {}, zipName = 'TASKDATA.zip') {
+    const xml = this.exportISOXML(zones, metadata);
+    if (!xml) {
+      console.warn('InterpolationEngine.downloadISOXMLZip: No zones to export');
+      return false;
+    }
+
+    // Use the existing _createZip helper to package as TASKDATA/TASKDATA.XML
+    const xmlBytes = new TextEncoder().encode(xml);
+    const zipData = this._createZip({
+      'TASKDATA/TASKDATA.XML': xmlBytes
+    });
+
+    const blob = new Blob([zipData], { type: 'application/zip' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = zipName;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    }, 200);
+
+    return true;
   }
 }

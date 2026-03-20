@@ -13,6 +13,8 @@ class DriveSync {
     this.accessToken = null;
     this.folderId = null;
     this.isInitialized = false;
+    this._tokenExpiresAt = null;
+    this._refreshTimer = null;
   }
 
   // Initialize Google Identity Services
@@ -48,10 +50,60 @@ class DriveSync {
         }
         this.accessToken = response.access_token;
         this.isInitialized = true;
-        localStorage.setItem('pix_drive_token', response.access_token);
+        sessionStorage.setItem('pix_drive_token', response.access_token);
+        // Track token expiry for proactive refresh
+        const expiresIn = response.expires_in || 3600; // default 1 hour
+        this._tokenExpiresAt = Date.now() + (expiresIn * 1000);
+        sessionStorage.setItem('pix_drive_token_expires', this._tokenExpiresAt.toString());
+        this._scheduleTokenRefresh(expiresIn);
         document.dispatchEvent(new Event('drive-authenticated'));
       }
     });
+  }
+
+  // Proactive token refresh - refreshes 5 minutes before expiry
+  _scheduleTokenRefresh(expiresInSeconds) {
+    if (this._refreshTimer) clearTimeout(this._refreshTimer);
+    const refreshIn = Math.max((expiresInSeconds - 300) * 1000, 60000); // 5 min before expiry, min 1 min
+    this._refreshTimer = setTimeout(() => {
+      console.log('[Drive] Proactive token refresh triggered');
+      this._silentRefresh();
+    }, refreshIn);
+    console.log(`[Drive] Token refresh scheduled in ${Math.round(refreshIn/60000)} min`);
+  }
+
+  async _silentRefresh() {
+    if (!this.tokenClient) return;
+    try {
+      this.tokenClient.requestAccessToken({ prompt: '' }); // empty prompt = silent refresh
+    } catch (e) {
+      console.log('[Drive] Silent refresh failed, will re-auth on next use');
+    }
+  }
+
+  // Check if token is still valid (with 2 min buffer)
+  isTokenValid() {
+    if (!this.accessToken) return false;
+    if (!this._tokenExpiresAt) {
+      // Try to restore from localStorage
+      const saved = sessionStorage.getItem('pix_drive_token_expires');
+      if (saved) this._tokenExpiresAt = parseInt(saved);
+      else return true; // no expiry info, assume valid
+    }
+    return Date.now() < (this._tokenExpiresAt - 120000); // 2 min buffer
+  }
+
+  // Ensure valid token before API call
+  async ensureValidToken() {
+    if (!this.isTokenValid()) {
+      console.log('[Drive] Token expired or near expiry, refreshing...');
+      await this._silentRefresh();
+      // Wait a bit for the callback
+      await new Promise(r => setTimeout(r, 1000));
+      if (!this.isTokenValid()) {
+        throw new Error('Token refresh failed. Please re-authenticate.');
+      }
+    }
   }
 
   // Request authentication
@@ -362,20 +414,25 @@ class DriveSync {
         track: tracks.length > 0 ? tracks[0].positions : []
       };
 
+      exportData.syncVersion = Date.now();
       await this.uploadJSON(fileName, exportData);
 
-      // Upload photos
+      // Upload photos first, then mark synced only on success
       for (const s of samples) {
+        let photoOk = true;
         if (s.photo) {
           const photoName = `foto_${s.pointName || s.id}_${timestamp}.jpg`;
           try {
             await this.uploadPhoto(photoName, s.photo);
           } catch (e) {
-            console.warn('Error uploading photo:', e);
+            console.warn('Error uploading photo, sample NOT marked synced:', e);
+            photoOk = false;
           }
         }
-        await pixDB.markSynced(s.id);
-        totalSynced++;
+        if (photoOk) {
+          await pixDB.markSynced(s.id);
+          totalSynced++;
+        }
       }
     }
 

@@ -7,6 +7,7 @@ class PixAdmin {
     this.soilData = {};
     this.leafData = {};
     this.samples = [];
+    this.serviceOrders = JSON.parse(localStorage.getItem('pix_service_orders') || '[]');
     this.lastReport = null;
     this.maps = {};
     this.overlays = {};
@@ -31,14 +32,149 @@ class PixAdmin {
     };
   }
 
-  init() {
+  async init() {
+    // Init IndexedDB for persistent storage
+    await this._initDB();
+    // Restore saved state
+    await this._restoreState();
+
     this.buildCropSelector();
     this.buildSoilForm();
     this.buildLeafForm();
     this.buildPrescSourceSelector();
     this.setCrop(this.cropId);
     this.updateDashboard();
-    console.log('PIX Admin initialized');
+    console.log('PIX Admin v3.0 initialized');
+  }
+
+  // ===== INDEXEDDB PERSISTENCE =====
+
+  async _initDB() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open('PixAdmin', 1);
+      req.onupgradeneeded = e => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains('state')) db.createObjectStore('state', { keyPath: 'key' });
+        if (!db.objectStoreNames.contains('users')) {
+          const us = db.createObjectStore('users', { keyPath: 'username' });
+          us.createIndex('role', 'role', { unique: false });
+        }
+        if (!db.objectStoreNames.contains('serviceOrders')) db.createObjectStore('serviceOrders', { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('clients')) db.createObjectStore('clients', { keyPath: 'id', autoIncrement: true });
+      };
+      req.onsuccess = e => { this._db = e.target.result; resolve(); };
+      req.onerror = e => { console.warn('Admin DB failed:', e); resolve(); };
+    });
+  }
+
+  async _dbPut(store, data) {
+    if (!this._db) return;
+    return new Promise((resolve, reject) => {
+      const tx = this._db.transaction(store, 'readwrite');
+      tx.objectStore(store).put(data);
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async _dbGet(store, key) {
+    if (!this._db) return null;
+    return new Promise((resolve, reject) => {
+      const tx = this._db.transaction(store, 'readonly');
+      const req = tx.objectStore(store).get(key);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async _dbGetAll(store) {
+    if (!this._db) return [];
+    return new Promise((resolve, reject) => {
+      const tx = this._db.transaction(store, 'readonly');
+      const req = tx.objectStore(store).getAll();
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async _dbDelete(store, key) {
+    if (!this._db) return;
+    return new Promise((resolve, reject) => {
+      const tx = this._db.transaction(store, 'readwrite');
+      tx.objectStore(store).delete(key);
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  // Save current state to IndexedDB (persists across refreshes)
+  async saveState() {
+    try {
+      await this._dbPut('state', { key: 'samples', value: this.samples });
+      await this._dbPut('state', { key: 'clientData', value: this.clientData });
+      await this._dbPut('state', { key: 'cropId', value: this.cropId });
+      await this._dbPut('state', { key: 'yieldTarget', value: this.yieldTarget });
+      await this._dbPut('state', { key: 'soilData', value: this.soilData });
+      await this._dbPut('state', { key: 'leafData', value: this.leafData });
+      await this._dbPut('state', { key: 'fieldBoundary', value: this.fieldBoundary });
+      await this._dbPut('state', { key: 'fieldPolygon', value: this.fieldPolygon });
+      await this._dbPut('state', { key: 'fieldAreaHa', value: this.fieldAreaHa });
+      // Save service orders to IndexedDB too
+      for (const o of this.serviceOrders) { await this._dbPut('serviceOrders', o); }
+    } catch (e) { console.warn('Save state failed:', e); }
+  }
+
+  async _restoreState() {
+    try {
+      const samples = await this._dbGet('state', 'samples');
+      if (samples?.value?.length > 0) this.samples = samples.value;
+      const clientData = await this._dbGet('state', 'clientData');
+      if (clientData?.value) this.clientData = clientData.value;
+      const cropId = await this._dbGet('state', 'cropId');
+      if (cropId?.value) this.cropId = cropId.value;
+      const yieldTarget = await this._dbGet('state', 'yieldTarget');
+      if (yieldTarget?.value) this.yieldTarget = yieldTarget.value;
+      const soilData = await this._dbGet('state', 'soilData');
+      if (soilData?.value) this.soilData = soilData.value;
+      const leafData = await this._dbGet('state', 'leafData');
+      if (leafData?.value) this.leafData = leafData.value;
+      const boundary = await this._dbGet('state', 'fieldBoundary');
+      if (boundary?.value) this.fieldBoundary = boundary.value;
+      const polygon = await this._dbGet('state', 'fieldPolygon');
+      if (polygon?.value) this.fieldPolygon = polygon.value;
+      const area = await this._dbGet('state', 'fieldAreaHa');
+      if (area?.value) this.fieldAreaHa = area.value;
+      // Restore service orders from IndexedDB
+      const orders = await this._dbGetAll('serviceOrders');
+      if (orders.length > 0) this.serviceOrders = orders;
+      // Setup default admin user
+      await this._ensureAdminUser();
+      console.log(`State restored: ${this.samples.length} samples, ${this.serviceOrders.length} orders`);
+    } catch (e) { console.warn('Restore state failed:', e); }
+  }
+
+  // ===== MULTI-USER AUTH =====
+
+  async _ensureAdminUser() {
+    const admin = await this._dbGet('users', 'admin');
+    if (!admin) {
+      const salt = Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => b.toString(16).padStart(2, '0')).join('');
+      const hash = await this._hashPw('pixadvisor', salt);
+      await this._dbPut('users', { username: 'admin', passwordHash: hash, salt, role: 'admin', createdAt: new Date().toISOString() });
+    }
+  }
+
+  async _hashPw(password, salt) {
+    const data = new TextEncoder().encode(salt + password);
+    const buf = await crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  async verifyAdminUser(username, password) {
+    const user = await this._dbGet('users', username);
+    if (!user) return null;
+    const hash = await this._hashPw(password, user.salt);
+    return hash === user.passwordHash ? user : null;
   }
 
   // ===== NAVIGATION =====
@@ -60,7 +196,7 @@ class PixAdmin {
       'gis-dashboard': 'gis-group', 'nutrient-maps': 'gis-group', 'relation-maps': 'gis-group', 'management-zones': 'gis-group', 'sampling-points': 'gis-group', 'prescription': 'gis-group',
       'engine-idw': 'engine-group', 'engine-kriging': 'engine-group', 'engine-variogram': 'engine-group', 'engine-validation': 'engine-group',
       'interpretation': 'reports-group', 'report-protocol': 'reports-group', 'report-financial': 'reports-group', 'report-export': 'reports-group',
-      'samples': 'manage-group', 'manage-crops': 'manage-group', 'manage-clients': 'manage-group', 'settings': 'manage-group'
+      'service-orders': 'manage-group', 'samples': 'manage-group', 'manage-crops': 'manage-group', 'manage-clients': 'manage-group', 'settings': 'manage-group'
     };
     const groupId = viewGroupMap[viewName];
     if (groupId) {
@@ -111,6 +247,7 @@ class PixAdmin {
       'report-protocol': ['Protocolo de Aplicación', 'Documento técnico de campo'],
       'report-financial': ['Estudio Financiero', 'Costos por hectárea y ROI'],
       'report-export': ['Exportar Mapas', 'PDF, GeoJSON, Shapefile'],
+      'service-orders': ['Ordenes de Servicio', 'Crear, gestionar y compartir ordenes de muestreo'],
       'samples': ['Muestras / Lab', 'Gestión de muestras y resultados'],
       'manage-crops': ['Cultivos', 'Base de datos agronómica'],
       'manage-clients': ['Clientes', 'Gestión de clientes y propiedades'],
@@ -141,6 +278,7 @@ class PixAdmin {
     }
 
     // View-specific actions
+    if (viewName === 'service-orders') this.renderServiceOrders();
     if (viewName === 'samples') this.renderSamplesTable();
     if (viewName === 'interpretation') this.generateFullReport();
     if (viewName === 'soil-interpretation') this._renderSoilInterpretation();
@@ -1306,7 +1444,11 @@ class PixAdmin {
     const map = this.maps[mapKey];
     if (!map) return;
     if (this.overlays[mapKey]) { map.removeLayer(this.overlays[mapKey]); this.overlays[mapKey] = null; }
-    if (this[`_${mapKey}Markers`]) { this[`_${mapKey}Markers`].forEach(m => map.removeLayer(m)); this[`_${mapKey}Markers`] = []; }
+    if (this[`_${mapKey}Markers`]) {
+      const _mm = this[`_${mapKey}Markers`];
+      if (_mm._clusterGroup) { map.removeLayer(_mm._clusterGroup); } else { _mm.forEach(m => map.removeLayer(m)); }
+      this[`_${mapKey}Markers`] = [];
+    }
     if (this[`_${mapKey}Labels`]) { this[`_${mapKey}Labels`].forEach(m => map.removeLayer(m)); this[`_${mapKey}Labels`] = []; }
   }
 
@@ -1335,8 +1477,11 @@ class PixAdmin {
       return;
     }
 
+    // Show loading overlay during computation
+    this._showLoadingOverlay('Calculando interpolación...');
     const bounds = InterpolationEngine.getBounds(points);
     const gridResult = InterpolationEngine.interpolateIDW(points, bounds, { resolution, power, smooth: 2 });
+    this._hideLoadingOverlay();
 
     // Clear old layers
     this._clearMapLayers('nutrient');
@@ -1527,7 +1672,10 @@ class PixAdmin {
     const map = this.maps.gis;
     if (!map) return;
     if (this._gisOverlay) { map.removeLayer(this._gisOverlay); this._gisOverlay = null; }
-    if (this._gisMarkers) { this._gisMarkers.forEach(m => map.removeLayer(m)); this._gisMarkers = []; }
+    if (this._gisMarkers) {
+      if (this._gisMarkers._clusterGroup) { map.removeLayer(this._gisMarkers._clusterGroup); } else { this._gisMarkers.forEach(m => map.removeLayer(m)); }
+      this._gisMarkers = [];
+    }
     if (this._gisLabels) { this._gisLabels.forEach(m => map.removeLayer(m)); this._gisLabels = []; }
   }
 
@@ -2293,7 +2441,10 @@ class PixAdmin {
 
     // Clear old layers
     if (this._relationOverlay) { this.maps.relation.removeLayer(this._relationOverlay); this._relationOverlay = null; }
-    if (this._relationMarkers) { this._relationMarkers.forEach(m => this.maps.relation.removeLayer(m)); this._relationMarkers = []; }
+    if (this._relationMarkers) {
+      if (this._relationMarkers._clusterGroup) { this.maps.relation.removeLayer(this._relationMarkers._clusterGroup); } else { this._relationMarkers.forEach(m => this.maps.relation.removeLayer(m)); }
+      this._relationMarkers = [];
+    }
 
     this._relationOverlay = InterpolationEngine.addToLeafletMap(this.maps.relation, gridResult, {
       opacity: 0.75, layerOpacity: 0.85, polygon
@@ -2589,12 +2740,12 @@ class PixAdmin {
     </div>`;
 
     html += `<div style="margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px">
-      <div><strong>Cliente:</strong> ${this.clientData.nombre || '—'}</div>
-      <div><strong>Propiedad:</strong> ${this.clientData.propiedad || '—'}</div>
-      <div><strong>Lote:</strong> ${this.clientData.lote || '—'}</div>
-      <div><strong>Área:</strong> ${this.clientData.area || '—'}</div>
-      <div><strong>Cultivo:</strong> ${crop?.name || this.cropId}</div>
-      <div><strong>Meta:</strong> ${this.yieldTarget} ${crop?.yieldUnit || ''}</div>
+      <div><strong>Cliente:</strong> ${escapeHtml(this.clientData.nombre) || '—'}</div>
+      <div><strong>Propiedad:</strong> ${escapeHtml(this.clientData.propiedad) || '—'}</div>
+      <div><strong>Lote:</strong> ${escapeHtml(this.clientData.lote) || '—'}</div>
+      <div><strong>Área:</strong> ${escapeHtml(this.clientData.area) || '—'}</div>
+      <div><strong>Cultivo:</strong> ${escapeHtml(crop?.name || this.cropId)}</div>
+      <div><strong>Meta:</strong> ${escapeHtml(this.yieldTarget)} ${escapeHtml(crop?.yieldUnit || '')}</div>
       <div><strong>Fecha:</strong> ${new Date().toLocaleDateString('es')}</div>
     </div>`;
 
@@ -3204,6 +3355,263 @@ class PixAdmin {
     URL.revokeObjectURL(url);
   }
 
+  // ===== SERVICE ORDERS (OS) =====
+
+  _saveOrders() {
+    localStorage.setItem('pix_service_orders', JSON.stringify(this.serviceOrders));
+    // Also persist to IndexedDB
+    this.saveState();
+  }
+
+  _nextOSId() {
+    const max = this.serviceOrders.reduce((m, o) => Math.max(m, o.id || 0), 0);
+    return max + 1;
+  }
+
+  renderServiceOrders() {
+    const filter = document.getElementById('osFilterStatus')?.value || 'all';
+    const orders = filter === 'all' ? this.serviceOrders : this.serviceOrders.filter(o => o.status === filter);
+
+    // Stats
+    const all = this.serviceOrders;
+    document.getElementById('osTotalCount').textContent = all.length;
+    document.getElementById('osPendingCount').textContent = all.filter(o => o.status === 'pending').length;
+    document.getElementById('osProgressCount').textContent = all.filter(o => o.status === 'in_progress').length;
+    document.getElementById('osDoneCount').textContent = all.filter(o => o.status === 'completed').length;
+
+    const container = document.getElementById('osTableContainer');
+    if (orders.length === 0) {
+      container.innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="M9 15h6"/></svg><h3>Sin ordenes de servicio</h3><p>Crea una nueva orden para asignar muestreo a campo</p><button class="btn btn-primary" onclick="admin.createServiceOrder()" style="margin-top:12px">+ Nueva Orden</button></div>`;
+      return;
+    }
+
+    const STATUS_LABELS = { draft: 'Borrador', pending: 'Pendiente', in_progress: 'En curso', completed: 'Completada', cancelled: 'Cancelada' };
+    const STATUS_COLORS = { draft: '#64748b', pending: '#f59e0b', in_progress: '#3b82f6', completed: '#22c55e', cancelled: '#ef4444' };
+    const PRIORITY_ICONS = { alta: '🔴', media: '🟡', baja: '🟢' };
+
+    let html = '<div class="os-cards-grid">';
+    for (const o of orders) {
+      const collected = (o.points || []).filter(p => p.status === 'collected').length;
+      const total = (o.points || []).length;
+      const pct = total > 0 ? Math.round(collected / total * 100) : 0;
+      html += `
+        <div class="os-card" onclick="admin.viewOrder(${o.id})">
+          <div class="os-card-top">
+            <span class="os-card-id">OS #${String(o.id).padStart(3, '0')}</span>
+            <span class="os-badge" style="background:${STATUS_COLORS[o.status]}20;color:${STATUS_COLORS[o.status]}">${STATUS_LABELS[o.status]}</span>
+          </div>
+          <div class="os-card-client">${o.client?.nombre || 'Sin cliente'}</div>
+          <div class="os-card-field">${o.client?.propiedad || ''} — ${o.field?.lote || 'Sin lote'}</div>
+          <div class="os-card-meta">
+            <span>${PRIORITY_ICONS[o.assignment?.priority] || '🟡'} ${o.assignment?.priority || 'media'}</span>
+            <span>${o.config?.analysisType || 'Quimico'}</span>
+            <span>${total} puntos</span>
+          </div>
+          <div class="os-progress-bar"><div class="os-progress-fill" style="width:${pct}%"></div></div>
+          <div class="os-card-bottom">
+            <span class="os-card-date">${o.createdAt ? new Date(o.createdAt).toLocaleDateString() : '—'}</span>
+            <span class="os-card-collector">${o.assignment?.collector || 'Sin asignar'}</span>
+          </div>
+          <div class="os-card-actions" onclick="event.stopPropagation()">
+            <button class="btn btn-sm btn-outline" onclick="admin.shareServiceOrder(${o.id})" title="Compartir">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+            </button>
+            <button class="btn btn-sm btn-outline" onclick="admin.editServiceOrder(${o.id})" title="Editar">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+            <button class="btn btn-sm" style="color:var(--danger)" onclick="admin.deleteServiceOrder(${o.id})" title="Eliminar">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+            </button>
+          </div>
+        </div>`;
+    }
+    html += '</div>';
+    container.innerHTML = html;
+  }
+
+  filterOrders() { this.renderServiceOrders(); }
+
+  createServiceOrder() {
+    const order = {
+      id: this._nextOSId(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      client: { nombre: this.clientData.nombre || '', propiedad: this.clientData.propiedad || '', ubicacion: this.clientData.ubicacion || '' },
+      field: { lote: this.clientData.lote || '', areaHa: this.fieldAreaHa || 0, boundary: this.fieldBoundary || null },
+      config: { analysisType: 'quimico', depths: ['0-20'], pointCount: this.samples.length || 0, labDestino: '', codigoIBRA: '' },
+      assignment: { collector: '', priority: 'media', dueDate: '', notes: '' },
+      points: this.samples.map((s, i) => ({ id: i + 1, lat: s.lat, lng: s.lng, zona: s.zona || '', tipo: s.tipo || 'principal', status: 'pending', name: s.id || `P${i+1}` })),
+      status: 'draft',
+      history: [{ action: 'created', timestamp: new Date().toISOString(), user: 'admin' }],
+      syncStatus: 'local'
+    };
+    this._showOSForm(order, false);
+  }
+
+  editServiceOrder(id) {
+    const order = this.serviceOrders.find(o => o.id === id);
+    if (order) this._showOSForm(order, true);
+  }
+
+  _showOSForm(order, isEdit) {
+    const modal = document.getElementById('osModal');
+    document.getElementById('osModalTitle').textContent = isEdit ? `Editar OS #${String(order.id).padStart(3, '0')}` : 'Nueva Orden de Servicio';
+
+    const ANALYSIS_TYPES = ['quimico', 'fertilidad', 'fisico', 'microbiologico', 'nematodos', 'carbono', 'completo'];
+    const DEPTHS = ['0-10', '0-20', '10-20', '20-40', '40-60'];
+
+    document.getElementById('osModalBody').innerHTML = `
+      <div class="os-form">
+        <div class="os-form-section">
+          <h4>Cliente</h4>
+          <div class="form-row">
+            <div class="form-group"><label>Nombre</label><input class="form-input" id="osClientName" value="${order.client.nombre}" placeholder="Nombre del cliente"></div>
+            <div class="form-group"><label>Propiedad</label><input class="form-input" id="osClientProp" value="${order.client.propiedad}" placeholder="Hacienda / Fazenda"></div>
+          </div>
+          <div class="form-group"><label>Ubicacion</label><input class="form-input" id="osClientUbic" value="${order.client.ubicacion}" placeholder="Departamento, localidad"></div>
+        </div>
+        <div class="os-form-section">
+          <h4>Campo / Lote</h4>
+          <div class="form-row">
+            <div class="form-group"><label>Lote</label><input class="form-input" id="osFieldLote" value="${order.field.lote}" placeholder="Nombre del lote"></div>
+            <div class="form-group"><label>Area (ha)</label><input class="form-input" type="number" id="osFieldArea" value="${order.field.areaHa}" step="0.1"></div>
+          </div>
+          ${order.points.length > 0 ? `<div class="alert alert-success" style="margin-top:8px">${order.points.length} puntos de muestreo incluidos</div>` : '<div class="alert alert-warning" style="margin-top:8px">Sin puntos. Genera puntos desde GIS > Puntos de Muestreo primero.</div>'}
+        </div>
+        <div class="os-form-section">
+          <h4>Configuracion de Analisis</h4>
+          <div class="form-row">
+            <div class="form-group"><label>Tipo de analisis</label>
+              <select class="form-input" id="osAnalysisType">${ANALYSIS_TYPES.map(t => `<option value="${t}" ${t === order.config.analysisType ? 'selected' : ''}>${t.charAt(0).toUpperCase() + t.slice(1)}</option>`).join('')}</select>
+            </div>
+            <div class="form-group"><label>Laboratorio destino</label><input class="form-input" id="osLabDest" value="${order.config.labDestino}" placeholder="Ej: IBRA Megalab"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Profundidades</label>
+              <div class="os-depth-chips">${DEPTHS.map(d => `<label class="os-depth-chip"><input type="checkbox" value="${d}" ${(order.config.depths || []).includes(d) ? 'checked' : ''}><span>${d} cm</span></label>`).join('')}</div>
+            </div>
+            <div class="form-group"><label>Codigo IBRA</label><input class="form-input" id="osCodigoIBRA" value="${order.config.codigoIBRA || ''}" placeholder="Codigo lab"></div>
+          </div>
+        </div>
+        <div class="os-form-section">
+          <h4>Asignacion</h4>
+          <div class="form-row">
+            <div class="form-group"><label>Recolector</label><input class="form-input" id="osCollector" value="${order.assignment.collector}" placeholder="Nombre del recolector"></div>
+            <div class="form-group"><label>Prioridad</label>
+              <select class="form-input" id="osPriority"><option value="baja" ${order.assignment.priority === 'baja' ? 'selected' : ''}>Baja</option><option value="media" ${order.assignment.priority === 'media' ? 'selected' : ''}>Media</option><option value="alta" ${order.assignment.priority === 'alta' ? 'selected' : ''}>Alta</option></select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Fecha limite</label><input class="form-input" type="date" id="osDueDate" value="${order.assignment.dueDate || ''}"></div>
+            <div class="form-group"><label>Estado</label>
+              <select class="form-input" id="osStatus"><option value="draft" ${order.status === 'draft' ? 'selected' : ''}>Borrador</option><option value="pending" ${order.status === 'pending' ? 'selected' : ''}>Pendiente</option><option value="in_progress" ${order.status === 'in_progress' ? 'selected' : ''}>En curso</option><option value="completed" ${order.status === 'completed' ? 'selected' : ''}>Completada</option><option value="cancelled" ${order.status === 'cancelled' ? 'selected' : ''}>Cancelada</option></select>
+            </div>
+          </div>
+          <div class="form-group"><label>Notas</label><textarea class="form-input" id="osNotes" rows="3" placeholder="Instrucciones para el recolector...">${order.assignment.notes || ''}</textarea></div>
+        </div>
+        <div class="os-form-actions">
+          <button class="btn btn-secondary" onclick="admin.closeOSModal()">Cancelar</button>
+          <button class="btn btn-primary" onclick="admin.saveServiceOrder(${order.id}, ${isEdit})">${isEdit ? 'Guardar Cambios' : 'Crear Orden'}</button>
+        </div>
+      </div>`;
+    modal.classList.add('active');
+  }
+
+  closeOSModal() { document.getElementById('osModal').classList.remove('active'); }
+
+  saveServiceOrder(id, isEdit) {
+    const depths = [...document.querySelectorAll('.os-depth-chips input:checked')].map(c => c.value);
+    const data = {
+      id,
+      createdAt: isEdit ? (this.serviceOrders.find(o => o.id === id)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      client: { nombre: document.getElementById('osClientName').value, propiedad: document.getElementById('osClientProp').value, ubicacion: document.getElementById('osClientUbic').value },
+      field: { lote: document.getElementById('osFieldLote').value, areaHa: parseFloat(document.getElementById('osFieldArea').value) || 0, boundary: isEdit ? (this.serviceOrders.find(o => o.id === id)?.field?.boundary || null) : (this.fieldBoundary || null) },
+      config: { analysisType: document.getElementById('osAnalysisType').value, depths, pointCount: isEdit ? (this.serviceOrders.find(o => o.id === id)?.points?.length || 0) : this.samples.length, labDestino: document.getElementById('osLabDest').value, codigoIBRA: document.getElementById('osCodigoIBRA').value },
+      assignment: { collector: document.getElementById('osCollector').value, priority: document.getElementById('osPriority').value, dueDate: document.getElementById('osDueDate').value, notes: document.getElementById('osNotes').value },
+      points: isEdit ? (this.serviceOrders.find(o => o.id === id)?.points || []) : this.samples.map((s, i) => ({ id: i + 1, lat: s.lat, lng: s.lng, zona: s.zona || '', tipo: s.tipo || 'principal', status: 'pending', name: s.id || `P${i+1}` })),
+      status: document.getElementById('osStatus').value,
+      history: isEdit ? [...(this.serviceOrders.find(o => o.id === id)?.history || []), { action: 'updated', timestamp: new Date().toISOString(), user: 'admin' }] : [{ action: 'created', timestamp: new Date().toISOString(), user: 'admin' }],
+      syncStatus: 'local'
+    };
+
+    if (isEdit) {
+      const idx = this.serviceOrders.findIndex(o => o.id === id);
+      if (idx >= 0) this.serviceOrders[idx] = data;
+    } else {
+      this.serviceOrders.push(data);
+    }
+    this._saveOrders();
+    this.closeOSModal();
+    this.renderServiceOrders();
+    this.toast(isEdit ? 'Orden actualizada' : 'Orden creada');
+  }
+
+  deleteServiceOrder(id) {
+    if (!confirm('Eliminar esta orden de servicio?')) return;
+    this.serviceOrders = this.serviceOrders.filter(o => o.id !== id);
+    this._saveOrders();
+    this.renderServiceOrders();
+    this.toast('Orden eliminada', 'warning');
+  }
+
+  viewOrder(id) { this.editServiceOrder(id); }
+
+  shareServiceOrder(id) {
+    const order = this.serviceOrders.find(o => o.id === id);
+    if (!order) return;
+
+    const json = JSON.stringify(order, null, 2);
+    const b64 = btoa(unescape(encodeURIComponent(json)));
+    const link = `https://pixadvisor.network/pix-muestreo/?os=${b64}`;
+
+    const modal = document.getElementById('osShareModal');
+    document.getElementById('osShareBody').innerHTML = `
+      <div class="os-share-options">
+        <h4 style="margin:0 0 16px">OS #${String(order.id).padStart(3, '0')} — ${order.client.nombre || 'Sin cliente'}</h4>
+
+        <div class="os-share-option">
+          <div class="os-share-label">Descargar JSON</div>
+          <p style="font-size:12px;color:var(--text-muted);margin:4px 0 8px">Archivo para importar manualmente en PIX Muestreo</p>
+          <button class="btn btn-sm btn-primary" onclick="admin._downloadOrderJSON(${id})">Descargar OS_${String(id).padStart(3, '0')}.json</button>
+        </div>
+
+        <div class="os-share-option">
+          <div class="os-share-label">Link directo</div>
+          <p style="font-size:12px;color:var(--text-muted);margin:4px 0 8px">Compartir por WhatsApp, email, etc.</p>
+          <div style="display:flex;gap:8px">
+            <input class="form-input" id="osShareLink" value="${link}" readonly style="font-size:11px;flex:1">
+            <button class="btn btn-sm btn-secondary" onclick="navigator.clipboard.writeText(document.getElementById('osShareLink').value);admin.toast('Link copiado')">Copiar</button>
+          </div>
+        </div>
+
+        <div class="os-share-option">
+          <div class="os-share-label">Codigo QR</div>
+          <p style="font-size:12px;color:var(--text-muted);margin:4px 0 8px">Escanear con PIX Muestreo</p>
+          <div id="osQRCode" style="text-align:center;padding:16px;background:#fff;border-radius:8px;max-width:200px;margin:0 auto"></div>
+        </div>
+      </div>`;
+    modal.classList.add('active');
+
+    // Generate QR using simple SVG-based QR (no external lib needed for small data)
+    this._generateSimpleQR('osQRCode', link);
+  }
+
+  _downloadOrderJSON(id) {
+    const order = this.serviceOrders.find(o => o.id === id);
+    if (!order) return;
+    const blob = new Blob([JSON.stringify(order, null, 2)], { type: 'application/json' });
+    this._downloadBlob(blob, `OS_${String(id).padStart(3, '0')}_${order.client.nombre || 'orden'}.json`);
+  }
+
+  _generateSimpleQR(containerId, data) {
+    // Fallback: show the data as a copyable link since generating a true QR in pure JS without a lib is complex
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    // Try using the QR API if available
+    el.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(data)}" alt="QR" style="width:180px;height:180px;border-radius:4px" onerror="this.parentElement.innerHTML='<p style=color:#666;font-size:12px>QR no disponible offline. Use el link directo.</p>'">`;
+  }
+
   // ===== TOAST =====
   toast(msg, type = 'success') {
     const existing = document.querySelector('.toast-admin');
@@ -3216,6 +3624,32 @@ class PixAdmin {
     t.textContent = msg;
     document.body.appendChild(t);
     setTimeout(() => t.remove(), 3000);
+  }
+
+  _showLoadingOverlay(msg = 'Procesando...') {
+    let overlay = document.getElementById('pixLoadingOverlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'pixLoadingOverlay';
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000';
+      overlay.innerHTML = `<div style="background:var(--dark-2,#1a1a2e);padding:24px 32px;border-radius:12px;text-align:center;color:#fff">
+        <div style="width:36px;height:36px;border:3px solid rgba(255,255,255,0.2);border-top-color:var(--teal,#00bfa5);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px"></div>
+        <div id="pixLoadingMsg" style="font-size:14px">${escapeHtml(msg)}</div>
+      </div>`;
+      const style = document.createElement('style');
+      style.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
+      overlay.appendChild(style);
+      document.body.appendChild(overlay);
+    } else {
+      const msgEl = document.getElementById('pixLoadingMsg');
+      if (msgEl) msgEl.textContent = msg;
+      overlay.style.display = 'flex';
+    }
+  }
+
+  _hideLoadingOverlay() {
+    const overlay = document.getElementById('pixLoadingOverlay');
+    if (overlay) overlay.style.display = 'none';
   }
 }
 

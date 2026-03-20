@@ -1,35 +1,42 @@
 // PIX Muestreo - Service Worker for Offline Support
-const CACHE_NAME = 'pix-muestreo-v8';
+const CACHE_NAME = 'pix-muestreo-v5';
 const TILE_CACHE = 'pix-tiles-v1';
 const DATA_CACHE = 'pix-data-v1';
 
-const STATIC_ASSETS = [
-  '/pix-muestreo/',
-  '/pix-muestreo/index.html',
-  '/pix-muestreo/manifest.json',
-  '/pix-muestreo/css/app.css',
-  '/pix-muestreo/js/app.js',
-  '/pix-muestreo/js/db.js',
-  '/pix-muestreo/js/map.js',
-  '/pix-muestreo/js/gps.js',
-  '/pix-muestreo/js/scanner.js',
-  '/pix-muestreo/js/sync.js',
-  '/pix-muestreo/js/drive.js',
-  '/pix-muestreo/js/agent-field.js',
-  '/pix-muestreo/icons/icon-192.png',
-  '/pix-muestreo/icons/icon-512.png',
-  '/pix-muestreo/icons/globe-only-192.png',
-  '/pix-muestreo/icons/globe-only-512.png',
+const LOCAL_ASSETS = [
+  '/pixadvisor-coleta/',
+  '/pixadvisor-coleta/index.html',
+  '/pixadvisor-coleta/manifest.json',
+  '/pixadvisor-coleta/css/app.css',
+  '/pixadvisor-coleta/js/utils.js',
+  '/pixadvisor-coleta/js/app.js',
+  '/pixadvisor-coleta/js/db.js',
+  '/pixadvisor-coleta/js/map.js',
+  '/pixadvisor-coleta/js/gps.js',
+  '/pixadvisor-coleta/js/scanner.js',
+  '/pixadvisor-coleta/js/sync.js',
+  '/pixadvisor-coleta/js/drive.js',
+  '/pixadvisor-coleta/js/agent-field.js',
+  '/pixadvisor-coleta/icons/icon-192.png',
+  '/pixadvisor-coleta/icons/icon-512.png'
+];
+
+const CDN_ASSETS = [
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
   'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js',
   'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'
 ];
 
-// Install - cache static assets
+// Install - cache local assets (required), CDN assets (best-effort)
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
+    caches.open(CACHE_NAME).then(async cache => {
+      await cache.addAll(LOCAL_ASSETS);
+      for (const url of CDN_ASSETS) {
+        try { await cache.add(url); } catch (e) { console.warn('[SW] CDN cache miss:', url); }
+      }
+    })
   );
   self.skipWaiting();
 });
@@ -70,19 +77,17 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // App files - network first (ensures updates are loaded immediately)
-  // Falls back to cache only when offline
+  // Static assets - cache first
   event.respondWith(
-    fetch(event.request).then(response => {
-      if (response.ok) {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-      }
-      return response;
-    }).catch(() => {
-      return caches.match(event.request).then(cached => {
-        return cached || caches.match('/pix-muestreo/index.html');
-      });
+    caches.match(event.request).then(cached => {
+      if (cached) return cached;
+      return fetch(event.request).then(response => {
+        if (response.ok) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+        }
+        return response;
+      }).catch(() => caches.match('/pixadvisor-coleta/index.html'));
     })
   );
 });
