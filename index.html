@@ -1,2433 +1,1293 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Pixadvisor - Agricultura de Precisión. Soluciones avanzadas con IA, drones y análisis de datos para optimizar operaciones agrícolas. Bolivia y Brasil.">
-    <meta name="keywords" content="agricultura de precisión, precision agriculture, IA agrícola, drones agrícolas, NDVI, fertilización variable, Pixadvisor">
-    <meta property="og:title" content="Pixadvisor - Agricultura de Precisión">
-    <meta property="og:description" content="Soluciones avanzadas de agricultura de precisión que optimizan tus operaciones y maximizan rendimientos.">
-    <meta property="og:type" content="website">
-    <meta property="og:image" content="https://pixadvisor.network/img/Logo.png">
-    <meta property="og:url" content="https://pixadvisor.network">
-    <meta property="og:locale" content="es_ES">
-    <meta property="og:locale:alternate" content="pt_BR">
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Pixadvisor - Agricultura de Precisión">
-    <meta name="twitter:description" content="Soluciones avanzadas de agricultura de precisión que optimizan tus operaciones y maximizan rendimientos.">
-    <meta name="twitter:image" content="https://pixadvisor.network/img/Logo.png">
-    <link rel="icon" type="image/png" href="img/Logo.png">
-    <link rel="canonical" href="https://pixadvisor.network">
-    <title>Pixadvisor - Agricultura de Precisión</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        :root {
-            --teal: #00BFA5;
-            --teal-dark: #00a890;
-            --dark: #0F1B2D;
-            --light: #F8FAFB;
-            --gray: #E8ECEF;
-            --gray-100: #F3F4F6;
-            --text: #1A2332;
-            --text-light: #566577;
-            --gradient-brand: linear-gradient(135deg, #00BFA5 0%, #1565C0 100%);
-            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        html {
-            scroll-behavior: smooth;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            color: var(--text);
-            background: white;
-            line-height: 1.6;
-            overflow-x: hidden;
-        }
-
-        /* ===== SKIP TO CONTENT ===== */
-        .skip-link {
-            position: absolute;
-            top: -100%;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--teal);
-            color: white;
-            padding: 0.8rem 1.5rem;
-            border-radius: 0 0 8px 8px;
-            z-index: 10000;
-            font-weight: 600;
-            transition: top 0.3s;
-        }
-        .skip-link:focus {
-            top: 0;
-            color: white;
-        }
-
-        /* ===== LANGUAGE TOGGLE ===== */
-        [data-lang-pt] { display: none; }
-        html[lang="pt"] [data-lang-es] { display: none; }
-        html[lang="pt"] [data-lang-pt] { display: revert; }
-
-        .lang-switcher {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            background: rgba(0, 191, 165, 0.1);
-            border: 1px solid rgba(0, 191, 165, 0.2);
-            border-radius: 50px;
-            padding: 3px;
-        }
-        .lang-btn {
-            padding: 5px 12px;
-            border: none;
-            border-radius: 50px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: var(--transition);
-            background: transparent;
-            color: var(--text-light);
-            font-family: 'Inter', sans-serif;
-        }
-        .lang-btn.active {
-            background: var(--teal);
-            color: white;
-        }
-
-        /* ===== TYPOGRAPHY ===== */
-        h1 {
-            font-family: 'Open Sans', sans-serif;
-            font-size: clamp(2.5rem, 6vw, 4.5rem);
-            font-weight: 700;
-            letter-spacing: -0.02em;
-            line-height: 1.15;
-        }
-
-        h2 {
-            font-family: 'Open Sans', sans-serif;
-            font-size: clamp(1.8rem, 4vw, 2.8rem);
-            font-weight: 700;
-            letter-spacing: -0.01em;
-            margin-bottom: 1rem;
-        }
-
-        h3 {
-            font-family: 'Open Sans', sans-serif;
-            font-size: 1.4rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-        }
-
-        p {
-            font-size: 1rem;
-            color: var(--text-light);
-            margin-bottom: 1rem;
-        }
-
-        a {
-            color: var(--teal);
-            text-decoration: none;
-            transition: color 0.3s ease;
-        }
-
-        a:hover {
-            color: var(--dark);
-        }
-
-        /* ===== UTILS ===== */
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 2rem;
-        }
-
-        .teal-line {
-            width: 4px;
-            height: 60px;
-            background: var(--teal);
-            margin-bottom: 2rem;
-        }
-
-        .section-divider {
-            height: 1px;
-            background: linear-gradient(90deg, transparent, var(--gray), transparent);
-            margin: 4rem 0;
-        }
-
-        .fade-in {
-            opacity: 0;
-            transform: translateY(20px);
-            transition: opacity 0.6s ease, transform 0.6s ease;
-        }
-
-        .fade-in.visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        /* ===== NAVIGATION ===== */
-        nav {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            z-index: 1000;
-            background: rgba(255, 255, 255, 0.7);
-            backdrop-filter: blur(10px);
-            border-bottom: 1px solid rgba(0, 191, 165, 0.1);
-            transition: var(--transition);
-        }
-
-        nav.scrolled {
-            background: rgba(255, 255, 255, 0.95);
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-        }
-
-        .nav-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 1.2rem 2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .logo {
-            display: flex;
-            align-items: center;
-        }
-
-        .logo img {
-            height: 70px;
-            width: auto;
-            transition: transform 0.3s ease;
-        }
-
-        .logo img:hover {
-            transform: scale(1.05);
-        }
-
-        .nav-links {
-            display: flex;
-            gap: 2rem;
-            align-items: center;
-        }
-
-        .nav-links a {
-            font-size: 0.95rem;
-            font-weight: 500;
-            color: var(--text);
-            position: relative;
-        }
-
-        .nav-links a::after {
-            content: '';
-            position: absolute;
-            bottom: -4px;
-            left: 0;
-            width: 0;
-            height: 2px;
-            background: var(--teal);
-            transition: width 0.3s ease;
-        }
-
-        .nav-links a:hover::after {
-            width: 100%;
-        }
-
-        .nav-links a:hover {
-            color: var(--teal);
-        }
-
-        .nav-cta {
-            background: var(--teal);
-            color: white !important;
-            padding: 0.6rem 1.4rem;
-            border-radius: 50px;
-            font-weight: 600;
-            font-size: 0.9rem;
-            transition: background 0.3s ease;
-        }
-
-        .nav-cta::after { display: none; }
-
-        .nav-cta:hover {
-            background: var(--teal-dark);
-            color: white !important;
-        }
-
-        .hamburger {
-            display: none;
-            flex-direction: column;
-            gap: 6px;
-            cursor: pointer;
-            background: none;
-            border: none;
-            padding: 4px;
-        }
-
-        .hamburger span {
-            width: 24px;
-            height: 2px;
-            background: var(--dark);
-            border-radius: 1px;
-            transition: var(--transition);
-        }
-
-        .hamburger.open span:nth-child(1) {
-            transform: rotate(45deg) translate(5px, 5px);
-        }
-        .hamburger.open span:nth-child(2) {
-            opacity: 0;
-        }
-        .hamburger.open span:nth-child(3) {
-            transform: rotate(-45deg) translate(6px, -6px);
-        }
-
-        /* ===== HERO SECTION ===== */
-        .hero {
-            margin-top: 70px;
-            padding: 6rem 0;
-            min-height: calc(100vh - 70px);
-        }
-
-        .hero-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 4rem;
-            align-items: center;
-        }
-
-        .hero-content {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .hero-title {
-            margin-bottom: 2rem;
-            color: var(--dark);
-        }
-
-        .hero-subtitle {
-            font-size: 1.1rem;
-            color: var(--text-light);
-            margin-bottom: 3rem;
-            max-width: 90%;
-            line-height: 1.8;
-        }
-
-        .hero-pillars {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 1.5rem;
-        }
-
-        .pillar-card {
-            background: rgba(0, 191, 165, 0.05);
-            border: 1px solid rgba(0, 191, 165, 0.1);
-            border-radius: 8px;
-            padding: 1.5rem;
-            transition: var(--transition);
-        }
-
-        .pillar-card:hover {
-            border-color: var(--teal);
-            background: rgba(0, 191, 165, 0.08);
-        }
-
-        .pillar-title {
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: var(--teal);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 0.5rem;
-        }
-
-        .pillar-text {
-            font-size: 0.95rem;
-            color: var(--text-light);
-            line-height: 1.6;
-        }
-
-        .hero-visual {
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .hero-logo-showcase {
-            position: relative;
-            width: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 400px;
-        }
-
-        .hero-logo-showcase img {
-            width: 90%;
-            max-width: 500px;
-            height: auto;
-            filter: drop-shadow(0 20px 60px rgba(0, 191, 165, 0.15));
-            animation: logoFloat 4s ease-in-out infinite;
-        }
-
-        .hero-logo-ring {
-            position: absolute;
-            width: 420px;
-            height: 420px;
-            border: 2px solid rgba(0, 191, 165, 0.12);
-            border-radius: 50%;
-            animation: ringPulse 3s ease-in-out infinite;
-        }
-
-        .hero-logo-ring-2 {
-            position: absolute;
-            width: 500px;
-            height: 500px;
-            border: 1px solid rgba(0, 191, 165, 0.06);
-            border-radius: 50%;
-            animation: ringPulse 3s ease-in-out infinite 0.5s;
-        }
-
-        @keyframes logoFloat {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-12px); }
-        }
-
-        @keyframes ringPulse {
-            0%, 100% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.05); opacity: 0.5; }
-        }
-
-        /* ===== ABOUT SECTION ===== */
-        .about-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 4rem;
-            align-items: center;
-        }
-
-        .about {
-            padding: 6rem 0;
-        }
-
-        .about-content {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .about-text {
-            font-size: 1.15rem;
-            line-height: 1.9;
-            color: var(--text-light);
-            margin-bottom: 3rem;
-            max-width: 90%;
-        }
-
-        .about-stats {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 2rem;
-        }
-
-        .stat {
-            border-left: 3px solid var(--teal);
-            padding-left: 1.5rem;
-        }
-
-        .stat-number {
-            font-size: 2rem;
-            font-weight: 700;
-            color: var(--teal);
-            margin-bottom: 0.3rem;
-        }
-
-        .stat-label {
-            font-size: 0.9rem;
-            color: var(--text-light);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .about-image {
-            width: 100%;
-            height: 500px;
-            background: linear-gradient(135deg, #f5f7fa 0%, #e8ecef 100%);
-            border-radius: 12px;
-            overflow: hidden;
-        }
-
-        .about-image img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        /* ===== SERVICES SECTION ===== */
-        .services {
-            padding: 6rem 0;
-        }
-
-        .services-header {
-            text-align: center;
-            margin-bottom: 4rem;
-        }
-
-        .services-header h2 {
-            color: var(--dark);
-            margin-bottom: 1rem;
-        }
-
-        .services-header p {
-            font-size: 1.05rem;
-            color: var(--text-light);
-            max-width: 600px;
-            margin: 0 auto;
-        }
-
-        /* Service cards grid - detailed services */
-        .services-detail-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 3rem;
-        }
-
-        .service-detail-card {
-            border: 1px solid var(--gray);
-            border-radius: 10px;
-            padding: 1.8rem;
-            background: white;
-            transition: var(--transition);
-            position: relative;
-            overflow: hidden;
-            text-decoration: none;
-            color: inherit;
-            display: block;
-        }
-
-        .service-detail-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background: var(--teal);
-            transform: scaleX(0);
-            transition: transform 0.3s ease;
-            transform-origin: left;
-        }
-
-        .service-detail-card:hover {
-            border-color: var(--teal);
-            box-shadow: 0 10px 40px rgba(0, 191, 165, 0.1);
-            color: inherit;
-            transform: translateY(-4px);
-        }
-
-        .service-detail-card:hover::before {
-            transform: scaleX(1);
-        }
-
-        .service-detail-card .service-icon {
-            width: 48px;
-            height: 48px;
-            background: rgba(0, 191, 165, 0.1);
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 1rem;
-        }
-
-        .service-detail-card .service-icon svg {
-            width: 24px;
-            height: 24px;
-            stroke: var(--teal);
-            fill: none;
-            stroke-width: 2;
-        }
-
-        .service-detail-card h3 {
-            font-size: 1.1rem;
-            color: var(--dark);
-            margin-bottom: 0.5rem;
-        }
-
-        .service-detail-card p {
-            font-size: 0.9rem;
-            color: var(--text-light);
-            line-height: 1.6;
-            margin: 0;
-        }
-
-        .service-detail-card .card-arrow {
-            position: absolute;
-            bottom: 1.5rem;
-            right: 1.5rem;
-            color: var(--teal);
-            opacity: 0;
-            transform: translateX(-8px);
-            transition: var(--transition);
-            font-size: 1.2rem;
-        }
-
-        .service-detail-card:hover .card-arrow {
-            opacity: 1;
-            transform: translateX(0);
-        }
-
-        /* Packages */
-        .packages-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 2rem;
-        }
-
-        .package-card {
-            border: 1px solid var(--gray);
-            border-radius: 10px;
-            padding: 2rem;
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.5) 0%, rgba(248, 250, 251, 0.8) 100%);
-            transition: var(--transition);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .package-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background: var(--teal);
-            transform: scaleX(0);
-            transition: transform 0.3s ease;
-            transform-origin: left;
-        }
-
-        .package-card:hover {
-            border-color: var(--teal);
-            box-shadow: 0 10px 40px rgba(0, 191, 165, 0.1);
-        }
-
-        .package-card:hover::before {
-            transform: scaleX(1);
-        }
-
-        .package-number {
-            display: inline-block;
-            font-size: 0.75rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            color: var(--teal);
-            letter-spacing: 1px;
-            margin-bottom: 0.8rem;
-        }
-
-        .package-card h3 {
-            color: var(--dark);
-            margin-bottom: 1rem;
-        }
-
-        .service-price {
-            font-size: 1.8rem;
-            font-weight: 700;
-            color: var(--dark);
-            margin-bottom: 0.5rem;
-        }
-
-        .service-price span {
-            font-size: 0.9rem;
-            color: var(--text-light);
-        }
-
-        .service-description {
-            font-size: 0.95rem;
-            color: var(--text-light);
-            margin-bottom: 2rem;
-            line-height: 1.6;
-        }
-
-        .service-features {
-            list-style: none;
-            margin-bottom: 2rem;
-        }
-
-        .service-features li {
-            display: flex;
-            align-items: center;
-            gap: 0.8rem;
-            margin-bottom: 0.8rem;
-            font-size: 0.95rem;
-            color: var(--text);
-        }
-
-        .service-features li::before {
-            content: '';
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 20px;
-            height: 20px;
-            background: rgba(0, 191, 165, 0.1);
-            border-radius: 50%;
-            flex-shrink: 0;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2300BFA5' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: center;
-        }
-
-        .service-cta {
-            display: inline-block;
-            background: white;
-            border: 2px solid var(--teal);
-            color: var(--teal);
-            padding: 0.8rem 1.8rem;
-            border-radius: 50px;
-            font-weight: 600;
-            font-size: 0.9rem;
-            cursor: pointer;
-            transition: var(--transition);
-            width: 100%;
-            text-align: center;
-            text-decoration: none;
-        }
-
-        .service-cta:hover {
-            background: var(--teal);
-            color: white;
-        }
-
-        /* ===== TECHNOLOGY SECTION ===== */
-        .technology {
-            padding: 6rem 0;
-            background: var(--light);
-        }
-
-        .tech-header {
-            text-align: center;
-            margin-bottom: 4rem;
-        }
-
-        .tech-header h2 {
-            color: var(--dark);
-        }
-
-        .tech-tabs {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 3rem;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-
-        .tech-tab {
-            padding: 0.8rem 1.6rem;
-            background: white;
-            border: 2px solid var(--gray);
-            border-radius: 50px;
-            cursor: pointer;
-            font-weight: 500;
-            color: var(--text);
-            transition: var(--transition);
-            font-family: 'Inter', sans-serif;
-            font-size: 0.95rem;
-        }
-
-        .tech-tab[aria-selected="true"] {
-            border-color: var(--teal);
-            background: var(--teal);
-            color: white;
-        }
-
-        .tech-content {
-            display: none;
-        }
-
-        .tech-content.active {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 3rem;
-            align-items: center;
-        }
-
-        .tech-text h3 {
-            color: var(--dark);
-            margin-bottom: 1rem;
-        }
-
-        .tech-text p {
-            margin-bottom: 1.5rem;
-        }
-
-        .tech-features {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .tech-feature {
-            display: flex;
-            gap: 1rem;
-            align-items: flex-start;
-        }
-
-        .tech-feature-icon {
-            width: 32px;
-            height: 32px;
-            background: rgba(0, 191, 165, 0.1);
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--teal);
-            font-weight: 700;
-            flex-shrink: 0;
-            font-size: 0.8rem;
-        }
-
-        .tech-feature-text h4 {
-            font-size: 1rem;
-            font-weight: 600;
-            color: var(--dark);
-            margin-bottom: 0.3rem;
-        }
-
-        .tech-feature-text p {
-            font-size: 0.9rem;
-            margin: 0;
-        }
-
-        .tech-visual {
-            height: 400px;
-            background: linear-gradient(135deg, #f5f7fa 0%, #e8ecef 100%);
-            border-radius: 12px;
-            overflow: hidden;
-        }
-
-        .tech-visual img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        /* ===== CTA SECTION ===== */
-        .cta-section {
-            padding: 8rem 2rem;
-            background: var(--dark);
-            text-align: center;
-            color: white;
-        }
-
-        .cta-motto {
-            font-family: 'Open Sans', sans-serif;
-            font-size: clamp(1.8rem, 5vw, 3.5rem);
-            font-style: italic;
-            font-weight: 300;
-            line-height: 1.4;
-            margin-bottom: 2rem;
-            max-width: 900px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        .cta-subtext {
-            font-size: 1.05rem;
-            color: rgba(255, 255, 255, 0.7);
-        }
-
-        /* ===== ON FARM SECTION ===== */
-        .onfarm {
-            padding: 6rem 0;
-        }
-
-        .onfarm-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 4rem;
-            align-items: center;
-        }
-
-        .onfarm-image {
-            width: 100%;
-            height: 500px;
-            background: linear-gradient(135deg, #f5f7fa 0%, #e8ecef 100%);
-            border-radius: 12px;
-            overflow: hidden;
-        }
-
-        .onfarm-image img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .onfarm-content h2 {
-            color: var(--dark);
-        }
-
-        .onfarm-content p {
-            margin-bottom: 2rem;
-        }
-
-        .onfarm-stats {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 2rem;
-        }
-
-        .onfarm-stat {
-            padding: 1.5rem;
-            background: var(--light);
-            border-radius: 8px;
-            border-left: 3px solid var(--teal);
-        }
-
-        .onfarm-stat-value {
-            font-size: 1.8rem;
-            font-weight: 700;
-            color: var(--teal);
-            margin-bottom: 0.3rem;
-        }
-
-        .onfarm-stat-label {
-            font-size: 0.9rem;
-            color: var(--text-light);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        /* ===== GALLERY SECTION ===== */
-        .gallery {
-            padding: 6rem 0;
-            background: var(--light);
-        }
-
-        .gallery-header {
-            text-align: center;
-            margin-bottom: 4rem;
-        }
-
-        .gallery-header h2 {
-            color: var(--dark);
-        }
-
-        .gallery-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 1.5rem;
-        }
-
-        .gallery-item {
-            aspect-ratio: 4 / 3;
-            background: var(--gray);
-            border-radius: 10px;
-            overflow: hidden;
-            cursor: pointer;
-            position: relative;
-        }
-
-        .gallery-item img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transition: transform 0.4s ease;
-        }
-
-        .gallery-item:hover img {
-            transform: scale(1.08);
-        }
-
-        .gallery-overlay {
-            position: absolute;
-            inset: 0;
-            background: rgba(0, 191, 165, 0.2);
-            opacity: 0;
-            transition: opacity 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .gallery-item:hover .gallery-overlay {
-            opacity: 1;
-        }
-
-        .gallery-caption {
-            color: white;
-            font-weight: 600;
-            font-size: 1rem;
-            text-shadow: 0 2px 8px rgba(0,0,0,0.3);
-        }
-
-        /* ===== CONTACT SECTION ===== */
-        .contact {
-            padding: 6rem 0;
-        }
-
-        .contact-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 4rem;
-            align-items: flex-start;
-        }
-
-        .contact-info {
-            display: flex;
-            flex-direction: column;
-            gap: 2rem;
-        }
-
-        .contact-info h2 {
-            color: var(--dark);
-        }
-
-        .contact-card {
-            background: var(--light);
-            border-radius: 10px;
-            padding: 1.8rem;
-            border: 1px solid var(--gray);
-            transition: var(--transition);
-        }
-
-        .contact-card:hover {
-            border-color: var(--teal);
-            box-shadow: 0 10px 30px rgba(0, 191, 165, 0.1);
-        }
-
-        .contact-card h4 {
-            font-size: 1rem;
-            font-weight: 600;
-            color: var(--dark);
-            margin-bottom: 0.5rem;
-        }
-
-        .contact-card p {
-            margin: 0;
-            font-size: 0.95rem;
-        }
-
-        .contact-form {
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .form-group label {
-            font-weight: 500;
-            margin-bottom: 0.5rem;
-            color: var(--text);
-            font-size: 0.95rem;
-        }
-
-        .form-group input,
-        .form-group textarea {
-            padding: 1rem;
-            border: 1px solid var(--gray);
-            border-radius: 6px;
-            font-family: 'Inter', sans-serif;
-            font-size: 0.95rem;
-            color: var(--text);
-            transition: border-color 0.3s ease;
-        }
-
-        .form-group input:focus-visible,
-        .form-group textarea:focus-visible {
-            outline: 2px solid var(--teal);
-            outline-offset: 2px;
-            border-color: var(--teal);
-            box-shadow: 0 0 0 3px rgba(0, 191, 165, 0.1);
-        }
-        .form-group input:focus:not(:focus-visible),
-        .form-group textarea:focus:not(:focus-visible) {
-            outline: none;
-            border-color: var(--teal);
-            box-shadow: 0 0 0 3px rgba(0, 191, 165, 0.1);
-        }
-
-        .form-group textarea {
-            resize: vertical;
-            min-height: 150px;
-        }
-
-        .form-submit {
-            background: var(--teal);
-            color: white;
-            padding: 1rem;
-            border: none;
-            border-radius: 50px;
-            font-weight: 600;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: background 0.3s ease;
-            margin-top: 0.5rem;
-            font-family: 'Inter', sans-serif;
-        }
-
-        .form-submit:hover {
-            background: var(--teal-dark);
-        }
-
-        /* ===== FOOTER ===== */
-        footer {
-            padding: 3rem 2rem;
-            background: var(--dark);
-            color: white;
-        }
-
-        .footer-grid {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: grid;
-            grid-template-columns: 1fr 2fr 1fr;
-            gap: 3rem;
-            align-items: start;
-        }
-
-        .footer-logo img {
-            height: 50px;
-            width: auto;
-            filter: brightness(0) invert(1);
-            margin-bottom: 1rem;
-        }
-
-        .footer-tagline {
-            font-size: 0.85rem;
-            color: rgba(255,255,255,0.5);
-            font-style: italic;
-        }
-
-        .footer-links {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-        }
-
-        .footer-links h4 {
-            font-size: 0.85rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: var(--teal);
-            margin-bottom: 0.8rem;
-        }
-
-        .footer-links a {
-            display: block;
-            color: rgba(255,255,255,0.6);
-            font-size: 0.9rem;
-            margin-bottom: 0.5rem;
-            transition: color 0.3s;
-        }
-
-        .footer-links a:hover {
-            color: var(--teal);
-        }
-
-        .footer-social {
-            display: flex;
-            gap: 1.5rem;
-            justify-content: flex-end;
-        }
-
-        .footer-social a {
-            color: rgba(255, 255, 255, 0.7);
-            transition: color 0.3s ease;
-        }
-
-        .footer-social a:hover {
-            color: var(--teal);
-        }
-
-        .footer-bottom {
-            max-width: 1200px;
-            margin: 2rem auto 0;
-            padding-top: 2rem;
-            border-top: 1px solid rgba(255,255,255,0.1);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.8rem;
-            color: rgba(255,255,255,0.4);
-        }
-
-        /* ===== WHATSAPP BUTTON ===== */
-        .whatsapp-btn {
-            position: fixed;
-            bottom: 2rem;
-            right: 2rem;
-            width: 56px;
-            height: 56px;
-            background: #25D366;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: var(--transition);
-            box-shadow: 0 4px 12px rgba(37, 211, 102, 0.4);
-            z-index: 999;
-            text-decoration: none;
-        }
-
-        .whatsapp-btn:hover {
-            transform: scale(1.1);
-            box-shadow: 0 6px 20px rgba(37, 211, 102, 0.6);
-        }
-
-        /* ===== MOBILE NAV ===== */
-        .mobile-nav {
-            display: none;
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            background: white;
-            flex-direction: column;
-            padding: 1rem 2rem;
-            border-bottom: 1px solid var(--gray);
-            border-radius: 0 0 10px 10px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            gap: 0.8rem;
-        }
-
-        .mobile-nav.open {
-            display: flex;
-        }
-
-        .mobile-nav a {
-            padding: 0.6rem 0;
-            color: var(--text);
-            font-weight: 500;
-        }
-
-        /* ===== RESPONSIVE ===== */
-        @media (max-width: 768px) {
-            .nav-links {
-                display: none;
-            }
-
-            .hamburger {
-                display: flex;
-            }
-
-            .hero-grid,
-            .about-grid,
-            .onfarm-grid,
-            .contact-grid {
-                grid-template-columns: 1fr;
-                padding: 0;
-            }
-
-            .hero {
-                padding: 4rem 0;
-                min-height: auto;
-            }
-
-            .about, .onfarm, .contact {
-                padding: 4rem 0;
-            }
-
-            .hero-pillars,
-            .about-stats,
-            .onfarm-stats {
-                grid-template-columns: 1fr;
-            }
-
-            .tech-content.active {
-                grid-template-columns: 1fr;
-            }
-
-            .services-detail-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .packages-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .logo img {
-                height: 50px;
-            }
-
-            .hero-subtitle {
-                font-size: 1rem;
-                max-width: 100%;
-            }
-
-            .hero-logo-showcase img {
-                max-width: 300px;
-            }
-
-            .hero-logo-ring {
-                width: 280px;
-                height: 280px;
-            }
-
-            .hero-logo-ring-2 {
-                width: 340px;
-                height: 340px;
-            }
-
-            .cta-motto {
-                font-size: 1.8rem;
-            }
-
-            .about-image,
-            .onfarm-image,
-            .tech-visual {
-                height: 300px;
-            }
-
-            .footer-grid {
-                grid-template-columns: 1fr;
-                text-align: center;
-            }
-
-            .footer-social {
-                justify-content: center;
-            }
-
-            .footer-bottom {
-                flex-direction: column;
-                gap: 0.5rem;
-                text-align: center;
-            }
-
-            .gallery-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            .lang-switcher {
-                position: absolute;
-                top: 1rem;
-                right: 4rem;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .container {
-                padding: 0 1rem;
-            }
-
-            h1 {
-                font-size: 2rem;
-            }
-
-            h2 {
-                font-size: 1.5rem;
-            }
-
-            .gallery-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .tech-tabs {
-                gap: 0.5rem;
-            }
-
-            .tech-tab {
-                padding: 0.6rem 1rem;
-                font-size: 0.9rem;
-            }
-
-            .whatsapp-btn {
-                width: 48px;
-                height: 48px;
-            }
-
-            .cta-motto {
-                font-size: 1.3rem;
-            }
-        }
-
-        /* ===== ANIMATIONS ===== */
-        @keyframes slideInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .animate-slide-in {
-            animation: slideInUp 0.8s ease-out;
-        }
-
-        /* WCAG 2.3.3: Respect user motion preferences */
-        @media (prefers-reduced-motion: reduce) {
-            *, *::before, *::after {
-                animation-duration: 0.01ms !important;
-                animation-iteration-count: 1 !important;
-                transition-duration: 0.01ms !important;
-                scroll-behavior: auto !important;
-            }
-        }
-    </style>
-
-    <!-- Schema.org structured data -->
-    <script type="application/ld+json">
-    {
-        "@context": "https://schema.org",
-        "@type": "Organization",
-        "name": "Pixadvisor",
-        "description": "Agricultura de Precisión - Soluciones avanzadas con IA, drones y análisis de datos",
-        "url": "https://pixadvisor.network",
-        "email": "contacto@pixadvisor.network",
-        "telephone": "+59172149171",
-        "areaServed": ["Bolivia", "Brasil"],
-        "founder": {
-            "@type": "Person",
-            "name": "Ing. Agr. Nilton Camargo"
-        },
-        "sameAs": []
-    }
-    </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Pixadvisor - Agricultura de Precisión. Mapeo satelital, muestreo inteligente, IA propia y prescripción variable para maximizar cada hectárea. Bolivia y Brasil.">
+  <meta name="keywords" content="agricultura de precisión, precision agriculture, IA agrícola, NDVI, fertilización variable, muestreo inteligente, prescripción VRT, Pixadvisor, Bolivia, Brasil">
+  <meta property="og:title" content="Pixadvisor - Agricultura de Precisión">
+  <meta property="og:description" content="Tecnología que transforma resultados en el campo. Mapeo satelital, muestreo inteligente, IA propia y prescripción variable.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://pixadvisor.network/img/logo.png">
+  <meta property="og:url" content="https://pixadvisor.network">
+  <meta property="og:locale" content="es_ES">
+  <meta property="og:locale:alternate" content="pt_BR">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Pixadvisor - Agricultura de Precisión">
+  <meta name="twitter:description" content="Tecnología que transforma resultados en el campo. Mapeo satelital, muestreo inteligente, IA propia y prescripción variable.">
+  <meta name="twitter:image" content="https://pixadvisor.network/img/logo.png">
+  <link rel="icon" type="image/png" href="img/favicon.png">
+  <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+  <link rel="canonical" href="https://pixadvisor.network">
+  <title>Pixadvisor - Agricultura de Precisión</title>
+  <link rel="preload" as="image" href="vista_aerea_ap_hd.jpg">
+  <link rel="stylesheet" href="css/main.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "Pixadvisor",
+    "url": "https://pixadvisor.network",
+    "logo": "https://pixadvisor.network/img/logo.png",
+    "description": "Agricultura de Precisión - Mapeo satelital, muestreo inteligente, IA propia y prescripción variable.",
+    "areaServed": ["Bolivia", "Brasil"],
+    "contactPoint": {
+      "@type": "ContactPoint",
+      "telephone": "+591-72149171",
+      "contactType": "sales",
+      "availableLanguage": ["Spanish", "Portuguese"]
+    },
+    "sameAs": [
+      "https://www.facebook.com/pixadvisor",
+      "https://www.instagram.com/pixadvisor",
+      "https://www.linkedin.com/company/pixadvisor"
+    ]
+  }
+  </script>
 </head>
 <body>
-    <a href="#main" class="skip-link">Ir al contenido principal</a>
+  <a href="#main" class="skip-link"><span data-lang-es>Ir al contenido principal</span><span data-lang-pt>Ir ao conteúdo principal</span></a>
 
-    <!-- NAVIGATION -->
-    <nav>
-        <div class="nav-container">
-            <a href="#" class="logo">
-                <img src="img/Logo-negro.png" alt="Pixadvisor - Agricultura de Precisión" width="210" height="70">
-            </a>
-
-            <div class="nav-links">
-                <a href="#about">
-                    <span data-lang-es>Nosotros</span>
-                    <span data-lang-pt>Sobre Nós</span>
-                </a>
-                <a href="#services">
-                    <span data-lang-es>Servicios</span>
-                    <span data-lang-pt>Serviços</span>
-                </a>
-                <a href="#technology">
-                    <span data-lang-es>Tecnología</span>
-                    <span data-lang-pt>Tecnologia</span>
-                </a>
-                <a href="#contact">
-                    <span data-lang-es>Contacto</span>
-                    <span data-lang-pt>Contato</span>
-                </a>
-                <a href="/pix-admin/" id="pixAdminLink" class="nav-cta" style="background:#0d9488;border-color:#0d9488;">
-                    <span data-lang-es>PIX Admin</span>
-                    <span data-lang-pt>PIX Admin</span>
-                </a>
-                <a href="/pix-muestreo/" id="pixMuestreoLink" class="nav-cta" style="background:#7FD633;border-color:#7FD633;color:#0F1B2D;">
-                    <span data-lang-es>PIX Muestreo</span>
-                    <span data-lang-pt>PIX Muestreo</span>
-                </a>
-                <div class="lang-switcher">
-                    <button class="lang-btn active" data-lang="es" aria-label="Español">ES</button>
-                    <button class="lang-btn" data-lang="pt" aria-label="Português">PT</button>
-                </div>
-                <a href="https://wa.me/59172149171" target="_blank" rel="noopener" class="nav-cta">WhatsApp</a>
-            </div>
-
-            <button class="hamburger" aria-label="Abrir menú" aria-expanded="false" aria-controls="mobileNav">
-                <span></span>
-                <span></span>
-                <span></span>
-            </button>
+  <!-- NAV -->
+  <nav class="nav">
+    <div class="nav-container">
+      <a href="#" class="nav-logo">
+        <img src="img/logo-negro.png" alt="Pixadvisor" height="56" width="218">
+        <span class="nav-brand-name">PIXADVISOR</span>
+      </a>
+      <div class="nav-links">
+        <a href="#about">
+          <span data-lang-es>Nosotros</span>
+          <span data-lang-pt>Sobre Nós</span>
+        </a>
+        <a href="#services">
+          <span data-lang-es>Servicios</span>
+          <span data-lang-pt>Serviços</span>
+        </a>
+        <a href="#technology">
+          <span data-lang-es>Tecnología</span>
+          <span data-lang-pt>Tecnologia</span>
+        </a>
+        <a href="#contact">
+          <span data-lang-es>Contacto</span>
+          <span data-lang-pt>Contato</span>
+        </a>
+        <a href="/pix-admin/" class="nav-cta">PIX Admin</a>
+        <a href="/pix-muestreo/" class="nav-cta nav-cta--muestreo">PIX Muestreo</a>
+        <div class="lang-switcher">
+          <button class="lang-btn active" data-lang="es">ES</button>
+          <button class="lang-btn" data-lang="pt">PT</button>
         </div>
+      </div>
+      <button class="hamburger" aria-label="Menu" aria-expanded="false">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+    <div class="mobile-nav" id="mobileNav">
+      <a href="#about">
+        <span data-lang-es>Nosotros</span>
+        <span data-lang-pt>Sobre Nós</span>
+      </a>
+      <a href="#services">
+        <span data-lang-es>Servicios</span>
+        <span data-lang-pt>Serviços</span>
+      </a>
+      <a href="#technology">
+        <span data-lang-es>Tecnología</span>
+        <span data-lang-pt>Tecnologia</span>
+      </a>
+      <a href="#contact">
+        <span data-lang-es>Contacto</span>
+        <span data-lang-pt>Contato</span>
+      </a>
+      <a href="/pix-admin/" class="nav-cta">PIX Admin</a>
+      <a href="/pix-muestreo/" class="nav-cta nav-cta--muestreo">PIX Muestreo</a>
+      <div class="lang-switcher">
+        <button class="lang-btn active" data-lang="es">ES</button>
+        <button class="lang-btn" data-lang="pt">PT</button>
+      </div>
+    </div>
+  </nav>
 
-        <div class="mobile-nav" id="mobileNav" role="navigation">
-            <a href="#about">
-                <span data-lang-es>Nosotros</span>
-                <span data-lang-pt>Sobre Nós</span>
-            </a>
-            <a href="#services">
-                <span data-lang-es>Servicios</span>
-                <span data-lang-pt>Serviços</span>
-            </a>
-            <a href="#technology">
-                <span data-lang-es>Tecnología</span>
-                <span data-lang-pt>Tecnologia</span>
-            </a>
-            <a href="#contact">
-                <span data-lang-es>Contacto</span>
-                <span data-lang-pt>Contato</span>
-            </a>
-            <a href="/pix-admin/" class="nav-cta" style="text-align:center;background:#0d9488;border-color:#0d9488;">PIX Admin</a>
-            <a href="/pix-muestreo/" class="nav-cta" style="text-align:center;background:#7FD633;border-color:#7FD633;color:#0F1B2D;">PIX Muestreo</a>
-            <div class="lang-switcher" style="margin: 0.5rem 0;">
-                <button class="lang-btn active" data-lang="es" aria-label="Español">ES</button>
-                <button class="lang-btn" data-lang="pt" aria-label="Português">PT</button>
-            </div>
-            <a href="https://wa.me/59172149171" target="_blank" rel="noopener" class="nav-cta" style="text-align:center;">WhatsApp</a>
+  <main id="main">
+
+    <!-- 1. HERO -->
+    <section class="hero" style="background-image:url('vista_aerea_ap_hd.jpg')">
+      <div class="hero-container">
+        <div class="hero-badge">
+          <span data-lang-es>Agricultura de Precisión</span>
+          <span data-lang-pt>Agricultura de Precisão</span>
         </div>
-    </nav>
-
-    <main id="main">
-    <!-- HERO SECTION -->
-    <span id="inicio"></span>
-    <section class="hero">
-        <div class="container">
-            <div class="hero-grid">
-                <div class="hero-content">
-                    <div class="teal-line"></div>
-                    <h1 class="hero-title animate-slide-in">
-                        <span data-lang-es>Donde la Tecnología Cultiva la Transformación</span>
-                        <span data-lang-pt>Onde a Tecnologia Cultiva a Transformação</span>
-                    </h1>
-                    <p class="hero-subtitle animate-slide-in">
-                        <span data-lang-es>Soluciones avanzadas de agricultura de precisión que optimizan tus operaciones, maximizan rendimientos y transforman tus datos en decisiones inteligentes.</span>
-                        <span data-lang-pt>Soluções avançadas de agricultura de precisão que otimizam suas operações, maximizam rendimentos e transformam seus dados em decisões inteligentes.</span>
-                    </p>
-
-                    <div class="hero-pillars">
-                        <div class="pillar-card fade-in">
-                            <div class="pillar-title">
-                                <span data-lang-es>Eficiencia</span>
-                                <span data-lang-pt>Eficiência</span>
-                            </div>
-                            <div class="pillar-text">
-                                <span data-lang-es>Optimización de recursos y operaciones</span>
-                                <span data-lang-pt>Otimização de recursos e operações</span>
-                            </div>
-                        </div>
-                        <div class="pillar-card fade-in">
-                            <div class="pillar-title">
-                                <span data-lang-es>Rendimiento</span>
-                                <span data-lang-pt>Desempenho</span>
-                            </div>
-                            <div class="pillar-text">
-                                <span data-lang-es>Máximo rendimiento en cada cultivo</span>
-                                <span data-lang-pt>Máximo rendimento em cada cultivo</span>
-                            </div>
-                        </div>
-                        <div class="pillar-card fade-in">
-                            <div class="pillar-title">
-                                <span data-lang-es>Rentabilidad</span>
-                                <span data-lang-pt>Rentabilidade</span>
-                            </div>
-                            <div class="pillar-text">
-                                <span data-lang-es>Retorno de inversión garantizado</span>
-                                <span data-lang-pt>Retorno de investimento garantido</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div style="margin-top: 28px;">
-                        <a href="https://wa.me/59172149171?text=Hola%20Pixadvisor%2C%20me%20interesa%20solicitar%20una%20demo."
-                           class="hero-cta-btn" target="_blank" rel="noopener"
-                           style="display:inline-block;padding:14px 32px;background:var(--gradient-brand);color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:1.05rem;transition:transform 0.2s,box-shadow 0.2s;">
-                            <span data-lang-es>Solicitar Demo</span>
-                            <span data-lang-pt>Solicitar Demo</span>
-                        </a>
-                    </div>
-                </div>
-
-                <div class="hero-visual">
-                    <div class="hero-logo-showcase">
-                        <div class="hero-logo-ring"></div>
-                        <div class="hero-logo-ring-2"></div>
-                        <img src="img/Logo-negro.png" alt="Pixadvisor Logo" width="500" loading="eager">
-                    </div>
-                </div>
-            </div>
+        <h1 class="hero-title">
+          <span data-lang-es>Tecnología que Transforma<br>Resultados en el Campo</span>
+          <span data-lang-pt>Tecnologia que Transforma<br>Resultados no Campo</span>
+        </h1>
+        <p class="hero-subtitle">
+          <span data-lang-es>Mapeo satelital, muestreo inteligente, IA propia y prescripción variable para maximizar cada hectárea de tu operación agrícola.</span>
+          <span data-lang-pt>Mapeamento satelital, amostragem inteligente, IA própria e prescrição variável para maximizar cada hectare da sua operação agrícola.</span>
+        </p>
+        <div class="hero-ctas">
+          <a href="https://wa.me/59172149171?text=Hola%20Pixadvisor%2C%20me%20interesa%20una%20demo%20de%20sus%20servicios." class="hero-btn-primary" target="_blank" rel="noopener">
+            <span data-lang-es>Solicitar Demo</span>
+            <span data-lang-pt>Solicitar Demo</span>
+          </a>
+          <a href="#services" class="hero-btn-secondary">
+            <span data-lang-es>Ver Servicios</span>
+            <span data-lang-pt>Ver Serviços</span>
+          </a>
         </div>
+        <div class="hero-stats">
+          <div class="hero-stat">
+            <strong>2</strong>
+            <span data-lang-es>Países</span><span data-lang-pt>Países</span>
+          </div>
+          <div class="hero-stat">
+            <strong>11</strong>
+            <span data-lang-es>Cultivos</span><span data-lang-pt>Culturas</span>
+          </div>
+          <div class="hero-stat">
+            <strong>100%</strong>
+            <span data-lang-es>Datos Reales</span><span data-lang-pt>Dados Reais</span>
+          </div>
+          <div class="hero-stat">
+            <strong>IA</strong>
+            <span data-lang-es>Propia</span><span data-lang-pt>Própria</span>
+          </div>
+        </div>
+      </div>
     </section>
 
-    <div class="section-divider"></div>
+    <!-- 2. PROCESS / HOW IT WORKS -->
+    <section class="process" id="process">
+      <div class="container">
+        <div class="process-header">
+          <h2>
+            <span data-lang-es>Cómo Trabajamos</span>
+            <span data-lang-pt>Como Trabalhamos</span>
+          </h2>
+          <div class="section-divider"></div>
+          <p>
+            <span data-lang-es>5 pasos para transformar tu operación agrícola con tecnología de precisión</span>
+            <span data-lang-pt>5 passos para transformar sua operação agrícola com tecnologia de precisão</span>
+          </p>
+        </div>
+        <div class="process-timeline">
+          <!-- Step 1 -->
+          <div class="process-step fade-in">
+            <div class="process-step-number">1</div>
+            <div class="process-step-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            </div>
+            <h3 class="process-step-title">
+              <span data-lang-es>Diagnóstico Satelital</span>
+              <span data-lang-pt>Diagnóstico Satelital</span>
+            </h3>
+            <p class="process-step-text">
+              <span data-lang-es>Evaluamos su campo mediante imágenes satelitales multibanda para identificar zonas de manejo y variabilidad.</span>
+              <span data-lang-pt>Avaliamos seu campo por meio de imagens satelitais multibanda para identificar zonas de manejo e variabilidade.</span>
+            </p>
+          </div>
+          <!-- Step 2 -->
+          <div class="process-step fade-in">
+            <div class="process-step-number">2</div>
+            <div class="process-step-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            </div>
+            <h3 class="process-step-title">
+              <span data-lang-es>Muestreo de Campo</span>
+              <span data-lang-pt>Amostragem de Campo</span>
+            </h3>
+            <p class="process-step-text">
+              <span data-lang-es>Colecta georreferenciada con PIX Muestreo, optimizando puntos por zona de manejo.</span>
+              <span data-lang-pt>Coleta georreferenciada com PIX Muestreo, otimizando pontos por zona de manejo.</span>
+            </p>
+          </div>
+          <!-- Step 3 -->
+          <div class="process-step fade-in">
+            <div class="process-step-number">3</div>
+            <div class="process-step-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 1 4 4c0 1.5-.8 2.8-2 3.4V11h3a3 3 0 0 1 3 3v1h1a2 2 0 0 1 2 2v4H1v-4a2 2 0 0 1 2-2h1v-1a3 3 0 0 1 3-3h3V9.4A4 4 0 0 1 8 6a4 4 0 0 1 4-4z"/></svg>
+            </div>
+            <h3 class="process-step-title">
+              <span data-lang-es>Análisis con IA</span>
+              <span data-lang-pt>Análise com IA</span>
+            </h3>
+            <p class="process-step-text">
+              <span data-lang-es>Algoritmos propios procesan datos satelitales y de campo para generar recomendaciones precisas.</span>
+              <span data-lang-pt>Algoritmos próprios processam dados satelitais e de campo para gerar recomendações precisas.</span>
+            </p>
+          </div>
+          <!-- Step 4 -->
+          <div class="process-step fade-in">
+            <div class="process-step-number">4</div>
+            <div class="process-step-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+            </div>
+            <h3 class="process-step-title">
+              <span data-lang-es>Prescripción VRT</span>
+              <span data-lang-pt>Prescrição VRT</span>
+            </h3>
+            <p class="process-step-text">
+              <span data-lang-es>Mapas de aplicación variable listos para su maquinaria, optimizando insumos por zona.</span>
+              <span data-lang-pt>Mapas de aplicação variável prontos para sua maquinaria, otimizando insumos por zona.</span>
+            </p>
+          </div>
+          <!-- Step 5 -->
+          <div class="process-step fade-in">
+            <div class="process-step-number">5</div>
+            <div class="process-step-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </div>
+            <h3 class="process-step-title">
+              <span data-lang-es>Monitoreo Continuo</span>
+              <span data-lang-pt>Monitoramento Contínuo</span>
+            </h3>
+            <p class="process-step-text">
+              <span data-lang-es>Seguimiento satelital mes a mes para evaluar resultados y ajustar estrategias.</span>
+              <span data-lang-pt>Acompanhamento satelital mês a mês para avaliar resultados e ajustar estratégias.</span>
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
 
-    <!-- ABOUT SECTION -->
+    <!-- 3. ABOUT -->
     <section class="about" id="about">
-        <div class="container">
-            <div class="about-grid">
-                <div class="about-content fade-in">
-                    <h2>
-                        <span data-lang-es>Transformando la Agricultura Moderna</span>
-                        <span data-lang-pt>Transformando a Agricultura Moderna</span>
-                    </h2>
-                    <p class="about-text">
-                        <span data-lang-es>Pixadvisor es una plataforma integral de agricultura de precisión que integra datos, análisis avanzado e inteligencia artificial para ayudarte a tomar decisiones más informadas. Con presencia en múltiples países, trabajamos con datos 100% reales para ofrecerte soluciones que realmente funcionan en el campo.</span>
-                        <span data-lang-pt>Pixadvisor é uma plataforma integral de agricultura de precisão que integra dados, análise avançada e inteligência artificial para ajudá-lo a tomar decisões mais informadas. Com presença em múltiplos países, trabalhamos com dados 100% reais para oferecer soluções que realmente funcionam no campo.</span>
-                    </p>
-
-                    <div class="about-stats">
-                        <div class="stat fade-in">
-                            <div class="stat-number">2</div>
-                            <div class="stat-label">
-                                <span data-lang-es>Países</span>
-                                <span data-lang-pt>Países</span>
-                            </div>
-                        </div>
-                        <div class="stat fade-in">
-                            <div class="stat-number">100%</div>
-                            <div class="stat-label">
-                                <span data-lang-es>Datos Reales</span>
-                                <span data-lang-pt>Dados Reais</span>
-                            </div>
-                        </div>
-                        <div class="stat fade-in">
-                            <div class="stat-number">IA</div>
-                            <div class="stat-label">
-                                <span data-lang-es>Propia</span>
-                                <span data-lang-pt>Própria</span>
-                            </div>
-                        </div>
-                    </div>
+      <div class="container">
+        <div class="about-grid">
+          <div class="about-content fade-in">
+            <h2>
+              <span data-lang-es>Agricultura de Precisión con Tecnología Propia</span>
+              <span data-lang-pt>Agricultura de Precisão com Tecnologia Própria</span>
+            </h2>
+            <p>
+              <span data-lang-es>En Pixadvisor combinamos imágenes satelitales, inteligencia artificial y conocimiento agronómico para entregar soluciones que realmente impactan la productividad de tu campo. Operamos en Bolivia y Brasil, con experiencia en 11 cultivos diferentes.</span>
+              <span data-lang-pt>Na Pixadvisor combinamos imagens satelitais, inteligência artificial e conhecimento agronômico para entregar soluções que realmente impactam a produtividade do seu campo. Operamos na Bolívia e no Brasil, com experiência em 11 cultivos diferentes.</span>
+            </p>
+            <p>
+              <span data-lang-es>Nuestra plataforma integra desde el diagnóstico satelital hasta la prescripción variable, pasando por muestreo georreferenciado y análisis con IA. Todo en un ecosistema diseñado para el agricultor moderno.</span>
+              <span data-lang-pt>Nossa plataforma integra desde o diagnóstico satelital até a prescrição variável, passando por amostragem georreferenciada e análise com IA. Tudo em um ecossistema projetado para o agricultor moderno.</span>
+            </p>
+            <div class="about-stats">
+              <div class="stat">
+                <div class="stat-number">2</div>
+                <div class="stat-label">
+                  <span data-lang-es>Países</span>
+                  <span data-lang-pt>Países</span>
                 </div>
-
-                <div class="about-image fade-in">
-                    <img src="img/Agricultura de precisão com drone.jpg" alt="Drone realizando monitoreo de cultivos con agricultura de precisión" loading="lazy" width="600" height="500">
+              </div>
+              <div class="stat">
+                <div class="stat-number">100%</div>
+                <div class="stat-label">
+                  <span data-lang-es>Datos Reales</span>
+                  <span data-lang-pt>Dados Reais</span>
                 </div>
+              </div>
+              <div class="stat">
+                <div class="stat-number">IA</div>
+                <div class="stat-label">
+                  <span data-lang-es>Propia</span>
+                  <span data-lang-pt>Própria</span>
+                </div>
+              </div>
             </div>
+          </div>
+          <div class="about-image fade-in">
+            <img src="img/agricultura-precision-drone.jpg" alt="Agricultura de precisión con drones" width="600" height="400" loading="lazy">
+          </div>
         </div>
+      </div>
     </section>
 
-    <div class="section-divider"></div>
-
-    <!-- SERVICES SECTION -->
-    <span id="servicios"></span>
+    <!-- 4. SERVICES -->
     <section class="services" id="services">
-        <div class="container">
-            <div class="services-header fade-in">
-                <h2>
-                    <span data-lang-es>Nuestros Servicios</span>
-                    <span data-lang-pt>Nossos Serviços</span>
-                </h2>
-                <p>
-                    <span data-lang-es>Soluciones integrales de agricultura de precisión para cada etapa de tu operación.</span>
-                    <span data-lang-pt>Soluções integrais de agricultura de precisão para cada etapa da sua operação.</span>
-                </p>
-            </div>
-
-            <!-- Service Cards -->
-            <div class="services-detail-grid">
-                <a href="img/servicios/geoland-advisor.html" class="service-detail-card fade-in">
-                    <div class="service-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
-                    <h3>GeoLand Advisor</h3>
-                    <p>
-                        <span data-lang-es>Georreferenciación y digitalización integral de áreas productivas.</span>
-                        <span data-lang-pt>Georreferenciamento e digitalização integral de áreas produtivas.</span>
-                    </p>
-                    <span class="card-arrow">&rarr;</span>
-                </a>
-
-                <a href="img/servicios/smartsoil-advisor.html" class="service-detail-card fade-in">
-                    <div class="service-icon"><svg viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></div>
-                    <h3>SmartSoil Advisor</h3>
-                    <p>
-                        <span data-lang-es>Mapeo de zonas y ambientes productivos para manejo sitio-específico.</span>
-                        <span data-lang-pt>Mapeamento de zonas e ambientes produtivos para manejo sítio-específico.</span>
-                    </p>
-                    <span class="card-arrow">&rarr;</span>
-                </a>
-
-                <a href="img/servicios/checksoil-advisor.html" class="service-detail-card fade-in">
-                    <div class="service-icon"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
-                    <h3>CheckSoil Advisor</h3>
-                    <p>
-                        <span data-lang-es>Muestreo dirigido y análisis de suelo georreferenciado.</span>
-                        <span data-lang-pt>Amostragem dirigida e análise de solo georreferenciada.</span>
-                    </p>
-                    <span class="card-arrow">&rarr;</span>
-                </a>
-
-                <a href="img/servicios/nutribank-advisor.html" class="service-detail-card fade-in">
-                    <div class="service-icon"><svg viewBox="0 0 24 24"><path d="M12 20V10M18 20V4M6 20v-4"/></svg></div>
-                    <h3>NutriBank Advisor</h3>
-                    <p>
-                        <span data-lang-es>Fertilización en tasa variable con prescripciones inteligentes.</span>
-                        <span data-lang-pt>Fertilização em taxa variável com prescrições inteligentes.</span>
-                    </p>
-                    <span class="card-arrow">&rarr;</span>
-                </a>
-
-                <a href="img/servicios/bioindex-advisor.html" class="service-detail-card fade-in">
-                    <div class="service-icon"><svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>
-                    <h3>BioIndex Advisor</h3>
-                    <p>
-                        <span data-lang-es>Detección de anomalías y estrés mediante índices biológicos.</span>
-                        <span data-lang-pt>Detecção de anomalias e estresse mediante índices biológicos.</span>
-                    </p>
-                    <span class="card-arrow">&rarr;</span>
-                </a>
-
-                <a href="img/servicios/watersoil-advisor.html" class="service-detail-card fade-in">
-                    <div class="service-icon"><svg viewBox="0 0 24 24"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg></div>
-                    <h3>WaterSoil Advisor</h3>
-                    <p>
-                        <span data-lang-es>Monitoreo hídrico y detección de estrés para gestión del agua.</span>
-                        <span data-lang-pt>Monitoramento hídrico e detecção de estresse para gestão da água.</span>
-                    </p>
-                    <span class="card-arrow">&rarr;</span>
-                </a>
-
-                <a href="img/servicios/checkleaf-advisor.html" class="service-detail-card fade-in">
-                    <div class="service-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
-                    <h3>CheckLeaf Advisor</h3>
-                    <p>
-                        <span data-lang-es>Análisis foliar avanzado para diagnóstico nutricional directo.</span>
-                        <span data-lang-pt>Análise foliar avançada para diagnóstico nutricional direto.</span>
-                    </p>
-                    <span class="card-arrow">&rarr;</span>
-                </a>
-
-                <a href="img/servicios/onfarm-biofabricas.html" class="service-detail-card fade-in">
-                    <div class="service-icon"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
-                    <h3>
-                        <span data-lang-es>OnFarm - Biofábricas</span>
-                        <span data-lang-pt>OnFarm - Biofábricas</span>
-                    </h3>
-                    <p>
-                        <span data-lang-es>Multiplicación de microorganismos en su finca. Ahorro de 60-75%.</span>
-                        <span data-lang-pt>Multiplicação de microrganismos na sua fazenda. Economia de 60-75%.</span>
-                    </p>
-                    <span class="card-arrow">&rarr;</span>
-                </a>
-            </div>
-
-            <div class="section-divider"></div>
-
-            <!-- Packages -->
-            <div class="services-header fade-in">
-                <h2>
-                    <span data-lang-es>Paquetes de Soluciones</span>
-                    <span data-lang-pt>Pacotes de Soluções</span>
-                </h2>
-                <p>
-                    <span data-lang-es>Elige el plan que mejor se adapte a tus necesidades.</span>
-                    <span data-lang-pt>Escolha o plano que melhor se adapta às suas necessidades.</span>
-                </p>
-            </div>
-
-            <div class="packages-grid">
-                <div class="package-card fade-in">
-                    <div class="package-number">
-                        <span data-lang-es>Paquete 1 - Básico</span>
-                        <span data-lang-pt>Pacote 1 - Básico</span>
-                    </div>
-                    <h3>Basic</h3>
-                    <div class="service-price">
-                        <span data-lang-es>Contactar <span>por precio</span></span>
-                        <span data-lang-pt>Consultar <span>preço</span></span>
-                    </div>
-                    <p class="service-description">
-                        <span data-lang-es>Ideal para productores que inician en agricultura de precisión con las herramientas fundamentales.</span>
-                        <span data-lang-pt>Ideal para produtores que iniciam na agricultura de precisão com as ferramentas fundamentais.</span>
-                    </p>
-                    <ul class="service-features">
-                        <li>GeoLand Advisor</li>
-                        <li>SmartSoil Advisor</li>
-                        <li>
-                            <span data-lang-es>Reportes Mensuales</span>
-                            <span data-lang-pt>Relatórios Mensais</span>
-                        </li>
-                        <li>
-                            <span data-lang-es>Soporte Email</span>
-                            <span data-lang-pt>Suporte Email</span>
-                        </li>
-                    </ul>
-                    <a href="https://wa.me/59172149171?text=Hola%2C%20me%20interesa%20el%20Paquete%20Basic%20de%20Pixadvisor" target="_blank" rel="noopener" class="service-cta">
-                        <span data-lang-es>Solicitar Demo</span>
-                        <span data-lang-pt>Solicitar Demo</span>
-                    </a>
-                </div>
-
-                <div class="package-card fade-in">
-                    <div class="package-number">
-                        <span data-lang-es>Paquete 2 - Plus</span>
-                        <span data-lang-pt>Pacote 2 - Plus</span>
-                    </div>
-                    <h3>Plus</h3>
-                    <div class="service-price">
-                        <span data-lang-es>Contactar <span>por precio</span></span>
-                        <span data-lang-pt>Consultar <span>preço</span></span>
-                    </div>
-                    <p class="service-description">
-                        <span data-lang-es>Análisis avanzado y recomendaciones con IA para productores que buscan mayor precisión.</span>
-                        <span data-lang-pt>Análise avançada e recomendações com IA para produtores que buscam maior precisão.</span>
-                    </p>
-                    <ul class="service-features">
-                        <li>GeoLand + SmartSoil + CheckSoil</li>
-                        <li>NutriBank + BioIndex + WaterSoil</li>
-                        <li>
-                            <span data-lang-es>IA Predictiva</span>
-                            <span data-lang-pt>IA Preditiva</span>
-                        </li>
-                        <li>
-                            <span data-lang-es>Reportes Semanales</span>
-                            <span data-lang-pt>Relatórios Semanais</span>
-                        </li>
-                        <li>
-                            <span data-lang-es>Soporte Prioritario</span>
-                            <span data-lang-pt>Suporte Prioritário</span>
-                        </li>
-                    </ul>
-                    <a href="https://wa.me/59172149171?text=Hola%2C%20me%20interesa%20el%20Paquete%20Plus%20de%20Pixadvisor" target="_blank" rel="noopener" class="service-cta">
-                        <span data-lang-es>Solicitar Demo</span>
-                        <span data-lang-pt>Solicitar Demo</span>
-                    </a>
-                </div>
-
-                <div class="package-card fade-in">
-                    <div class="package-number">
-                        <span data-lang-es>Paquete 3 - Premium</span>
-                        <span data-lang-pt>Pacote 3 - Premium</span>
-                    </div>
-                    <h3>Premium</h3>
-                    <div class="service-price">
-                        <span data-lang-es>Contactar <span>por precio</span></span>
-                        <span data-lang-pt>Consultar <span>preço</span></span>
-                    </div>
-                    <p class="service-description">
-                        <span data-lang-es>Control total con la suite completa de herramientas, CheckLeaf, IA propia y soporte dedicado.</span>
-                        <span data-lang-pt>Controle total com a suite completa de ferramentas, CheckLeaf, IA própria e suporte dedicado.</span>
-                    </p>
-                    <ul class="service-features">
-                        <li>
-                            <span data-lang-es>Suite Completa (todos los servicios)</span>
-                            <span data-lang-pt>Suite Completa (todos os serviços)</span>
-                        </li>
-                        <li>CheckLeaf Advisor</li>
-                        <li>FieldPlanning + FieldMetrics + FieldControl</li>
-                        <li>
-                            <span data-lang-es>IA 100% Propia</span>
-                            <span data-lang-pt>IA 100% Própria</span>
-                        </li>
-                        <li>
-                            <span data-lang-es>Soporte 24/7</span>
-                            <span data-lang-pt>Suporte 24/7</span>
-                        </li>
-                    </ul>
-                    <a href="https://wa.me/59172149171?text=Hola%2C%20me%20interesa%20el%20Paquete%20Premium%20de%20Pixadvisor" target="_blank" rel="noopener" class="service-cta">
-                        <span data-lang-es>Solicitar Demo</span>
-                        <span data-lang-pt>Solicitar Demo</span>
-                    </a>
-                </div>
-            </div>
+      <div class="container">
+        <div class="services-header">
+          <h2>
+            <span data-lang-es>Nuestros Servicios</span>
+            <span data-lang-pt>Nossos Serviços</span>
+          </h2>
+          <div class="section-divider"></div>
+          <p>
+            <span data-lang-es>Soluciones integrales de agricultura de precisión adaptadas a tu operación</span>
+            <span data-lang-pt>Soluções integrais de agricultura de precisão adaptadas à sua operação</span>
+          </p>
         </div>
+        <div class="services-grid">
+          <!-- Service 1: GeoLand Advisor -->
+          <a href="img/servicios/geoland-advisor.html" class="service-card fade-in">
+            <div class="service-card-img">
+              <img src="img/paisaje-agricola-ndvi.jpg" alt="GeoLand Advisor - Mapeo de lotes" width="400" height="250" loading="lazy">
+            </div>
+            <div class="service-card-body">
+              <span class="service-category cat-mapping">
+                <span data-lang-es>Mapeo</span>
+                <span data-lang-pt>Mapeamento</span>
+              </span>
+              <h3>GeoLand Advisor</h3>
+              <p>
+                <span data-lang-es>Delimitación y mapeo de lotes agrícolas con imágenes satelitales de alta resolución y clasificación de zonas productivas.</span>
+                <span data-lang-pt>Delimitação e mapeamento de lotes agrícolas com imagens satelitais de alta resolução e classificação de zonas produtivas.</span>
+              </p>
+              <span class="service-card-link">
+                <span data-lang-es>Ver más</span>
+                <span data-lang-pt>Ver mais</span>
+                &rarr;
+              </span>
+            </div>
+          </a>
+          <!-- Service 2: SmartSoil Advisor -->
+          <a href="img/servicios/smartsoil-advisor.html" class="service-card fade-in">
+            <div class="service-card-img">
+              <img src="img/mapeamiento-fertilidad-suelo.jpg" alt="SmartSoil Advisor - Fertilidad del suelo" width="400" height="250" loading="lazy">
+            </div>
+            <div class="service-card-body">
+              <span class="service-category cat-mapping">
+                <span data-lang-es>Mapeo</span>
+                <span data-lang-pt>Mapeamento</span>
+              </span>
+              <h3>SmartSoil Advisor</h3>
+              <p>
+                <span data-lang-es>Mapeo de fertilidad del suelo con interpolación geoestadística y generación de zonas de manejo para fertilización diferenciada.</span>
+                <span data-lang-pt>Mapeamento de fertilidade do solo com interpolação geoestatística e geração de zonas de manejo para fertilização diferenciada.</span>
+              </p>
+              <span class="service-card-link">
+                <span data-lang-es>Ver más</span>
+                <span data-lang-pt>Ver mais</span>
+                &rarr;
+              </span>
+            </div>
+          </a>
+          <!-- Service 3: CheckSoil Advisor -->
+          <a href="img/servicios/checksoil-advisor.html" class="service-card fade-in">
+            <div class="service-card-img">
+              <img src="img/servicio-01.jpg" alt="CheckSoil Advisor - Diagnóstico de suelos" width="400" height="250" loading="lazy">
+            </div>
+            <div class="service-card-body">
+              <span class="service-category cat-mapping">
+                <span data-lang-es>Mapeo</span>
+                <span data-lang-pt>Mapeamento</span>
+              </span>
+              <h3>CheckSoil Advisor</h3>
+              <p>
+                <span data-lang-es>Diagnóstico integral del suelo con muestreo dirigido por zonas, análisis de laboratorio y recomendaciones de enmiendas.</span>
+                <span data-lang-pt>Diagnóstico integral do solo com amostragem dirigida por zonas, análise de laboratório e recomendações de correção.</span>
+              </p>
+              <span class="service-card-link">
+                <span data-lang-es>Ver más</span>
+                <span data-lang-pt>Ver mais</span>
+                &rarr;
+              </span>
+            </div>
+          </a>
+          <!-- Service 4: NutriBank Advisor -->
+          <a href="img/servicios/nutribank-advisor.html" class="service-card fade-in">
+            <div class="service-card-img">
+              <img src="img/mapa-aplicacion-cal.jpg" alt="NutriBank Advisor - Prescripción nutricional" width="400" height="250" loading="lazy">
+            </div>
+            <div class="service-card-body">
+              <span class="service-category cat-nutrition">
+                <span data-lang-es>Nutrición</span>
+                <span data-lang-pt>Nutrição</span>
+              </span>
+              <h3>NutriBank Advisor</h3>
+              <p>
+                <span data-lang-es>Prescripción nutricional variable con mapas VRT para fertilización, encalado y enmiendas, optimizando costos por hectárea.</span>
+                <span data-lang-pt>Prescrição nutricional variável com mapas VRT para fertilização, calagem e correção, otimizando custos por hectare.</span>
+              </p>
+              <span class="service-card-link">
+                <span data-lang-es>Ver más</span>
+                <span data-lang-pt>Ver mais</span>
+                &rarr;
+              </span>
+            </div>
+          </a>
+          <!-- Service 5: BioIndex Advisor -->
+          <a href="img/servicios/bioindex-advisor.html" class="service-card fade-in">
+            <div class="service-card-img">
+              <img src="img/analisis-salud-vegetacion.jpg" alt="BioIndex Advisor - Índices de vegetación" width="400" height="250" loading="lazy">
+            </div>
+            <div class="service-card-body">
+              <span class="service-category cat-monitoring">
+                <span data-lang-es>Monitoreo</span>
+                <span data-lang-pt>Monitoramento</span>
+              </span>
+              <h3>BioIndex Advisor</h3>
+              <p>
+                <span data-lang-es>Monitoreo de salud vegetal con índices NDVI, NDRE, SAVI y series temporales para detectar estrés antes de que sea visible.</span>
+                <span data-lang-pt>Monitoramento de saúde vegetal com índices NDVI, NDRE, SAVI e séries temporais para detectar estresse antes que seja visível.</span>
+              </p>
+              <span class="service-card-link">
+                <span data-lang-es>Ver más</span>
+                <span data-lang-pt>Ver mais</span>
+                &rarr;
+              </span>
+            </div>
+          </a>
+          <!-- Service 6: WaterSoil Advisor -->
+          <a href="img/servicios/watersoil-advisor.html" class="service-card fade-in">
+            <div class="service-card-img">
+              <img src="img/agricultura-precision-tecnologia.jpg" alt="WaterSoil Advisor - Gestión hídrica" width="400" height="250" loading="lazy">
+            </div>
+            <div class="service-card-body">
+              <span class="service-category cat-monitoring">
+                <span data-lang-es>Monitoreo</span>
+                <span data-lang-pt>Monitoramento</span>
+              </span>
+              <h3>WaterSoil Advisor</h3>
+              <p>
+                <span data-lang-es>Análisis de balance hídrico, mapeo de humedad del suelo y recomendaciones de riego con datos satelitales y de campo.</span>
+                <span data-lang-pt>Análise de balanço hídrico, mapeamento de umidade do solo e recomendações de irrigação com dados satelitais e de campo.</span>
+              </p>
+              <span class="service-card-link">
+                <span data-lang-es>Ver más</span>
+                <span data-lang-pt>Ver mais</span>
+                &rarr;
+              </span>
+            </div>
+          </a>
+          <!-- Service 7: CheckLeaf Advisor -->
+          <a href="img/servicios/checkleaf-advisor.html" class="service-card fade-in">
+            <div class="service-card-img">
+              <img src="img/servicio-03.jpg" alt="CheckLeaf Advisor - Análisis foliar" width="400" height="250" loading="lazy">
+            </div>
+            <div class="service-card-body">
+              <span class="service-category cat-nutrition">
+                <span data-lang-es>Nutrición</span>
+                <span data-lang-pt>Nutrição</span>
+              </span>
+              <h3>CheckLeaf Advisor</h3>
+              <p>
+                <span data-lang-es>Diagnóstico foliar georreferenciado con interpretación nutricional y correlación con índices de vegetación satelitales.</span>
+                <span data-lang-pt>Diagnóstico foliar georreferenciado com interpretação nutricional e correlação com índices de vegetação satelitais.</span>
+              </p>
+              <span class="service-card-link">
+                <span data-lang-es>Ver más</span>
+                <span data-lang-pt>Ver mais</span>
+                &rarr;
+              </span>
+            </div>
+          </a>
+          <!-- Service 8: OnFarm Biofábricas -->
+          <a href="img/servicios/onfarm-biofabricas.html" class="service-card fade-in">
+            <div class="service-card-img">
+              <img src="img/biotanques.jpg" alt="OnFarm Biofábricas - Control biológico" width="400" height="250" loading="lazy">
+            </div>
+            <div class="service-card-body">
+              <span class="service-category cat-bio">
+                <span data-lang-es>Biológico</span>
+                <span data-lang-pt>Biológico</span>
+              </span>
+              <h3>OnFarm Biofábricas</h3>
+              <p>
+                <span data-lang-es>Producción on-farm de biocontroladores y biofertilizantes con monitoreo digital y protocolos de calidad integrados.</span>
+                <span data-lang-pt>Produção on-farm de biocontroladores e biofertilizantes com monitoramento digital e protocolos de qualidade integrados.</span>
+              </p>
+              <span class="service-card-link">
+                <span data-lang-es>Ver más</span>
+                <span data-lang-pt>Ver mais</span>
+                &rarr;
+              </span>
+            </div>
+          </a>
+        </div>
+      </div>
     </section>
 
-    <div class="section-divider"></div>
-
-    <!-- TECHNOLOGY SECTION -->
-    <span id="tecnologia"></span>
-    <section class="technology" id="technology">
-        <div class="container">
-            <div class="tech-header fade-in">
-                <h2>
-                    <span data-lang-es>Nuestra Plataforma Tecnológica</span>
-                    <span data-lang-pt>Nossa Plataforma Tecnológica</span>
-                </h2>
-                <p>
-                    <span data-lang-es>Tres pilares de tecnología avanzada diseñados para maximizar tu productividad</span>
-                    <span data-lang-pt>Três pilares de tecnologia avançada projetados para maximizar sua produtividade</span>
-                </p>
-            </div>
-
-            <div class="tech-tabs" role="tablist" aria-label="Plataforma tecnológica">
-                <button class="tech-tab" role="tab" aria-selected="true" aria-controls="panel-fieldplanning" id="tab-fieldplanning">FieldPlanning</button>
-                <button class="tech-tab" role="tab" aria-selected="false" aria-controls="panel-fieldmetrics" id="tab-fieldmetrics">FieldMetrics</button>
-                <button class="tech-tab" role="tab" aria-selected="false" aria-controls="panel-fieldcontrol" id="tab-fieldcontrol">FieldControl</button>
-            </div>
-
-            <div id="panel-fieldplanning" class="tech-content active fade-in" role="tabpanel" aria-labelledby="tab-fieldplanning">
-                <div class="tech-text">
-                    <h3>FieldPlanning</h3>
-                    <p>
-                        <span data-lang-es>Planifica con precisión cada metro de tus cultivos utilizando análisis de datos históricos, condiciones climáticas y recomendaciones de IA.</span>
-                        <span data-lang-pt>Planeje com precisão cada metro dos seus cultivos utilizando análise de dados históricos, condições climáticas e recomendações de IA.</span>
-                    </p>
-                    <div class="tech-features">
-                        <div class="tech-feature">
-                            <div class="tech-feature-icon">01</div>
-                            <div class="tech-feature-text">
-                                <h4><span data-lang-es>Planificación Inteligente</span><span data-lang-pt>Planejamento Inteligente</span></h4>
-                                <p><span data-lang-es>Mapeo y zonificación automática de campos</span><span data-lang-pt>Mapeamento e zonificação automática de campos</span></p>
-                            </div>
-                        </div>
-                        <div class="tech-feature">
-                            <div class="tech-feature-icon">02</div>
-                            <div class="tech-feature-text">
-                                <h4><span data-lang-es>Análisis Predictivo</span><span data-lang-pt>Análise Preditiva</span></h4>
-                                <p><span data-lang-es>Previsiones precisas basadas en IA</span><span data-lang-pt>Previsões precisas baseadas em IA</span></p>
-                            </div>
-                        </div>
-                        <div class="tech-feature">
-                            <div class="tech-feature-icon">03</div>
-                            <div class="tech-feature-text">
-                                <h4><span data-lang-es>Optimización de Recursos</span><span data-lang-pt>Otimização de Recursos</span></h4>
-                                <p><span data-lang-es>Máximo ROI con mínimo desperdicio</span><span data-lang-pt>Máximo ROI com mínimo desperdício</span></p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="tech-visual">
-                    <img src="img/Fazenda inteligente por meio de tecnologia.jpg" alt="FieldPlanning - Planificación inteligente de campos agrícolas" loading="lazy" width="600" height="400">
-                </div>
-            </div>
-
-            <div id="panel-fieldmetrics" class="tech-content fade-in" role="tabpanel" aria-labelledby="tab-fieldmetrics">
-                <div class="tech-text">
-                    <h3>FieldMetrics</h3>
-                    <p>
-                        <span data-lang-es>Analiza la calidad post-plantación con IA: restitución de líneas, detección de fallas, paralelismo y conteo de plantas.</span>
-                        <span data-lang-pt>Analise a qualidade pós-plantio com IA: restituição de linhas, detecção de falhas, paralelismo e contagem de plantas.</span>
-                    </p>
-                    <div class="tech-features">
-                        <div class="tech-feature">
-                            <div class="tech-feature-icon">01</div>
-                            <div class="tech-feature-text">
-                                <h4><span data-lang-es>Restitución de Líneas</span><span data-lang-pt>Restituição de Linhas</span></h4>
-                                <p><span data-lang-es>Reconstrucción digital para cosecha mecanizada</span><span data-lang-pt>Reconstrução digital para colheita mecanizada</span></p>
-                            </div>
-                        </div>
-                        <div class="tech-feature">
-                            <div class="tech-feature-icon">02</div>
-                            <div class="tech-feature-text">
-                                <h4><span data-lang-es>Detección de Fallas</span><span data-lang-pt>Detecção de Falhas</span></h4>
-                                <p><span data-lang-es>Cuantificación automática de fallas de plantío</span><span data-lang-pt>Quantificação automática de falhas de plantio</span></p>
-                            </div>
-                        </div>
-                        <div class="tech-feature">
-                            <div class="tech-feature-icon">03</div>
-                            <div class="tech-feature-text">
-                                <h4><span data-lang-es>Conteo de Plantas</span><span data-lang-pt>Contagem de Plantas</span></h4>
-                                <p><span data-lang-es>Estimación precisa de población por hectárea</span><span data-lang-pt>Estimativa precisa de população por hectare</span></p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="tech-visual">
-                    <img src="img/Paisagem agrícola com mapa NDVI.jpg" alt="FieldMetrics - Análisis de métricas de cultivos" loading="lazy" width="600" height="400">
-                </div>
-            </div>
-
-            <div id="panel-fieldcontrol" class="tech-content fade-in" role="tabpanel" aria-labelledby="tab-fieldcontrol">
-                <div class="tech-text">
-                    <h3>FieldControl</h3>
-                    <p>
-                        <span data-lang-es>Monitoreo continuo con visión por computadora y deep learning para detectar problemas de forma temprana.</span>
-                        <span data-lang-pt>Monitoramento contínuo com visão computacional e deep learning para detectar problemas de forma precoce.</span>
-                    </p>
-                    <div class="tech-features">
-                        <div class="tech-feature">
-                            <div class="tech-feature-icon">01</div>
-                            <div class="tech-feature-text">
-                                <h4><span data-lang-es>Detección de Malezas</span><span data-lang-pt>Detecção de Plantas Daninhas</span></h4>
-                                <p><span data-lang-es>IA entrenada para mapear infestaciones</span><span data-lang-pt>IA treinada para mapear infestações</span></p>
-                            </div>
-                        </div>
-                        <div class="tech-feature">
-                            <div class="tech-feature-icon">02</div>
-                            <div class="tech-feature-text">
-                                <h4><span data-lang-es>Clasificación Espectral</span><span data-lang-pt>Classificação Espectral</span></h4>
-                                <p><span data-lang-es>Diferenciación de estrés hídrico, nutricional y sanitario</span><span data-lang-pt>Diferenciação de estresse hídrico, nutricional e sanitário</span></p>
-                            </div>
-                        </div>
-                        <div class="tech-feature">
-                            <div class="tech-feature-icon">03</div>
-                            <div class="tech-feature-text">
-                                <h4><span data-lang-es>Deep Learning Adaptativo</span><span data-lang-pt>Deep Learning Adaptativo</span></h4>
-                                <p><span data-lang-es>Modelos que mejoran con cada análisis</span><span data-lang-pt>Modelos que melhoram a cada análise</span></p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="tech-visual">
-                    <img src="img/Analisando a saúde da vegetação.jpg" alt="FieldControl - Control y monitoreo inteligente de cultivos" loading="lazy" width="600" height="400">
-                </div>
-            </div>
+    <!-- 5. TESTIMONIALS -->
+    <section class="testimonials" id="results">
+      <div class="container">
+        <div class="services-header">
+          <h2>
+            <span data-lang-es>Resultados Reales</span>
+            <span data-lang-pt>Resultados Reais</span>
+          </h2>
+          <div class="section-divider"></div>
+          <p>
+            <span data-lang-es>Lo que dicen nuestros clientes sobre el impacto en sus operaciones</span>
+            <span data-lang-pt>O que nossos clientes dizem sobre o impacto em suas operações</span>
+          </p>
         </div>
+        <div class="testimonials-grid">
+          <!-- Testimonial 1 -->
+          <div class="testimonial-card fade-in">
+            <div class="testimonial-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+            <p class="testimonial-quote">
+              <span data-lang-es>"Redujimos 30% el costo de insumos con la prescripción variable. Los mapas VRT de Pixadvisor nos permitieron aplicar cal solo donde realmente se necesitaba."</span>
+              <span data-lang-pt>"Reduzimos 30% o custo de insumos com a prescrição variável. Os mapas VRT da Pixadvisor nos permitiram aplicar calcário somente onde realmente era necessário."</span>
+            </p>
+            <div class="testimonial-crop">
+              <span data-lang-es>Caña de Azúcar</span>
+              <span data-lang-pt>Cana-de-Açúcar</span>
+            </div>
+            <div class="testimonial-location">Bolivia</div>
+          </div>
+          <!-- Testimonial 2 -->
+          <div class="testimonial-card fade-in">
+            <div class="testimonial-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+            <p class="testimonial-quote">
+              <span data-lang-es>"La prescripción VRT optimizó la siembra y fertilización de nuestra soja. Vimos un aumento de 12% en productividad en la primera zafra."</span>
+              <span data-lang-pt>"A prescrição VRT otimizou a semeadura e fertilização da nossa soja. Vimos um aumento de 12% na produtividade na primeira safra."</span>
+            </p>
+            <div class="testimonial-crop">
+              <span data-lang-es>Soja</span>
+              <span data-lang-pt>Soja</span>
+            </div>
+            <div class="testimonial-location">Brasil</div>
+          </div>
+          <!-- Testimonial 3 -->
+          <div class="testimonial-card fade-in">
+            <div class="testimonial-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+            <p class="testimonial-quote">
+              <span data-lang-es>"El muestreo dirigido nos ahorró 40% en costos de laboratorio. Con PIX Muestreo solo tomamos muestras donde la variabilidad lo requiere."</span>
+              <span data-lang-pt>"A amostragem dirigida nos economizou 40% em custos de laboratório. Com PIX Muestreo só coletamos amostras onde a variabilidade exige."</span>
+            </p>
+            <div class="testimonial-crop">
+              <span data-lang-es>Maíz</span>
+              <span data-lang-pt>Milho</span>
+            </div>
+            <div class="testimonial-location">Bolivia</div>
+          </div>
+        </div>
+      </div>
     </section>
 
-    <!-- CTA SECTION -->
-    <section class="cta-section fade-in">
+    <!-- 6. PACKAGES -->
+    <section class="packages" id="packages">
+      <div class="container">
+        <div class="services-header">
+          <h2>
+            <span data-lang-es>Paquetes</span>
+            <span data-lang-pt>Pacotes</span>
+          </h2>
+          <div class="section-divider"></div>
+          <p>
+            <span data-lang-es>Planes diseñados para cada etapa de tu operación agrícola</span>
+            <span data-lang-pt>Planos projetados para cada etapa da sua operação agrícola</span>
+          </p>
+        </div>
+        <div class="packages-grid">
+          <!-- Basic -->
+          <div class="package-card fade-in">
+            <div class="package-name">Basic</div>
+            <div class="package-subtitle">
+              <span data-lang-es>Para productores que inician en AP</span>
+              <span data-lang-pt>Para produtores que iniciam em AP</span>
+            </div>
+            <ul class="package-features">
+              <li>
+                <span data-lang-es>Delimitación de lotes satelital</span>
+                <span data-lang-pt>Delimitação de lotes satelital</span>
+              </li>
+              <li>
+                <span data-lang-es>Mapa de zonas de manejo (2-3 zonas)</span>
+                <span data-lang-pt>Mapa de zonas de manejo (2-3 zonas)</span>
+              </li>
+              <li>
+                <span data-lang-es>Muestreo dirigido por zona</span>
+                <span data-lang-pt>Amostragem dirigida por zona</span>
+              </li>
+              <li>
+                <span data-lang-es>Informe de fertilidad básico</span>
+                <span data-lang-pt>Relatório de fertilidade básico</span>
+              </li>
+              <li>
+                <span data-lang-es>1 mapa de prescripción VRT</span>
+                <span data-lang-pt>1 mapa de prescrição VRT</span>
+              </li>
+            </ul>
+            <a href="https://wa.me/59172149171?text=Hola%20Pixadvisor%2C%20me%20interesa%20el%20paquete%20Basic." class="package-cta" target="_blank" rel="noopener">
+              <span data-lang-es>Solicitar</span>
+              <span data-lang-pt>Solicitar</span>
+            </a>
+          </div>
+          <!-- Plus (Featured) -->
+          <div class="package-card package-card--featured fade-in">
+            <div class="package-badge">
+              <span data-lang-es>Más Popular</span>
+              <span data-lang-pt>Mais Popular</span>
+            </div>
+            <div class="package-name">Plus</div>
+            <div class="package-subtitle">
+              <span data-lang-es>Solución integral para optimizar</span>
+              <span data-lang-pt>Solução integral para otimizar</span>
+            </div>
+            <ul class="package-features">
+              <li>
+                <span data-lang-es>Todo del plan Basic</span>
+                <span data-lang-pt>Tudo do plano Basic</span>
+              </li>
+              <li>
+                <span data-lang-es>Zonas de manejo avanzadas (4-5 zonas)</span>
+                <span data-lang-pt>Zonas de manejo avançadas (4-5 zonas)</span>
+              </li>
+              <li>
+                <span data-lang-es>Mapas de fertilidad interpolados</span>
+                <span data-lang-pt>Mapas de fertilidade interpolados</span>
+              </li>
+              <li>
+                <span data-lang-es>Prescripción VRT múltiple (N, P, K, Cal)</span>
+                <span data-lang-pt>Prescrição VRT múltipla (N, P, K, Cal)</span>
+              </li>
+              <li>
+                <span data-lang-es>Monitoreo NDVI mensual</span>
+                <span data-lang-pt>Monitoramento NDVI mensal</span>
+              </li>
+              <li>
+                <span data-lang-es>Informe técnico completo en PDF</span>
+                <span data-lang-pt>Relatório técnico completo em PDF</span>
+              </li>
+            </ul>
+            <a href="https://wa.me/59172149171?text=Hola%20Pixadvisor%2C%20me%20interesa%20el%20paquete%20Plus." class="package-cta" target="_blank" rel="noopener">
+              <span data-lang-es>Solicitar</span>
+              <span data-lang-pt>Solicitar</span>
+            </a>
+          </div>
+          <!-- Premium -->
+          <div class="package-card fade-in">
+            <div class="package-name">Premium</div>
+            <div class="package-subtitle">
+              <span data-lang-es>Máximo control y monitoreo continuo</span>
+              <span data-lang-pt>Máximo controle e monitoramento contínuo</span>
+            </div>
+            <ul class="package-features">
+              <li>
+                <span data-lang-es>Todo del plan Plus</span>
+                <span data-lang-pt>Tudo do plano Plus</span>
+              </li>
+              <li>
+                <span data-lang-es>Análisis multitemporal de productividad</span>
+                <span data-lang-pt>Análise multitemporal de produtividade</span>
+              </li>
+              <li>
+                <span data-lang-es>Series temporales NDVI/NDRE</span>
+                <span data-lang-pt>Séries temporais NDVI/NDRE</span>
+              </li>
+              <li>
+                <span data-lang-es>Alertas de estrés vegetal por IA</span>
+                <span data-lang-pt>Alertas de estresse vegetal por IA</span>
+              </li>
+              <li>
+                <span data-lang-es>Soporte agronómico personalizado</span>
+                <span data-lang-pt>Suporte agronômico personalizado</span>
+              </li>
+              <li>
+                <span data-lang-es>Acceso a PIX Admin y PIX Muestreo</span>
+                <span data-lang-pt>Acesso a PIX Admin e PIX Muestreo</span>
+              </li>
+            </ul>
+            <a href="https://wa.me/59172149171?text=Hola%20Pixadvisor%2C%20me%20interesa%20el%20paquete%20Premium." class="package-cta" target="_blank" rel="noopener">
+              <span data-lang-es>Solicitar</span>
+              <span data-lang-pt>Solicitar</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. TECHNOLOGY -->
+    <section class="tech" id="technology">
+      <div class="container">
+        <div class="tech-header">
+          <h2>
+            <span data-lang-es>Nuestra Tecnología</span>
+            <span data-lang-pt>Nossa Tecnologia</span>
+          </h2>
+          <div class="section-divider"></div>
+          <p>
+            <span data-lang-es>Plataforma integrada diseñada para la agricultura de precisión moderna</span>
+            <span data-lang-pt>Plataforma integrada projetada para a agricultura de precisão moderna</span>
+          </p>
+        </div>
+        <div class="tech-grid">
+          <!-- FieldPlanning -->
+          <div class="tech-card fade-in">
+            <div class="tech-card-img">
+              <img src="img/fazenda-inteligente-tecnologia.jpg" alt="FieldPlanning - Planificación inteligente" width="400" height="250" loading="lazy">
+            </div>
+            <div class="tech-card-body">
+              <h3>FieldPlanning</h3>
+              <ul class="tech-card-features">
+                <li>
+                  <span data-lang-es>Planificación de muestreo por zonas</span>
+                  <span data-lang-pt>Planejamento de amostragem por zonas</span>
+                </li>
+                <li>
+                  <span data-lang-es>Diseño de rutas optimizadas</span>
+                  <span data-lang-pt>Design de rotas otimizadas</span>
+                </li>
+                <li>
+                  <span data-lang-es>Cálculo automático de puntos cLHS</span>
+                  <span data-lang-pt>Cálculo automático de pontos cLHS</span>
+                </li>
+                <li>
+                  <span data-lang-es>Exportación a dispositivos de campo</span>
+                  <span data-lang-pt>Exportação para dispositivos de campo</span>
+                </li>
+              </ul>
+              <a href="#contact" class="tech-card-link">
+                <span data-lang-es>Conocer más</span>
+                <span data-lang-pt>Conhecer mais</span>
+                &rarr;
+              </a>
+            </div>
+          </div>
+          <!-- FieldMetrics -->
+          <div class="tech-card fade-in">
+            <div class="tech-card-img">
+              <img src="img/mapa-agricola-ndvi.jpg" alt="FieldMetrics - Métricas de campo" width="400" height="250" loading="lazy">
+            </div>
+            <div class="tech-card-body">
+              <h3>FieldMetrics</h3>
+              <ul class="tech-card-features">
+                <li>
+                  <span data-lang-es>Índices de vegetación multibanda</span>
+                  <span data-lang-pt>Índices de vegetação multibanda</span>
+                </li>
+                <li>
+                  <span data-lang-es>Series temporales automáticas</span>
+                  <span data-lang-pt>Séries temporais automáticas</span>
+                </li>
+                <li>
+                  <span data-lang-es>Estadísticas zonales por lote</span>
+                  <span data-lang-pt>Estatísticas zonais por lote</span>
+                </li>
+                <li>
+                  <span data-lang-es>Detección de anomalías con IA</span>
+                  <span data-lang-pt>Detecção de anomalias com IA</span>
+                </li>
+              </ul>
+              <a href="#contact" class="tech-card-link">
+                <span data-lang-es>Conocer más</span>
+                <span data-lang-pt>Conhecer mais</span>
+                &rarr;
+              </a>
+            </div>
+          </div>
+          <!-- FieldControl -->
+          <div class="tech-card fade-in">
+            <div class="tech-card-img">
+              <img src="img/analisis-salud-vegetacion.jpg" alt="FieldControl - Control de campo" width="400" height="250" loading="lazy">
+            </div>
+            <div class="tech-card-body">
+              <h3>FieldControl</h3>
+              <ul class="tech-card-features">
+                <li>
+                  <span data-lang-es>Prescripción VRT automática</span>
+                  <span data-lang-pt>Prescrição VRT automática</span>
+                </li>
+                <li>
+                  <span data-lang-es>Mapas de aplicación por insumo</span>
+                  <span data-lang-pt>Mapas de aplicação por insumo</span>
+                </li>
+                <li>
+                  <span data-lang-es>Compatibilidad ISOBUS/Shapefile</span>
+                  <span data-lang-pt>Compatibilidade ISOBUS/Shapefile</span>
+                </li>
+                <li>
+                  <span data-lang-es>Reportes de costos por hectárea</span>
+                  <span data-lang-pt>Relatórios de custos por hectare</span>
+                </li>
+              </ul>
+              <a href="#contact" class="tech-card-link">
+                <span data-lang-es>Conocer más</span>
+                <span data-lang-pt>Conhecer mais</span>
+                &rarr;
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8. GALLERY -->
+    <section class="gallery" id="gallery">
+      <div class="container">
+        <div class="services-header">
+          <h2>
+            <span data-lang-es>Galería</span>
+            <span data-lang-pt>Galeria</span>
+          </h2>
+          <div class="section-divider"></div>
+        </div>
+        <div class="gallery-filters">
+          <button class="gallery-filter-btn active" data-filter="all">
+            <span data-lang-es>Todos</span>
+            <span data-lang-pt>Todos</span>
+          </button>
+          <button class="gallery-filter-btn" data-filter="mapas">
+            <span data-lang-es>Mapas</span>
+            <span data-lang-pt>Mapas</span>
+          </button>
+          <button class="gallery-filter-btn" data-filter="campo">
+            <span data-lang-es>Campo</span>
+            <span data-lang-pt>Campo</span>
+          </button>
+          <button class="gallery-filter-btn" data-filter="prescripcion">
+            <span data-lang-es>Prescripción</span>
+            <span data-lang-pt>Prescrição</span>
+          </button>
+        </div>
+        <div class="gallery-grid">
+          <div class="gallery-item fade-in" data-category="mapas">
+            <img src="img/paisaje-agricola-ndvi.jpg" alt="Paisaje agrícola NDVI" width="400" height="300" loading="lazy">
+            <div class="gallery-overlay">
+              <p class="gallery-caption">
+                <span data-lang-es>Mapa NDVI de paisaje agrícola</span>
+                <span data-lang-pt>Mapa NDVI de paisagem agrícola</span>
+              </p>
+            </div>
+          </div>
+          <div class="gallery-item fade-in" data-category="mapas">
+            <img src="img/mapa-agricola-ndvi.jpg" alt="Mapa agrícola NDVI" width="400" height="300" loading="lazy">
+            <div class="gallery-overlay">
+              <p class="gallery-caption">
+                <span data-lang-es>Mapa agrícola con índice NDVI</span>
+                <span data-lang-pt>Mapa agrícola com índice NDVI</span>
+              </p>
+            </div>
+          </div>
+          <div class="gallery-item fade-in" data-category="campo">
+            <img src="img/agricultura-precision-drone.jpg" alt="Drone en agricultura de precisión" width="400" height="300" loading="lazy">
+            <div class="gallery-overlay">
+              <p class="gallery-caption">
+                <span data-lang-es>Tecnología drone en campo</span>
+                <span data-lang-pt>Tecnologia drone no campo</span>
+              </p>
+            </div>
+          </div>
+          <div class="gallery-item fade-in" data-category="prescripcion">
+            <img src="img/mapa-aplicacion-cal.jpg" alt="Mapa de aplicación de cal" width="400" height="300" loading="lazy">
+            <div class="gallery-overlay">
+              <p class="gallery-caption">
+                <span data-lang-es>Prescripción VRT de encalado</span>
+                <span data-lang-pt>Prescrição VRT de calagem</span>
+              </p>
+            </div>
+          </div>
+          <div class="gallery-item fade-in" data-category="mapas">
+            <img src="img/mapeamiento-fertilidad-suelo.jpg" alt="Mapeo de fertilidad del suelo" width="400" height="300" loading="lazy">
+            <div class="gallery-overlay">
+              <p class="gallery-caption">
+                <span data-lang-es>Mapeo de fertilidad del suelo</span>
+                <span data-lang-pt>Mapeamento de fertilidade do solo</span>
+              </p>
+            </div>
+          </div>
+          <div class="gallery-item fade-in" data-category="campo">
+            <img src="img/tractor-mapas-datos.jpg" alt="Tractor con mapas y datos" width="400" height="300" loading="lazy">
+            <div class="gallery-overlay">
+              <p class="gallery-caption">
+                <span data-lang-es>Tecnología en maquinaria agrícola</span>
+                <span data-lang-pt>Tecnologia em maquinaria agrícola</span>
+              </p>
+            </div>
+          </div>
+          <div class="gallery-item fade-in" data-category="prescripcion">
+            <img src="img/mapa-costos-agricultura.jpg" alt="Mapa de costos agrícolas" width="400" height="300" loading="lazy">
+            <div class="gallery-overlay">
+              <p class="gallery-caption">
+                <span data-lang-es>Análisis de costos por zona</span>
+                <span data-lang-pt>Análise de custos por zona</span>
+              </p>
+            </div>
+          </div>
+          <div class="gallery-item fade-in" data-category="mapas">
+            <img src="img/mapa-productividad-cebada.jpg" alt="Mapa de productividad de cebada" width="400" height="300" loading="lazy">
+            <div class="gallery-overlay">
+              <p class="gallery-caption">
+                <span data-lang-es>Mapa de productividad - Cebada</span>
+                <span data-lang-pt>Mapa de produtividade - Cevada</span>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9. APPS SECTION -->
+    <section class="apps-section" id="apps">
+      <div class="container">
+        <div class="services-header">
+          <h2>
+            <span data-lang-es>Nuestras Aplicaciones</span>
+            <span data-lang-pt>Nossas Aplicações</span>
+          </h2>
+          <div class="section-divider"></div>
+          <p>
+            <span data-lang-es>Herramientas digitales diseñadas para el trabajo de campo y la gestión agronómica</span>
+            <span data-lang-pt>Ferramentas digitais projetadas para o trabalho de campo e a gestão agronômica</span>
+          </p>
+        </div>
+        <div class="apps-grid">
+          <!-- PIX Admin -->
+          <div class="app-card app-card--admin fade-in">
+            <div class="app-card-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+            </div>
+            <h3>PIX Admin</h3>
+            <p>
+              <span data-lang-es>Panel de control para gestión de proyectos agrícolas, generación de informes PDF, visualización de mapas y administración de datos agronómicos.</span>
+              <span data-lang-pt>Painel de controle para gestão de projetos agrícolas, geração de relatórios PDF, visualização de mapas e administração de dados agronômicos.</span>
+            </p>
+            <div class="app-card-tags">
+              <span class="app-card-tag">Dashboard</span>
+              <span class="app-card-tag">PDF Reports</span>
+              <span class="app-card-tag">GIS Maps</span>
+              <span class="app-card-tag">PWA</span>
+            </div>
+            <a href="/pix-admin/" class="app-card-cta">
+              <span data-lang-es>Abrir PIX Admin</span>
+              <span data-lang-pt>Abrir PIX Admin</span>
+              &rarr;
+            </a>
+          </div>
+          <!-- PIX Muestreo -->
+          <div class="app-card app-card--muestreo fade-in">
+            <div class="app-card-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            </div>
+            <h3>PIX Muestreo</h3>
+            <p>
+              <span data-lang-es>Aplicación de campo para colecta georreferenciada de muestras de suelo. Navegación GPS a puntos de muestreo, registro fotográfico y sincronización offline.</span>
+              <span data-lang-pt>Aplicação de campo para coleta georreferenciada de amostras de solo. Navegação GPS a pontos de amostragem, registro fotográfico e sincronização offline.</span>
+            </p>
+            <div class="app-card-tags">
+              <span class="app-card-tag">GPS</span>
+              <span class="app-card-tag">Offline</span>
+              <span class="app-card-tag">
+                <span data-lang-es>Muestreo</span>
+                <span data-lang-pt>Amostragem</span>
+              </span>
+              <span class="app-card-tag">PWA</span>
+            </div>
+            <a href="/pix-muestreo/" class="app-card-cta">
+              <span data-lang-es>Abrir PIX Muestreo</span>
+              <span data-lang-pt>Abrir PIX Muestreo</span>
+              &rarr;
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10. CTA FINAL -->
+    <section class="cta-final">
+      <div class="container">
         <p class="cta-motto">
-            <span data-lang-es>Medir para comprender, controlar para mejorar</span>
-            <span data-lang-pt>Medir para compreender, controlar para melhorar</span>
+          <span data-lang-es>"Medir para comprender, controlar para mejorar"</span>
+          <span data-lang-pt>"Medir para compreender, controlar para melhorar"</span>
         </p>
         <p class="cta-subtext">
-            <span data-lang-es>Tu éxito es nuestra misión. Comienza hoy tu transformación digital agrícola.</span>
-            <span data-lang-pt>Seu sucesso é nossa missão. Comece hoje sua transformação digital agrícola.</span>
+          <span data-lang-es>Comienza a transformar tu operación agrícola con tecnología de precisión</span>
+          <span data-lang-pt>Comece a transformar sua operação agrícola com tecnologia de precisão</span>
         </p>
-    </section>
-
-    <!-- ON FARM SECTION -->
-    <section class="onfarm" id="onfarm">
-        <div class="container">
-            <div class="onfarm-grid">
-                <div class="onfarm-image fade-in">
-                    <img src="img/Agricultura de precisão e tecnologia inteligente.jpg" alt="Resultados de agricultura de precisión en campo" loading="lazy" width="600" height="500">
-                </div>
-
-                <div class="onfarm-content fade-in">
-                    <h2>
-                        <span data-lang-es>Resultados en el Campo</span>
-                        <span data-lang-pt>Resultados no Campo</span>
-                    </h2>
-                    <p>
-                        <span data-lang-es>Nuestros clientes reportan mejoras significativas en eficiencia, rendimiento y rentabilidad desde los primeros meses de implementación.</span>
-                        <span data-lang-pt>Nossos clientes reportam melhorias significativas em eficiência, rendimento e rentabilidade desde os primeiros meses de implementação.</span>
-                    </p>
-                    <p>
-                        <span data-lang-es>Con datos reales y tecnología propia, garantizamos que cada métrica que ves está validada en operaciones reales.</span>
-                        <span data-lang-pt>Com dados reais e tecnologia própria, garantimos que cada métrica que você vê está validada em operações reais.</span>
-                    </p>
-
-                    <div class="onfarm-stats">
-                        <div class="onfarm-stat fade-in">
-                            <div class="onfarm-stat-value">+35%</div>
-                            <div class="onfarm-stat-label">
-                                <span data-lang-es>Eficiencia</span>
-                                <span data-lang-pt>Eficiência</span>
-                            </div>
-                        </div>
-                        <div class="onfarm-stat fade-in">
-                            <div class="onfarm-stat-value">+28%</div>
-                            <div class="onfarm-stat-label">
-                                <span data-lang-es>Rendimiento</span>
-                                <span data-lang-pt>Rendimento</span>
-                            </div>
-                        </div>
-                        <div class="onfarm-stat fade-in">
-                            <div class="onfarm-stat-value">-22%</div>
-                            <div class="onfarm-stat-label">
-                                <span data-lang-es>Costos</span>
-                                <span data-lang-pt>Custos</span>
-                            </div>
-                        </div>
-                        <div class="onfarm-stat fade-in">
-                            <div class="onfarm-stat-value">+18</div>
-                            <div class="onfarm-stat-label">
-                                <span data-lang-es>Meses ROI</span>
-                                <span data-lang-pt>Meses ROI</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <div class="cta-buttons">
+          <a href="https://wa.me/59172149171?text=Hola%20Pixadvisor%2C%20quiero%20agendar%20una%20demo." class="hero-btn-primary" target="_blank" rel="noopener">
+            <span data-lang-es>Solicitar Demo</span>
+            <span data-lang-pt>Solicitar Demo</span>
+          </a>
+          <a href="#contact" class="hero-btn-secondary">
+            <span data-lang-es>Contactar</span>
+            <span data-lang-pt>Contatar</span>
+          </a>
         </div>
+      </div>
     </section>
 
-    <div class="section-divider"></div>
-
-    <!-- GALLERY SECTION -->
-    <section class="gallery">
-        <div class="container">
-            <div class="gallery-header fade-in">
-                <h2>
-                    <span data-lang-es>Galería de Soluciones</span>
-                    <span data-lang-pt>Galeria de Soluções</span>
-                </h2>
-                <p>
-                    <span data-lang-es>Conoce cómo Pixadvisor transforma operaciones agrícolas</span>
-                    <span data-lang-pt>Conheça como Pixadvisor transforma operações agrícolas</span>
-                </p>
-            </div>
-
-            <div class="gallery-grid">
-                <div class="gallery-item fade-in">
-                    <img src="img/Mapeamento de fertilidade do solo.jpg" alt="Mapeo de fertilidad del suelo con agricultura de precisión" loading="lazy" width="400" height="300">
-                    <div class="gallery-overlay">
-                        <span class="gallery-caption">
-                            <span data-lang-es>Mapeo de Fertilidad</span>
-                            <span data-lang-pt>Mapeamento de Fertilidade</span>
-                        </span>
-                    </div>
-                </div>
-                <div class="gallery-item fade-in">
-                    <img src="img/Mapa agrícola com sobreposição de NDVI.jpg" alt="Mapa NDVI para monitoreo de vegetación" loading="lazy" width="400" height="300">
-                    <div class="gallery-overlay">
-                        <span class="gallery-caption">
-                            <span data-lang-es>Análisis NDVI</span>
-                            <span data-lang-pt>Análise NDVI</span>
-                        </span>
-                    </div>
-                </div>
-                <div class="gallery-item fade-in">
-                    <img src="img/Mapa de aplicação de cal na fazenda.jpg" alt="Mapa de prescripción de aplicación variable" loading="lazy" width="400" height="300">
-                    <div class="gallery-overlay">
-                        <span class="gallery-caption">
-                            <span data-lang-es>Prescripción Variable</span>
-                            <span data-lang-pt>Prescrição Variável</span>
-                        </span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <div class="section-divider"></div>
-
-    <!-- APPS SECTION -->
-    <section class="technology" id="apps" style="padding:80px 0;">
-        <div class="container">
-            <div style="text-align:center;margin-bottom:48px" class="fade-in">
-                <h2 style="font-size:2.5rem;font-weight:800;">
-                    <span data-lang-es>Nuestras <span style="background:linear-gradient(135deg,#7FD633,#0d9488);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Aplicaciones</span></span>
-                    <span data-lang-pt>Nossos <span style="background:linear-gradient(135deg,#7FD633,#0d9488);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Aplicativos</span></span>
-                </h2>
-                <p style="color:#94a3b8;max-width:600px;margin:16px auto;font-size:1.1rem;">
-                    <span data-lang-es>Herramientas profesionales que funcionan 100% offline en campo. Instalá directamente desde tu navegador.</span>
-                    <span data-lang-pt>Ferramentas profissionais que funcionam 100% offline no campo. Instale diretamente do navegador.</span>
-                </p>
-            </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:32px;max-width:900px;margin:0 auto;">
-                <!-- PIX Admin Card -->
-                <div class="fade-in" style="background:rgba(15,27,45,0.6);border:1px solid rgba(127,214,51,0.15);border-radius:20px;padding:40px 32px;text-align:center;backdrop-filter:blur(10px);">
-                    <div style="width:80px;height:80px;margin:0 auto 20px;background:linear-gradient(135deg,#0d9488,#14b8a6);border-radius:20px;display:flex;align-items:center;justify-content:center;">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" style="width:40px;height:40px"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
-                    </div>
-                    <h3 style="font-size:1.5rem;font-weight:700;margin-bottom:8px;color:white;">PIX Admin</h3>
-                    <p style="color:#94a3b8;font-size:0.95rem;margin-bottom:24px;line-height:1.6;">
-                        <span data-lang-es>Panel de administración con análisis de suelo, mapas GIS, zonas de manejo, prescripción VRT y reportes profesionales PDF.</span>
-                        <span data-lang-pt>Painel de administração com análise de solo, mapas GIS, zonas de manejo, prescrição VRT e relatórios profissionais PDF.</span>
-                    </p>
-                    <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:24px;">
-                        <span style="background:rgba(13,148,136,0.15);color:#14b8a6;padding:4px 12px;border-radius:20px;font-size:12px;">Análisis de Suelo</span>
-                        <span style="background:rgba(13,148,136,0.15);color:#14b8a6;padding:4px 12px;border-radius:20px;font-size:12px;">Mapas GIS</span>
-                        <span style="background:rgba(13,148,136,0.15);color:#14b8a6;padding:4px 12px;border-radius:20px;font-size:12px;">Reportes PDF</span>
-                        <span style="background:rgba(13,148,136,0.15);color:#14b8a6;padding:4px 12px;border-radius:20px;font-size:12px;">Offline</span>
-                    </div>
-                    <a href="/pix-admin/" style="display:inline-flex;align-items:center;gap:8px;background:#0d9488;color:white;padding:14px 32px;border-radius:12px;font-weight:600;text-decoration:none;font-size:1rem;transition:all 0.3s;">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                        <span data-lang-es>Abrir PIX Admin</span>
-                        <span data-lang-pt>Abrir PIX Admin</span>
-                    </a>
-                </div>
-                <!-- PIX Muestreo Card -->
-                <div class="fade-in" style="background:rgba(15,27,45,0.6);border:1px solid rgba(127,214,51,0.15);border-radius:20px;padding:40px 32px;text-align:center;backdrop-filter:blur(10px);">
-                    <div style="width:80px;height:80px;margin:0 auto 20px;background:linear-gradient(135deg,#7FD633,#5cb51f);border-radius:20px;display:flex;align-items:center;justify-content:center;">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" style="width:40px;height:40px"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
-                    </div>
-                    <h3 style="font-size:1.5rem;font-weight:700;margin-bottom:8px;color:white;">PIX Muestreo</h3>
-                    <p style="color:#94a3b8;font-size:0.95rem;margin-bottom:24px;line-height:1.6;">
-                        <span data-lang-es>App móvil de muestreo de suelo georreferenciado con GPS, escáner QR IBRA Megalab, navegación a puntos y sincronización con Google Drive.</span>
-                        <span data-lang-pt>App móvel de amostragem de solo georreferenciada com GPS, scanner QR IBRA Megalab, navegação a pontos e sincronização com Google Drive.</span>
-                    </p>
-                    <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:24px;">
-                        <span style="background:rgba(127,214,51,0.15);color:#7FD633;padding:4px 12px;border-radius:20px;font-size:12px;">GPS</span>
-                        <span style="background:rgba(127,214,51,0.15);color:#7FD633;padding:4px 12px;border-radius:20px;font-size:12px;">QR Scanner</span>
-                        <span style="background:rgba(127,214,51,0.15);color:#7FD633;padding:4px 12px;border-radius:20px;font-size:12px;">Google Drive</span>
-                        <span style="background:rgba(127,214,51,0.15);color:#7FD633;padding:4px 12px;border-radius:20px;font-size:12px;">100% Offline</span>
-                    </div>
-                    <a href="/pix-muestreo/" style="display:inline-flex;align-items:center;gap:8px;background:#7FD633;color:#0F1B2D;padding:14px 32px;border-radius:12px;font-weight:600;text-decoration:none;font-size:1rem;transition:all 0.3s;">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                        <span data-lang-es>Instalar App</span>
-                        <span data-lang-pt>Instalar App</span>
-                    </a>
-                    <p style="color:#64748b;font-size:0.8rem;margin-top:12px;">
-                        <span data-lang-es>Abrí desde el celular y seleccioná "Agregar a pantalla de inicio"</span>
-                        <span data-lang-pt>Abra pelo celular e selecione "Adicionar à tela inicial"</span>
-                    </p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <div class="section-divider"></div>
-
-    <!-- CONTACT SECTION -->
+    <!-- 11. CONTACT -->
     <section class="contact" id="contact">
-        <div class="container">
-            <div class="contact-grid">
-                <div class="contact-info fade-in">
-                    <h2>
-                        <span data-lang-es>Ponte en Contacto</span>
-                        <span data-lang-pt>Entre em Contato</span>
-                    </h2>
-                    <p>
-                        <span data-lang-es>¿Listo para transformar tu operación agrícola? Contáctanos hoy para una consulta personalizada.</span>
-                        <span data-lang-pt>Pronto para transformar sua operação agrícola? Entre em contato hoje para uma consultoria personalizada.</span>
-                    </p>
-
-                    <div class="contact-card fade-in">
-                        <h4>WhatsApp</h4>
-                        <p><a href="https://wa.me/59172149171" target="_blank" rel="noopener">+591 7214 9171</a></p>
-                    </div>
-
-                    <div class="contact-card fade-in">
-                        <h4>Email</h4>
-                        <p><a href="mailto:contacto@pixadvisor.network">contacto@pixadvisor.network</a></p>
-                    </div>
-
-                    <div class="contact-card fade-in">
-                        <h4>
-                            <span data-lang-es>Respuesta Rápida</span>
-                            <span data-lang-pt>Resposta Rápida</span>
-                        </h4>
-                        <p>
-                            <span data-lang-es>Nos ponemos en contacto dentro de 24 horas</span>
-                            <span data-lang-pt>Entramos em contato em até 24 horas</span>
-                        </p>
-                    </div>
-                </div>
-
-                <form class="contact-form fade-in" id="contactForm" novalidate>
-                    <div class="form-group">
-                        <label for="name">
-                            <span data-lang-es>Nombre</span>
-                            <span data-lang-pt>Nome</span>
-                        </label>
-                        <input type="text" id="name" name="name" required autocomplete="name">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="email">Email</label>
-                        <input type="email" id="email" name="email" required autocomplete="email">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="phone">
-                            <span data-lang-es>Teléfono</span>
-                            <span data-lang-pt>Telefone</span>
-                        </label>
-                        <input type="tel" id="phone" name="phone" required autocomplete="tel">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="message">
-                            <span data-lang-es>Mensaje</span>
-                            <span data-lang-pt>Mensagem</span>
-                        </label>
-                        <textarea id="message" name="message" required></textarea>
-                    </div>
-
-                    <button type="submit" class="form-submit">
-                        <span data-lang-es>Enviar por WhatsApp</span>
-                        <span data-lang-pt>Enviar por WhatsApp</span>
-                    </button>
-                </form>
-            </div>
+      <div class="container">
+        <div class="services-header">
+          <h2>
+            <span data-lang-es>Contacto</span>
+            <span data-lang-pt>Contato</span>
+          </h2>
+          <div class="section-divider"></div>
         </div>
+        <div class="contact-grid">
+          <div class="contact-info">
+            <!-- WhatsApp -->
+            <div class="contact-card fade-in">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+              <div>
+                <strong>WhatsApp</strong>
+                <p><a href="https://wa.me/59172149171" target="_blank" rel="noopener">+591 72149171</a></p>
+              </div>
+            </div>
+            <!-- Email -->
+            <div class="contact-card fade-in">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+              <div>
+                <strong>Email</strong>
+                <p><a href="mailto:contacto@pixadvisor.network">contacto@pixadvisor.network</a></p>
+              </div>
+            </div>
+            <!-- Location -->
+            <div class="contact-card fade-in">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              <div>
+                <strong>
+                  <span data-lang-es>Ubicación</span>
+                  <span data-lang-pt>Localização</span>
+                </strong>
+                <p>Santa Cruz, Bolivia | Brasil</p>
+              </div>
+            </div>
+          </div>
+          <form class="contact-form" id="contactForm">
+            <div class="form-group">
+              <label for="name">
+                <span data-lang-es>Nombre</span>
+                <span data-lang-pt>Nome</span>
+              </label>
+              <input type="text" id="name" name="name" required>
+            </div>
+            <div class="form-group">
+              <label for="email">Email</label>
+              <input type="email" id="email" name="email" required>
+            </div>
+            <div class="form-group">
+              <label for="phone">
+                <span data-lang-es>Teléfono</span>
+                <span data-lang-pt>Telefone</span>
+              </label>
+              <input type="tel" id="phone" name="phone">
+            </div>
+            <div class="form-group">
+              <label for="message">
+                <span data-lang-es>Mensaje</span>
+                <span data-lang-pt>Mensagem</span>
+              </label>
+              <textarea id="message" name="message" rows="4" required></textarea>
+            </div>
+            <button type="submit" class="form-submit">
+              <span data-lang-es>Enviar por WhatsApp</span>
+              <span data-lang-pt>Enviar por WhatsApp</span>
+            </button>
+          </form>
+        </div>
+      </div>
     </section>
 
-    </main>
+  </main>
 
-    <!-- FOOTER -->
-    <footer>
-        <div class="footer-grid">
-            <div>
-                <div class="footer-logo">
-                    <img src="img/Logo-negro.png" alt="Pixadvisor" width="150" height="50" loading="lazy">
-                </div>
-                <p class="footer-tagline">
-                    <span data-lang-es>Medir para comprender, controlar para mejorar</span>
-                    <span data-lang-pt>Medir para compreender, controlar para melhorar</span>
-                </p>
-            </div>
-
-            <div class="footer-links">
-                <div>
-                    <h4>
-                        <span data-lang-es>Servicios</span>
-                        <span data-lang-pt>Serviços</span>
-                    </h4>
-                    <a href="img/servicios/geoland-advisor.html">GeoLand Advisor</a>
-                    <a href="img/servicios/smartsoil-advisor.html">SmartSoil Advisor</a>
-                    <a href="img/servicios/checksoil-advisor.html">CheckSoil Advisor</a>
-                    <a href="img/servicios/nutribank-advisor.html">NutriBank Advisor</a>
-                    <a href="img/servicios/bioindex-advisor.html">BioIndex Advisor</a>
-                </div>
-                <div>
-                    <h4>
-                        <span data-lang-es>Más Servicios</span>
-                        <span data-lang-pt>Mais Serviços</span>
-                    </h4>
-                    <a href="img/servicios/watersoil-advisor.html">WaterSoil Advisor</a>
-                    <a href="img/servicios/checkleaf-advisor.html">CheckLeaf Advisor</a>
-                    <a href="img/servicios/fieldplanning.html">FieldPlanning</a>
-                    <a href="img/servicios/fieldmetrics.html">FieldMetrics</a>
-                    <a href="img/servicios/fieldcontrol.html">FieldControl</a>
-                </div>
-            </div>
-
-            <div style="text-align: right;">
-                <div class="footer-social">
-                    <a href="https://wa.me/59172149171" target="_blank" rel="noopener" aria-label="WhatsApp"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg></a>
-                    <a href="mailto:contacto@pixadvisor.network" aria-label="Email"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 4l-10 8L2 4"/></svg></a>
-                </div>
-            </div>
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <!-- Brand -->
+        <div class="footer-col-brand">
+        <div class="footer-brand">
+          <img src="img/logo.png" alt="Pixadvisor" width="180" height="120">
         </div>
-
-        <div class="footer-bottom">
-            <span>&copy; 2026 Pixadvisor Agricultura de Precisión — Ing. Agr. Nilton Camargo</span>
-            <span>contacto@pixadvisor.network</span>
+          <p class="footer-tagline">
+            <span data-lang-es>Agricultura de Precisión</span>
+            <span data-lang-pt>Agricultura de Precisão</span>
+          </p>
+          <div class="footer-social">
+            <a href="https://www.facebook.com/pixadvisor" target="_blank" rel="noopener" aria-label="Facebook">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+            </a>
+            <a href="https://www.instagram.com/pixadvisor" target="_blank" rel="noopener" aria-label="Instagram">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+            </a>
+            <a href="https://www.linkedin.com/company/pixadvisor" target="_blank" rel="noopener" aria-label="LinkedIn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
+            </a>
+          </div>
         </div>
-    </footer>
+        </div>
+        <!-- Services Links -->
+        <div class="footer-links">
+          <h4>
+            <span data-lang-es>Servicios</span>
+            <span data-lang-pt>Serviços</span>
+          </h4>
+          <a href="#services">GeoLand Advisor</a>
+          <a href="#services">SmartSoil Advisor</a>
+          <a href="#services">NutriBank Advisor</a>
+          <a href="#services">BioIndex Advisor</a>
+          <a href="#services">OnFarm Biofábricas</a>
+        </div>
+        <!-- Platform Links -->
+        <div class="footer-links">
+          <h4>
+            <span data-lang-es>Plataforma</span>
+            <span data-lang-pt>Plataforma</span>
+          </h4>
+          <a href="/pix-admin/">PIX Admin</a>
+          <a href="/pix-muestreo/">PIX Muestreo</a>
+          <a href="#technology">FieldPlanning</a>
+          <a href="#technology">FieldMetrics</a>
+          <a href="#technology">FieldControl</a>
+        </div>
+        <!-- Contact -->
+        <div class="footer-links">
+          <h4>
+            <span data-lang-es>Contacto</span>
+            <span data-lang-pt>Contato</span>
+          </h4>
+          <a href="https://wa.me/59172149171" target="_blank" rel="noopener">+591 72149171</a>
+          <a href="mailto:contacto@pixadvisor.network">contacto@pixadvisor.network</a>
+          <a href="#contact">Santa Cruz, Bolivia</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; 2026 Pixadvisor.
+          <span data-lang-es>Todos los derechos reservados.</span>
+          <span data-lang-pt>Todos os direitos reservados.</span>
+        </p>
+      </div>
+    </div>
+  </footer>
 
-    <!-- WHATSAPP BUTTON -->
-    <a href="https://wa.me/59172149171" target="_blank" rel="noopener" class="whatsapp-btn" aria-label="Contactar por WhatsApp">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-    </a>
+  <!-- WhatsApp Float -->
+  <a href="https://wa.me/59172149171" target="_blank" rel="noopener" class="whatsapp-float" aria-label="WhatsApp">
+    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="#fff"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
+  </a>
 
-    <script>
-        // ===== LANGUAGE SWITCHER =====
-        function setLanguage(lang) {
-            document.documentElement.lang = lang;
-            document.querySelectorAll('.lang-btn').forEach(btn => {
-                btn.classList.toggle('active', btn.dataset.lang === lang);
-            });
-            localStorage.setItem('pixadvisor-lang', lang);
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox">
+    <button class="lightbox-close" aria-label="Cerrar / Fechar">&times;</button>
+    <img class="lightbox-img" src="" alt="">
+    <p class="lightbox-caption"></p>
+  </div>
+
+  <script>
+    // ===== LANGUAGE SWITCHER =====
+    function setLanguage(lang) {
+      document.documentElement.lang = lang;
+      document.querySelectorAll('.lang-btn').forEach(function(btn) {
+        btn.classList.toggle('active', btn.dataset.lang === lang);
+      });
+      localStorage.setItem('pixadvisor-lang', lang);
+    }
+    document.querySelectorAll('.lang-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() { setLanguage(btn.dataset.lang); });
+    });
+    var savedLang = localStorage.getItem('pixadvisor-lang');
+    if (savedLang) setLanguage(savedLang);
+
+    // ===== INTERSECTION OBSERVER =====
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) entry.target.classList.add('visible');
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+    document.querySelectorAll('.fade-in').forEach(function(el) { observer.observe(el); });
+
+    // ===== SCROLL NAV =====
+    window.addEventListener('scroll', function() {
+      document.querySelector('.nav').classList.toggle('scrolled', window.scrollY > 50);
+    });
+
+    // ===== HAMBURGER =====
+    var hamburger = document.querySelector('.hamburger');
+    var mobileNav = document.getElementById('mobileNav');
+    hamburger.addEventListener('click', function() {
+      var isOpen = mobileNav.classList.toggle('open');
+      hamburger.classList.toggle('open');
+      hamburger.setAttribute('aria-expanded', isOpen);
+    });
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.nav') && mobileNav.classList.contains('open')) {
+        mobileNav.classList.remove('open');
+        hamburger.classList.remove('open');
+      }
+    });
+
+    // ===== SMOOTH SCROLL =====
+    document.querySelectorAll('a[href^="#"]').forEach(function(a) {
+      a.addEventListener('click', function(e) {
+        var target = document.querySelector(a.getAttribute('href'));
+        if (target) {
+          e.preventDefault();
+          target.scrollIntoView({ behavior: 'smooth' });
+          mobileNav.classList.remove('open');
+          hamburger.classList.remove('open');
         }
+      });
+    });
 
-        document.querySelectorAll('.lang-btn').forEach(btn => {
-            btn.addEventListener('click', () => setLanguage(btn.dataset.lang));
+    // ===== GALLERY FILTER =====
+    document.querySelectorAll('.gallery-filter-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        document.querySelectorAll('.gallery-filter-btn').forEach(function(b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        var cat = btn.dataset.filter;
+        document.querySelectorAll('.gallery-item').forEach(function(item) {
+          item.style.display = (cat === 'all' || item.dataset.category === cat) ? '' : 'none';
         });
+      });
+    });
 
-        // Restore saved language
-        const savedLang = localStorage.getItem('pixadvisor-lang');
-        if (savedLang) setLanguage(savedLang);
+    // ===== LIGHTBOX =====
+    var lightbox = document.getElementById('lightbox');
+    document.querySelectorAll('.gallery-item').forEach(function(item) {
+      item.addEventListener('click', function() {
+        var img = item.querySelector('img');
+        var caption = item.querySelector('.gallery-caption');
+        lightbox.querySelector('.lightbox-img').src = img.src;
+        lightbox.querySelector('.lightbox-img').alt = img.alt;
+        lightbox.querySelector('.lightbox-caption').textContent = caption ? caption.textContent : '';
+        lightbox.classList.add('open');
+      });
+    });
+    lightbox.querySelector('.lightbox-close').addEventListener('click', function() {
+      lightbox.classList.remove('open');
+    });
+    lightbox.addEventListener('click', function(e) {
+      if (e.target === lightbox) lightbox.classList.remove('open');
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && lightbox.classList.contains('open')) {
+        lightbox.classList.remove('open');
+      }
+    });
 
-        // ===== INTERSECTION OBSERVER FOR ANIMATIONS =====
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    entry.target.classList.add('visible');
-                }
-            });
-        }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+    // ===== CONTACT FORM → WHATSAPP =====
+    document.getElementById('contactForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      var name = document.getElementById('name').value.trim();
+      var email = document.getElementById('email').value.trim();
+      var phone = document.getElementById('phone').value.trim();
+      var message = document.getElementById('message').value.trim();
+      // Clear previous errors
+      document.querySelectorAll('.form-error').forEach(function(el) { el.remove(); });
+      var showError = function(id, msg) {
+        var el = document.getElementById(id);
+        var err = document.createElement('div');
+        err.className = 'form-error';
+        err.style.cssText = 'color:#e53e3e;font-size:12px;margin-top:4px';
+        err.textContent = msg;
+        el.parentElement.appendChild(err);
+      };
+      var valid = true;
+      var reqMsg = document.documentElement.lang === 'pt' ? 'Campo obrigatório' : 'Campo requerido';
+      if (!name) { showError('name', reqMsg); valid = false; }
+      if (!email) { showError('email', reqMsg); valid = false; }
+      if (!message) { showError('message', reqMsg); valid = false; }
+      if (!valid) return;
+      var lang = document.documentElement.lang;
+      var whatsappMessage = lang === 'pt'
+        ? 'Olá Pixadvisor, sou ' + name + '.\nE-mail: ' + email + '\nTelefone: ' + phone + '\nMensagem: ' + message
+        : 'Hola Pixadvisor, soy ' + name + '.\nCorreo: ' + email + '\nTeléfono: ' + phone + '\nMensaje: ' + message;
+      window.open('https://wa.me/59172149171?text=' + encodeURIComponent(whatsappMessage), '_blank');
+      document.getElementById('contactForm').reset();
+    });
 
-        document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
-
-        // ===== TECHNOLOGY TABS (ARIA) =====
-        const tabs = document.querySelectorAll('[role="tab"]');
-        const panels = document.querySelectorAll('[role="tabpanel"]');
-
-        const activateTab = (tab) => {
-            tabs.forEach(t => { t.setAttribute('aria-selected', 'false'); t.setAttribute('tabindex', '-1'); });
-            panels.forEach(p => p.classList.remove('active'));
-            tab.setAttribute('aria-selected', 'true');
-            tab.setAttribute('tabindex', '0');
-            const panel = document.getElementById(tab.getAttribute('aria-controls'));
-            panel.classList.add('active');
-            panel.classList.add('visible');
-        };
-
-        tabs.forEach(tab => {
-            tab.addEventListener('click', () => activateTab(tab));
+    // ===== PIX ADMIN LINK (dev vs prod) =====
+    (function() {
+      var isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+      if (isLocal) {
+        document.querySelectorAll('a[href="/pix-admin/"]').forEach(function(a) {
+          a.href = location.protocol + '//' + location.hostname + ':8100/';
         });
-
-        // Keyboard navigation: ArrowLeft/Right/Home/End (WCAG 2.1.1)
-        const tabList = document.querySelector('[role="tablist"]');
-        if (tabList) {
-            tabList.addEventListener('keydown', (e) => {
-                const tabsArr = Array.from(tabs);
-                const idx = tabsArr.indexOf(document.activeElement);
-                let newIdx;
-                if (e.key === 'ArrowRight') newIdx = (idx + 1) % tabsArr.length;
-                else if (e.key === 'ArrowLeft') newIdx = (idx - 1 + tabsArr.length) % tabsArr.length;
-                else if (e.key === 'Home') newIdx = 0;
-                else if (e.key === 'End') newIdx = tabsArr.length - 1;
-                else return;
-                e.preventDefault();
-                activateTab(tabsArr[newIdx]);
-                tabsArr[newIdx].focus();
-            });
-        }
-
-        // ===== CONTACT FORM WHATSAPP =====
-        document.getElementById('contactForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-
-            const name = document.getElementById('name').value.trim();
-            const email = document.getElementById('email').value.trim();
-            const phone = document.getElementById('phone').value.trim();
-            const message = document.getElementById('message').value.trim();
-
-            // Clear previous errors
-            document.querySelectorAll('.form-error').forEach(e => e.remove());
-            const showError = (id, msg) => {
-                const el = document.getElementById(id);
-                const err = document.createElement('div');
-                err.className = 'form-error';
-                err.style.cssText = 'color:#e53e3e;font-size:12px;margin-top:4px';
-                err.textContent = msg;
-                el.parentElement.appendChild(err);
-            };
-            let valid = true;
-            if (!name) { showError('name', 'Por favor ingrese su nombre / Por favor insira seu nome'); valid = false; }
-            if (!email) { showError('email', 'Por favor ingrese su email / Por favor insira seu e-mail'); valid = false; }
-            if (!message) { showError('message', 'Por favor ingrese un mensaje / Por favor insira uma mensagem'); valid = false; }
-            if (!valid) return;
-
-            // Detect language for bilingual WhatsApp message
-            const lang = document.documentElement.getAttribute('data-lang') || 'es';
-            const whatsappMessage = lang === 'pt'
-                ? `Olá Pixadvisor, sou ${name}.\nE-mail: ${email}\nTelefone: ${phone}\nMensagem: ${message}`
-                : `Hola Pixadvisor, soy ${name}.\nCorreo: ${email}\nTeléfono: ${phone}\nMensaje: ${message}`;
-            window.open(`https://wa.me/59172149171?text=${encodeURIComponent(whatsappMessage)}`, '_blank');
-            document.getElementById('contactForm').reset();
-        });
-
-        // ===== SMOOTH SCROLL =====
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                const href = this.getAttribute('href');
-                if (href !== '#' && document.querySelector(href)) {
-                    e.preventDefault();
-                    document.querySelector(href).scrollIntoView({ behavior: 'smooth' });
-                    // Close mobile nav if open
-                    document.getElementById('mobileNav').classList.remove('open');
-                    document.querySelector('.hamburger').classList.remove('open');
-                    document.querySelector('.hamburger').setAttribute('aria-expanded', 'false');
-                }
-            });
-        });
-
-        // ===== HAMBURGER MENU =====
-        const hamburger = document.querySelector('.hamburger');
-        const mobileNav = document.getElementById('mobileNav');
-
-        hamburger.addEventListener('click', () => {
-            const isOpen = mobileNav.classList.toggle('open');
-            hamburger.classList.toggle('open');
-            hamburger.setAttribute('aria-expanded', isOpen);
-        });
-
-        // Close mobile nav when clicking outside
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('nav') && mobileNav.classList.contains('open')) {
-                mobileNav.classList.remove('open');
-                hamburger.classList.remove('open');
-                hamburger.setAttribute('aria-expanded', 'false');
-            }
-        });
-
-        // ===== SCROLL NAV EFFECT =====
-        window.addEventListener('scroll', () => {
-            document.querySelector('nav').classList.toggle('scrolled', window.scrollY > 50);
-        });
-
-        // ===== PIX ADMIN LINK (dev vs prod) =====
-        (() => {
-            const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-            if (isLocal) {
-                document.querySelectorAll('a[href="/pix-admin/"]').forEach(a => {
-                    a.href = location.protocol + '//' + location.hostname + ':8100/';
-                });
-            }
-        })();
-    </script>
+      }
+    })();
+  </script>
 </body>
 </html>
