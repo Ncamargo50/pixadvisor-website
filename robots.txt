@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /pix-admin/
+Disallow: /pix-muestreo/
+
+Sitemap: https://pixadvisor.network/sitemap.xml

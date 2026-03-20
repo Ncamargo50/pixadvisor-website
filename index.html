@@ -9,12 +9,19 @@
     <meta property="og:description" content="Soluciones avanzadas de agricultura de precisión que optimizan tus operaciones y maximizan rendimientos.">
     <meta property="og:type" content="website">
     <meta property="og:image" content="https://pixadvisor.network/img/Logo.png">
+    <meta property="og:url" content="https://pixadvisor.network">
+    <meta property="og:locale" content="es_ES">
+    <meta property="og:locale:alternate" content="pt_BR">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Pixadvisor - Agricultura de Precisión">
+    <meta name="twitter:description" content="Soluciones avanzadas de agricultura de precisión que optimizan tus operaciones y maximizan rendimientos.">
+    <meta name="twitter:image" content="https://pixadvisor.network/img/Logo.png">
     <link rel="icon" type="image/png" href="img/Logo.png">
     <link rel="canonical" href="https://pixadvisor.network">
     <title>Pixadvisor - Agricultura de Precisión</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -1045,8 +1052,15 @@
             transition: border-color 0.3s ease;
         }
 
-        .form-group input:focus,
-        .form-group textarea:focus {
+        .form-group input:focus-visible,
+        .form-group textarea:focus-visible {
+            outline: 2px solid var(--teal);
+            outline-offset: 2px;
+            border-color: var(--teal);
+            box-shadow: 0 0 0 3px rgba(0, 191, 165, 0.1);
+        }
+        .form-group input:focus:not(:focus-visible),
+        .form-group textarea:focus:not(:focus-visible) {
             outline: none;
             border-color: var(--teal);
             box-shadow: 0 0 0 3px rgba(0, 191, 165, 0.1);
@@ -1362,6 +1376,16 @@
         .animate-slide-in {
             animation: slideInUp 0.8s ease-out;
         }
+
+        /* WCAG 2.3.3: Respect user motion preferences */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
+        }
     </style>
 
     <!-- Schema.org structured data -->
@@ -1390,7 +1414,10 @@
     <nav>
         <div class="nav-container">
             <a href="#" class="logo">
-                <img src="img/Logo-negro.png" alt="Pixadvisor - Agricultura de Precisión" width="210" height="70">
+                <picture>
+                    <source srcset="img/Logo-negro.webp" type="image/webp">
+                    <img src="img/Logo-negro.png" alt="Pixadvisor - Agricultura de Precisión" width="210" height="70">
+                </picture>
             </a>
 
             <div class="nav-links">
@@ -1459,9 +1486,10 @@
         </div>
     </nav>
 
+    <main id="main">
     <!-- HERO SECTION -->
     <span id="inicio"></span>
-    <section class="hero" id="main">
+    <section class="hero">
         <div class="container">
             <div class="hero-grid">
                 <div class="hero-content">
@@ -1507,13 +1535,31 @@
                             </div>
                         </div>
                     </div>
+
+                    <div style="margin-top: 28px;">
+                        <a href="https://wa.me/59172149171?text=Hola%20Pixadvisor%2C%20me%20interesa%20solicitar%20una%20demo."
+                           class="hero-cta-btn" target="_blank" rel="noopener"
+                           style="display:inline-block;padding:14px 32px;background:var(--gradient-brand);color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:1.05rem;transition:transform 0.2s,box-shadow 0.2s;">
+                            <span data-lang-es>Solicitar Demo</span>
+                            <span data-lang-pt>Solicitar Demo</span>
+                        </a>
+                    </div>
                 </div>
 
                 <div class="hero-visual">
                     <div class="hero-logo-showcase">
                         <div class="hero-logo-ring"></div>
                         <div class="hero-logo-ring-2"></div>
-                        <img src="img/Logo-negro.png" alt="Pixadvisor Logo" width="500" loading="eager">
+                        <picture>
+                            <source
+                                srcset="img/Logo-negro-320w.webp 320w, img/Logo-negro-640w.webp 640w, img/Logo-negro.webp 1024w"
+                                sizes="(max-width: 480px) 240px, (max-width: 768px) 360px, 500px"
+                                type="image/webp">
+                            <source
+                                srcset="img/Logo-negro-320w.png 320w, img/Logo-negro-640w.png 640w, img/Logo-negro.png 1024w"
+                                sizes="(max-width: 480px) 240px, (max-width: 768px) 360px, 500px">
+                            <img src="img/Logo-negro.png" alt="Pixadvisor Logo" width="500" loading="eager">
+                        </picture>
                     </div>
                 </div>
             </div>
@@ -1562,7 +1608,16 @@
                 </div>
 
                 <div class="about-image fade-in">
-                    <img src="img/Agricultura de precisão com drone.jpg" alt="Drone realizando monitoreo de cultivos con agricultura de precisión" loading="lazy" width="600" height="500">
+                    <picture>
+                        <source
+                            srcset="img/Agricultura de precisão com drone-320w.webp 320w, img/Agricultura de precisão com drone-640w.webp 640w, img/Agricultura de precisão com drone-1024w.webp 1024w, img/Agricultura de precisão com drone.webp 1440w"
+                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 600px"
+                            type="image/webp">
+                        <source
+                            srcset="img/Agricultura de precisão com drone-320w.jpg 320w, img/Agricultura de precisão com drone-640w.jpg 640w, img/Agricultura de precisão com drone-1024w.jpg 1024w, img/Agricultura de precisão com drone.jpg 1440w"
+                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 600px">
+                        <img src="img/Agricultura de precisão com drone.jpg" alt="Drone realizando monitoreo de cultivos con agricultura de precisión" loading="lazy" width="600" height="500">
+                    </picture>
                 </div>
             </div>
         </div>
@@ -1848,7 +1903,16 @@
                     </div>
                 </div>
                 <div class="tech-visual">
-                    <img src="img/Fazenda inteligente por meio de tecnologia.jpg" alt="FieldPlanning - Planificación inteligente de campos agrícolas" loading="lazy" width="600" height="400">
+                    <picture>
+                        <source
+                            srcset="img/Fazenda inteligente por meio de tecnologia-320w.webp 320w, img/Fazenda inteligente por meio de tecnologia-640w.webp 640w, img/Fazenda inteligente por meio de tecnologia-1024w.webp 1024w, img/Fazenda inteligente por meio de tecnologia.webp 1440w"
+                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 600px"
+                            type="image/webp">
+                        <source
+                            srcset="img/Fazenda inteligente por meio de tecnologia-320w.jpg 320w, img/Fazenda inteligente por meio de tecnologia-640w.jpg 640w, img/Fazenda inteligente por meio de tecnologia-1024w.jpg 1024w, img/Fazenda inteligente por meio de tecnologia.jpg 1440w"
+                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 600px">
+                        <img src="img/Fazenda inteligente por meio de tecnologia.jpg" alt="FieldPlanning - Planificación inteligente de campos agrícolas" loading="lazy" width="600" height="400">
+                    </picture>
                 </div>
             </div>
 
@@ -1884,7 +1948,16 @@
                     </div>
                 </div>
                 <div class="tech-visual">
-                    <img src="img/Paisagem agrícola com mapa NDVI.jpg" alt="FieldMetrics - Análisis de métricas de cultivos" loading="lazy" width="600" height="400">
+                    <picture>
+                        <source
+                            srcset="img/Paisagem agrícola com mapa NDVI-320w.webp 320w, img/Paisagem agrícola com mapa NDVI-640w.webp 640w, img/Paisagem agrícola com mapa NDVI-1024w.webp 1024w, img/Paisagem agrícola com mapa NDVI.webp 1440w"
+                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 600px"
+                            type="image/webp">
+                        <source
+                            srcset="img/Paisagem agrícola com mapa NDVI-320w.jpg 320w, img/Paisagem agrícola com mapa NDVI-640w.jpg 640w, img/Paisagem agrícola com mapa NDVI-1024w.jpg 1024w, img/Paisagem agrícola com mapa NDVI.jpg 1440w"
+                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 600px">
+                        <img src="img/Paisagem agrícola com mapa NDVI.jpg" alt="FieldMetrics - Análisis de métricas de cultivos" loading="lazy" width="600" height="400">
+                    </picture>
                 </div>
             </div>
 
@@ -1920,7 +1993,16 @@
                     </div>
                 </div>
                 <div class="tech-visual">
-                    <img src="img/Analisando a saúde da vegetação.jpg" alt="FieldControl - Control y monitoreo inteligente de cultivos" loading="lazy" width="600" height="400">
+                    <picture>
+                        <source
+                            srcset="img/Analisando a saúde da vegetação-320w.webp 320w, img/Analisando a saúde da vegetação-640w.webp 640w, img/Analisando a saúde da vegetação-1024w.webp 1024w, img/Analisando a saúde da vegetação.webp 1440w"
+                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 600px"
+                            type="image/webp">
+                        <source
+                            srcset="img/Analisando a saúde da vegetação-320w.jpg 320w, img/Analisando a saúde da vegetação-640w.jpg 640w, img/Analisando a saúde da vegetação-1024w.jpg 1024w, img/Analisando a saúde da vegetação.jpg 1440w"
+                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 600px">
+                        <img src="img/Analisando a saúde da vegetação.jpg" alt="FieldControl - Control y monitoreo inteligente de cultivos" loading="lazy" width="600" height="400">
+                    </picture>
                 </div>
             </div>
         </div>
@@ -1943,7 +2025,16 @@
         <div class="container">
             <div class="onfarm-grid">
                 <div class="onfarm-image fade-in">
-                    <img src="img/Agricultura de precisão e tecnologia inteligente.jpg" alt="Resultados de agricultura de precisión en campo" loading="lazy" width="600" height="500">
+                    <picture>
+                        <source
+                            srcset="img/Agricultura de precisão e tecnologia inteligente-320w.webp 320w, img/Agricultura de precisão e tecnologia inteligente-640w.webp 640w, img/Agricultura de precisão e tecnologia inteligente-1024w.webp 1024w, img/Agricultura de precisão e tecnologia inteligente.webp 1440w"
+                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 600px"
+                            type="image/webp">
+                        <source
+                            srcset="img/Agricultura de precisão e tecnologia inteligente-320w.jpg 320w, img/Agricultura de precisão e tecnologia inteligente-640w.jpg 640w, img/Agricultura de precisão e tecnologia inteligente-1024w.jpg 1024w, img/Agricultura de precisão e tecnologia inteligente.jpg 1440w"
+                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 600px">
+                        <img src="img/Agricultura de precisão e tecnologia inteligente.jpg" alt="Resultados de agricultura de precisión en campo" loading="lazy" width="600" height="500">
+                    </picture>
                 </div>
 
                 <div class="onfarm-content fade-in">
@@ -2013,7 +2104,16 @@
 
             <div class="gallery-grid">
                 <div class="gallery-item fade-in">
-                    <img src="img/Mapeamento de fertilidade do solo.jpg" alt="Mapeo de fertilidad del suelo con agricultura de precisión" loading="lazy" width="400" height="300">
+                    <picture>
+                        <source
+                            srcset="img/Mapeamento de fertilidade do solo-320w.webp 320w, img/Mapeamento de fertilidade do solo-640w.webp 640w, img/Mapeamento de fertilidade do solo.webp 1024w"
+                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 400px"
+                            type="image/webp">
+                        <source
+                            srcset="img/Mapeamento de fertilidade do solo-320w.jpg 320w, img/Mapeamento de fertilidade do solo-640w.jpg 640w, img/Mapeamento de fertilidade do solo.jpg 1024w"
+                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 400px">
+                        <img src="img/Mapeamento de fertilidade do solo.jpg" alt="Mapeo de fertilidad del suelo con agricultura de precisión" loading="lazy" width="400" height="300">
+                    </picture>
                     <div class="gallery-overlay">
                         <span class="gallery-caption">
                             <span data-lang-es>Mapeo de Fertilidad</span>
@@ -2022,7 +2122,16 @@
                     </div>
                 </div>
                 <div class="gallery-item fade-in">
-                    <img src="img/Mapa agrícola com sobreposição de NDVI.jpg" alt="Mapa NDVI para monitoreo de vegetación" loading="lazy" width="400" height="300">
+                    <picture>
+                        <source
+                            srcset="img/Mapa agrícola com sobreposição de NDVI-320w.webp 320w, img/Mapa agrícola com sobreposição de NDVI-640w.webp 640w, img/Mapa agrícola com sobreposição de NDVI.webp 1024w"
+                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 400px"
+                            type="image/webp">
+                        <source
+                            srcset="img/Mapa agrícola com sobreposição de NDVI-320w.jpg 320w, img/Mapa agrícola com sobreposição de NDVI-640w.jpg 640w, img/Mapa agrícola com sobreposição de NDVI.jpg 1024w"
+                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 400px">
+                        <img src="img/Mapa agrícola com sobreposição de NDVI.jpg" alt="Mapa NDVI para monitoreo de vegetación" loading="lazy" width="400" height="300">
+                    </picture>
                     <div class="gallery-overlay">
                         <span class="gallery-caption">
                             <span data-lang-es>Análisis NDVI</span>
@@ -2031,7 +2140,16 @@
                     </div>
                 </div>
                 <div class="gallery-item fade-in">
-                    <img src="img/Mapa de aplicação de cal na fazenda.jpg" alt="Mapa de prescripción de aplicación variable" loading="lazy" width="400" height="300">
+                    <picture>
+                        <source
+                            srcset="img/Mapa de aplicação de cal na fazenda-320w.webp 320w, img/Mapa de aplicação de cal na fazenda-640w.webp 640w, img/Mapa de aplicação de cal na fazenda.webp 1024w"
+                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 400px"
+                            type="image/webp">
+                        <source
+                            srcset="img/Mapa de aplicação de cal na fazenda-320w.jpg 320w, img/Mapa de aplicação de cal na fazenda-640w.jpg 640w, img/Mapa de aplicação de cal na fazenda.jpg 1024w"
+                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 400px">
+                        <img src="img/Mapa de aplicação de cal na fazenda.jpg" alt="Mapa de prescripción de aplicación variable" loading="lazy" width="400" height="300">
+                    </picture>
                     <div class="gallery-overlay">
                         <span class="gallery-caption">
                             <span data-lang-es>Prescripción Variable</span>
@@ -2188,11 +2306,18 @@
         </div>
     </section>
 
+    </main>
+
     <!-- FOOTER -->
     <footer>
         <div class="footer-grid">
             <div>
-                <div class="footer-logo"><img src="img/Logo-negro.png" alt="Pixadvisor" width="150" height="50"></div>
+                <div class="footer-logo">
+                    <picture>
+                        <source srcset="img/Logo-negro.webp" type="image/webp">
+                        <img src="img/Logo-negro.png" alt="Pixadvisor" width="150" height="50" loading="lazy">
+                    </picture>
+                </div>
                 <p class="footer-tagline">
                     <span data-lang-es>Medir para comprender, controlar para mejorar</span>
                     <span data-lang-pt>Medir para compreender, controlar para melhorar</span>
@@ -2276,17 +2401,37 @@
         const tabs = document.querySelectorAll('[role="tab"]');
         const panels = document.querySelectorAll('[role="tabpanel"]');
 
-        tabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                tabs.forEach(t => t.setAttribute('aria-selected', 'false'));
-                panels.forEach(p => p.classList.remove('active'));
+        const activateTab = (tab) => {
+            tabs.forEach(t => { t.setAttribute('aria-selected', 'false'); t.setAttribute('tabindex', '-1'); });
+            panels.forEach(p => p.classList.remove('active'));
+            tab.setAttribute('aria-selected', 'true');
+            tab.setAttribute('tabindex', '0');
+            const panel = document.getElementById(tab.getAttribute('aria-controls'));
+            panel.classList.add('active');
+            panel.classList.add('visible');
+        };
 
-                tab.setAttribute('aria-selected', 'true');
-                const panel = document.getElementById(tab.getAttribute('aria-controls'));
-                panel.classList.add('active');
-                panel.classList.add('visible');
-            });
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => activateTab(tab));
         });
+
+        // Keyboard navigation: ArrowLeft/Right/Home/End (WCAG 2.1.1)
+        const tabList = document.querySelector('[role="tablist"]');
+        if (tabList) {
+            tabList.addEventListener('keydown', (e) => {
+                const tabsArr = Array.from(tabs);
+                const idx = tabsArr.indexOf(document.activeElement);
+                let newIdx;
+                if (e.key === 'ArrowRight') newIdx = (idx + 1) % tabsArr.length;
+                else if (e.key === 'ArrowLeft') newIdx = (idx - 1 + tabsArr.length) % tabsArr.length;
+                else if (e.key === 'Home') newIdx = 0;
+                else if (e.key === 'End') newIdx = tabsArr.length - 1;
+                else return;
+                e.preventDefault();
+                activateTab(tabsArr[newIdx]);
+                tabsArr[newIdx].focus();
+            });
+        }
 
         // ===== CONTACT FORM WHATSAPP =====
         document.getElementById('contactForm').addEventListener('submit', (e) => {
@@ -2297,9 +2442,27 @@
             const phone = document.getElementById('phone').value.trim();
             const message = document.getElementById('message').value.trim();
 
-            if (!name || !email || !message) return;
+            // Clear previous errors
+            document.querySelectorAll('.form-error').forEach(e => e.remove());
+            const showError = (id, msg) => {
+                const el = document.getElementById(id);
+                const err = document.createElement('div');
+                err.className = 'form-error';
+                err.style.cssText = 'color:#e53e3e;font-size:12px;margin-top:4px';
+                err.textContent = msg;
+                el.parentElement.appendChild(err);
+            };
+            let valid = true;
+            if (!name) { showError('name', 'Por favor ingrese su nombre / Por favor insira seu nome'); valid = false; }
+            if (!email) { showError('email', 'Por favor ingrese su email / Por favor insira seu e-mail'); valid = false; }
+            if (!message) { showError('message', 'Por favor ingrese un mensaje / Por favor insira uma mensagem'); valid = false; }
+            if (!valid) return;
 
-            const whatsappMessage = `Hola Pixadvisor, soy ${name}.\nCorreo: ${email}\nTeléfono: ${phone}\nMensaje: ${message}`;
+            // Detect language for bilingual WhatsApp message
+            const lang = document.documentElement.getAttribute('data-lang') || 'es';
+            const whatsappMessage = lang === 'pt'
+                ? `Olá Pixadvisor, sou ${name}.\nE-mail: ${email}\nTelefone: ${phone}\nMensagem: ${message}`
+                : `Hola Pixadvisor, soy ${name}.\nCorreo: ${email}\nTeléfono: ${phone}\nMensaje: ${message}`;
             window.open(`https://wa.me/59172149171?text=${encodeURIComponent(whatsappMessage)}`, '_blank');
             document.getElementById('contactForm').reset();
         });
