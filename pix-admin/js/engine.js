@@ -311,8 +311,8 @@ class InterpretationEngine {
     const SB = Ca + Mg + K;
     results.calculated.SB = { value: SB, label: 'Suma de bases (SB)', unit: 'mmolc/dm³' };
 
-    // CTC (if not provided directly)
-    let CTC = parseFloat(labData.CTC) || 0;
+    // CTC (if not provided directly) — use normalized data, not raw labData
+    let CTC = parseFloat(data.CTC) || 0;
     if (!CTC && H_Al > 0) {
       CTC = SB + H_Al;
     }
@@ -322,8 +322,8 @@ class InterpretationEngine {
       results.nutrients.CTC = { value: CTC, ...ctcClass, ...NUTRIENT_INFO.CTC };
     }
 
-    // V% (base saturation)
-    let V = parseFloat(labData.V) || 0;
+    // V% (base saturation) — use normalized data, not raw labData
+    let V = parseFloat(data.V) || 0;
     if (!V && CTC > 0) {
       V = (SB / CTC) * 100;
     }
@@ -813,13 +813,14 @@ class InterpretationEngine {
       totalCosts: null
     };
 
-    // Soil interpretation
+    // Soil interpretation — normalize once, reuse for all calculations
     if (soilData && Object.keys(soilData).length > 0) {
       report.soilInterpretation = this.interpretSoil(soilData, cropId);
-      report.relationships = this.analyzeRelationships(soilData);
-      report.liming = this.calculateLiming(soilData, cropId);
-      report.gypsum = this.calculateGypsum(soilData, cropId);
-      report.fertilization = this.calculateFertilization(soilData, cropId, report.yieldTarget);
+      const normSoil = this.normalizeLabData ? this.normalizeLabData(soilData) : soilData;
+      report.relationships = this.analyzeRelationships(normSoil);
+      report.liming = this.calculateLiming(normSoil, cropId);
+      report.gypsum = this.calculateGypsum(normSoil, cropId);
+      report.fertilization = this.calculateFertilization(normSoil, cropId, report.yieldTarget);
       report.products = this.calculateProducts(report.fertilization);
     }
 

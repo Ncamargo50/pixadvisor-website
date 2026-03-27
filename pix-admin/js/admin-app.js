@@ -144,6 +144,9 @@ class PixAdmin {
       if (polygon?.value) this.fieldPolygon = polygon.value;
       const area = await this._dbGet('state', 'fieldAreaHa');
       if (area?.value) this.fieldAreaHa = area.value;
+      // Restore clients from IndexedDB
+      const clients = await this._dbGet('state', 'clients');
+      if (clients?.value) this._clients = clients.value;
       // Restore service orders from IndexedDB
       const orders = await this._dbGetAll('serviceOrders');
       if (orders.length > 0) this.serviceOrders = orders;
@@ -1468,8 +1471,9 @@ class PixAdmin {
   generateNutrientMap() {
     if (!this.maps.nutrient) this.initNutrientMap();
     const nutrient = document.getElementById('mapNutrient').value;
-    const resolution = parseInt(document.getElementById('mapResolution').value);
-    const power = parseInt(document.getElementById('mapPower').value);
+    const cfg = this._idwConfig || {};
+    const resolution = parseInt(document.getElementById('mapResolution')?.value) || cfg.resolution || 80;
+    const power = parseInt(document.getElementById('mapPower')?.value) || cfg.power || 2;
     const showLabels = document.getElementById('mapShowLabels')?.checked !== false;
     const info = NUTRIENT_INFO[nutrient] || { label: nutrient, unit: '' };
 
@@ -1803,8 +1807,9 @@ class PixAdmin {
   // FERTILITY MAP
   _generateGISFertility(showLabels, showPoints, polygon) {
     const nutrient = document.getElementById('gisNutrient').value;
-    const resolution = parseInt(document.getElementById('gisResolution').value);
-    const power = parseInt(document.getElementById('gisPower').value);
+    const cfg = this._idwConfig || {};
+    const resolution = parseInt(document.getElementById('gisResolution')?.value) || cfg.resolution || 80;
+    const power = parseInt(document.getElementById('gisPower')?.value) || cfg.power || 2;
     const method = document.getElementById('gisMethod')?.value || 'idw';
     const info = NUTRIENT_INFO[nutrient] || { label: nutrient, unit: '' };
     const points = this._getGISPoints(nutrient);
@@ -2078,7 +2083,7 @@ class PixAdmin {
   downloadRelationshipMapPDF(relId) {
     const relCalcs = {
       Ca_Mg: { calc: d => (d.Ca || 0) / Math.max(d.Mg || 1, 0.1), label: 'Ca/Mg', opt: { optMin: 3, optMax: 5 } },
-      Ca_K: { calc: d => (d.Ca || 0) / Math.max(d.K || 1, 0.01), label: 'Ca/K', opt: { optMin: 10, optMax: 20 } },
+      Ca_K: { calc: d => (d.Ca || 0) / Math.max(d.K || 1, 0.01), label: 'Ca/K', opt: { optMin: 15, optMax: 25 } },
       Mg_K: { calc: d => (d.Mg || 0) / Math.max(d.K || 1, 0.01), label: 'Mg/K', opt: { optMin: 2, optMax: 5 } },
       CaMg_K: { calc: d => ((d.Ca || 0) + (d.Mg || 0)) / Math.max(d.K || 1, 0.01), label: '(Ca+Mg)/K', opt: { optMin: 15, optMax: 30 } }
     };
@@ -2888,6 +2893,7 @@ class PixAdmin {
       createdAt: new Date().toISOString()
     });
     this._renderClientsList();
+    this._dbPut('state', { key: 'clients', value: this._clients });
     this.toast(`Cliente "${name}" guardado`);
   }
 

@@ -713,12 +713,13 @@ class SamplingEngine {
         break;
 
       case 'diamond':
+        // Diagonal-only offsets (differs from cross which uses cardinal axes)
         offsets.push(
-          [dLat * 0.4, 0], [0, dLng * 0.4],
-          [-dLat * 0.4, 0], [0, -dLng * 0.4],
-          [dLat * 0.8, 0], [0, dLng * 0.8],
-          [-dLat * 0.8, 0], [0, -dLng * 0.8],
-          [dLat * 0.55, dLng * 0.55], [-dLat * 0.55, -dLng * 0.55]
+          [dLat * 0.4, dLng * 0.4], [-dLat * 0.4, -dLng * 0.4],
+          [dLat * 0.4, -dLng * 0.4], [-dLat * 0.4, dLng * 0.4],
+          [dLat * 0.75, dLng * 0.75], [-dLat * 0.75, -dLng * 0.75],
+          [dLat * 0.75, -dLng * 0.75], [-dLat * 0.75, dLng * 0.75],
+          [dLat * 0.55, 0], [0, dLng * 0.55]
         );
         break;
 

@@ -22,7 +22,7 @@ self.addEventListener('message', function(e) {
 
     for (let r = 0; r < resolution; r++) {
       grid[r] = new Float64Array(resolution);
-      const lat = bounds.maxLat - (r + 0.5) * latStep;
+      const lat = bounds.minLat + (r + 0.5) * latStep;
 
       for (let c = 0; c < resolution; c++) {
         const lng = bounds.minLng + (c + 0.5) * lngStep;
