@@ -72,8 +72,6 @@
           <span data-lang-es>Contacto</span>
           <span data-lang-pt>Contato</span>
         </a>
-        <a href="/pix-admin/" class="nav-cta">PIX Admin</a>
-        <a href="/pix-muestreo/" class="nav-cta nav-cta--muestreo">PIX Muestreo</a>
         <div class="lang-switcher">
           <button class="lang-btn active" data-lang="es">ES</button>
           <button class="lang-btn" data-lang="pt">PT</button>
@@ -102,8 +100,6 @@
         <span data-lang-es>Contacto</span>
         <span data-lang-pt>Contato</span>
       </a>
-      <a href="/pix-admin/" class="nav-cta">PIX Admin</a>
-      <a href="/pix-muestreo/" class="nav-cta nav-cta--muestreo">PIX Muestreo</a>
       <div class="lang-switcher">
         <button class="lang-btn active" data-lang="es">ES</button>
         <button class="lang-btn" data-lang="pt">PT</button>
@@ -938,11 +934,10 @@
               <span class="app-card-tag">GIS Maps</span>
               <span class="app-card-tag">PWA</span>
             </div>
-            <a href="/pix-admin/" class="app-card-cta">
-              <span data-lang-es>Abrir PIX Admin</span>
-              <span data-lang-pt>Abrir PIX Admin</span>
-              &rarr;
-            </a>
+            <span class="app-card-note" style="font-size:12px;color:#94A3B8;margin-top:8px;display:block">
+              <span data-lang-es>Acceso interno</span>
+              <span data-lang-pt>Acesso interno</span>
+            </span>
           </div>
           <!-- PIX Muestreo -->
           <div class="app-card app-card--muestreo fade-in">
@@ -963,11 +958,10 @@
               </span>
               <span class="app-card-tag">PWA</span>
             </div>
-            <a href="/pix-muestreo/" class="app-card-cta">
-              <span data-lang-es>Abrir PIX Muestreo</span>
-              <span data-lang-pt>Abrir PIX Muestreo</span>
-              &rarr;
-            </a>
+            <span class="app-card-note" style="font-size:12px;color:#94A3B8;margin-top:8px;display:block">
+              <span data-lang-es>Acceso interno</span>
+              <span data-lang-pt>Acesso interno</span>
+            </span>
           </div>
         </div>
       </div>
@@ -1118,8 +1112,8 @@
             <span data-lang-es>Plataforma</span>
             <span data-lang-pt>Plataforma</span>
           </h4>
-          <a href="/pix-admin/">PIX Admin</a>
-          <a href="/pix-muestreo/">PIX Muestreo</a>
+          <span>PIX Admin</span>
+          <span>PIX Muestreo</span>
           <a href="#technology">FieldPlanning</a>
           <a href="#technology">FieldMetrics</a>
           <a href="#technology">FieldControl</a>
@@ -1279,15 +1273,7 @@
       document.getElementById('contactForm').reset();
     });
 
-    // ===== PIX ADMIN LINK (dev vs prod) =====
-    (function() {
-      var isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-      if (isLocal) {
-        document.querySelectorAll('a[href="/pix-admin/"]').forEach(function(a) {
-          a.href = location.protocol + '//' + location.hostname + ':8100/';
-        });
-      }
-    })();
+    // ===== PIX ADMIN/MUESTREO: acceso solo por URL directo (sin botones públicos) =====
   </script>
 </body>
 </html>
