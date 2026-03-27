@@ -1,5 +1,5 @@
 // PIX Admin - Service Worker for PWA
-const CACHE_NAME = 'pix-admin-v5';
+const CACHE_NAME = 'pix-admin-v7';
 
 const STATIC_ASSETS = [
   '/pix-admin/',

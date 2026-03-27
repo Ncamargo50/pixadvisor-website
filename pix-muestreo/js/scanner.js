@@ -14,8 +14,8 @@ class BarcodeScanner {
 
     const config = {
       fps: 10,
-      qrbox: { width: 280, height: 120 },
-      aspectRatio: 1.777,
+      qrbox: { width: 250, height: 250 },
+      aspectRatio: 1.0,
       formatsToSupport: [
         Html5QrcodeSupportedFormats.QR_CODE,
         Html5QrcodeSupportedFormats.CODE_128,
@@ -183,8 +183,20 @@ class BarcodeScanner {
       }
     }
 
-    // Pattern 6: Plain numeric/alphanumeric code (bag ID)
-    // IBRA bags typically have 6-10 digit numeric codes
+    // Pattern 6: IBRA bag format with dash: 00966568-25 (8+ digits, dash, sequence)
+    // Real IBRA megalab bags use format: XXXXXXXX-YY
+    const ibraDashMatch = trimmed.match(/^(\d{6,10})-(\d{1,4})$/);
+    if (ibraDashMatch) {
+      result.isIBRA = true;
+      result.source = 'IBRA Megalab (Bolsa)';
+      result.sampleId = trimmed;              // Full code: 00966568-25
+      result.extraData.baseId = ibraDashMatch[1];   // 00966568
+      result.extraData.sequence = ibraDashMatch[2];  // 25
+      return result;
+    }
+
+    // Pattern 7: Plain numeric/alphanumeric code (bag ID)
+    // IBRA bags can also have 6-10 digit numeric codes without dash
     if (/^[A-Z]{0,3}\d{4,12}$/.test(trimmed)) {
       result.isIBRA = true;
       result.source = 'Código de bolsa';
@@ -202,6 +214,8 @@ class BarcodeScanner {
     if (!parsed) return '';
     const lines = [];
     if (parsed.sampleId) lines.push(`Bolsa: ${parsed.sampleId}`);
+    if (parsed.extraData && parsed.extraData.baseId) lines.push(`ID Base: ${parsed.extraData.baseId}`);
+    if (parsed.extraData && parsed.extraData.sequence) lines.push(`Seq: ${parsed.extraData.sequence}`);
     if (parsed.labOrder) lines.push(`Orden Lab: ${parsed.labOrder}`);
     if (parsed.clientCode) lines.push(`Cliente: ${parsed.clientCode}`);
     if (parsed.depth) lines.push(`Prof: ${parsed.depth} cm`);

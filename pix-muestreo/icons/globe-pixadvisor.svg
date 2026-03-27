@@ -1,0 +1,136 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Main globe gradient: green top-left to blue bottom-right -->
+    <linearGradient id="globeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8DE03A"/>
+      <stop offset="35%" stop-color="#7FD633"/>
+      <stop offset="65%" stop-color="#3BB8A8"/>
+      <stop offset="100%" stop-color="#00A4CC"/>
+    </linearGradient>
+    <!-- Ring gradient green -->
+    <linearGradient id="ringGreen" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8DE03A"/>
+      <stop offset="100%" stop-color="#5BC425"/>
+    </linearGradient>
+    <!-- Ring gradient cyan -->
+    <linearGradient id="ringCyan" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00BCD4"/>
+      <stop offset="100%" stop-color="#00A4CC"/>
+    </linearGradient>
+    <!-- Ring gradient mid -->
+    <linearGradient id="ringMid" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4DC82E"/>
+      <stop offset="100%" stop-color="#00B0C0"/>
+    </linearGradient>
+    <!-- Clip for globe contents -->
+    <clipPath id="globeClip">
+      <circle cx="256" cy="256" r="140"/>
+    </clipPath>
+  </defs>
+
+  <!-- === ORBITAL RINGS (behind globe) === -->
+  <!-- Outermost ring - green -->
+  <ellipse cx="240" cy="256" rx="210" ry="195" fill="none" stroke="url(#ringGreen)" stroke-width="4.5"
+    transform="rotate(-15, 240, 256)" opacity="0.9"/>
+
+  <!-- Middle ring - gradient -->
+  <ellipse cx="245" cy="256" rx="188" ry="178" fill="none" stroke="url(#ringMid)" stroke-width="4"
+    transform="rotate(-12, 245, 256)" opacity="0.8"/>
+
+  <!-- Inner ring - cyan -->
+  <ellipse cx="250" cy="256" rx="168" ry="162" fill="none" stroke="url(#ringCyan)" stroke-width="3.5"
+    transform="rotate(-8, 250, 256)" opacity="0.7"/>
+
+  <!-- === MAIN GLOBE SPHERE === -->
+  <circle cx="256" cy="256" r="140" fill="url(#globeGrad)"/>
+
+  <!-- === GRID LINES (inside globe clip) === -->
+  <g clip-path="url(#globeClip)" opacity="0.85">
+
+    <!-- LATITUDE LINES (horizontal curves) -->
+    <ellipse cx="256" cy="146" rx="130" ry="12" fill="none" stroke="#1a6030" stroke-width="2.2" opacity="0.5"/>
+    <ellipse cx="256" cy="186" rx="138" ry="14" fill="none" stroke="#1a6030" stroke-width="2.2" opacity="0.55"/>
+    <ellipse cx="256" cy="221" rx="140" ry="14" fill="none" stroke="#1a6030" stroke-width="2.2" opacity="0.6"/>
+    <ellipse cx="256" cy="256" rx="140" ry="14" fill="none" stroke="#1a6030" stroke-width="2.5" opacity="0.65"/>
+    <ellipse cx="256" cy="291" rx="138" ry="14" fill="none" stroke="#0a5060" stroke-width="2.2" opacity="0.6"/>
+    <ellipse cx="256" cy="326" rx="130" ry="12" fill="none" stroke="#0a5060" stroke-width="2.2" opacity="0.55"/>
+    <ellipse cx="256" cy="361" rx="115" ry="10" fill="none" stroke="#0a5060" stroke-width="2.2" opacity="0.5"/>
+
+    <!-- LONGITUDE LINES (vertical curves) -->
+    <!-- Center meridian -->
+    <ellipse cx="256" cy="256" rx="6" ry="140" fill="none" stroke="#1a6030" stroke-width="2.2" opacity="0.6"/>
+    <!-- Slightly left -->
+    <ellipse cx="256" cy="256" rx="45" ry="140" fill="none" stroke="#1a6030" stroke-width="2" opacity="0.55"
+      transform="rotate(-5, 256, 256)"/>
+    <!-- More left -->
+    <ellipse cx="256" cy="256" rx="85" ry="140" fill="none" stroke="#1a6030" stroke-width="2" opacity="0.5"
+      transform="rotate(-8, 256, 256)"/>
+    <!-- Far left -->
+    <ellipse cx="256" cy="256" rx="120" ry="140" fill="none" stroke="#1a6030" stroke-width="1.8" opacity="0.4"
+      transform="rotate(-10, 256, 256)"/>
+    <!-- Slightly right -->
+    <ellipse cx="256" cy="256" rx="45" ry="140" fill="none" stroke="#0a5060" stroke-width="2" opacity="0.55"
+      transform="rotate(5, 256, 256)"/>
+    <!-- More right -->
+    <ellipse cx="256" cy="256" rx="85" ry="140" fill="none" stroke="#0a5060" stroke-width="2" opacity="0.5"
+      transform="rotate(8, 256, 256)"/>
+
+    <!-- === DATA DOTS / DASHES (the binary-like marks) === -->
+    <!-- Row 1 (upper area - green zone) -->
+    <rect x="195" y="172" width="16" height="4" rx="2" fill="#1a5020" opacity="0.7"/>
+    <rect x="220" y="172" width="10" height="4" rx="2" fill="#1a5020" opacity="0.6"/>
+    <rect x="270" y="168" width="14" height="4" rx="2" fill="#1a5020" opacity="0.65"/>
+    <rect x="295" y="172" width="8" height="4" rx="2" fill="#1a5020" opacity="0.5"/>
+
+    <!-- Row 2 -->
+    <rect x="180" y="200" width="12" height="4" rx="2" fill="#1a5020" opacity="0.7"/>
+    <rect x="200" y="200" width="18" height="4" rx="2" fill="#1a5020" opacity="0.65"/>
+    <rect x="245" y="198" width="10" height="4" rx="2" fill="#1a5020" opacity="0.6"/>
+    <rect x="268" y="200" width="14" height="4" rx="2" fill="#1a5020" opacity="0.55"/>
+    <rect x="310" y="198" width="8" height="4" rx="2" fill="#1a5020" opacity="0.5"/>
+
+    <!-- Row 3 -->
+    <rect x="170" y="230" width="14" height="4" rx="2" fill="#1a5020" opacity="0.7"/>
+    <rect x="195" y="228" width="10" height="4" rx="2" fill="#1a5020" opacity="0.65"/>
+    <rect x="230" y="230" width="18" height="4" rx="2" fill="#1a5020" opacity="0.6"/>
+    <rect x="275" y="228" width="12" height="4" rx="2" fill="#1a5020" opacity="0.55"/>
+    <rect x="300" y="230" width="16" height="4" rx="2" fill="#0a5060" opacity="0.5"/>
+    <rect x="330" y="228" width="8" height="4" rx="2" fill="#0a5060" opacity="0.45"/>
+
+    <!-- Row 4 (equator area) -->
+    <rect x="165" y="258" width="16" height="4" rx="2" fill="#1a5525" opacity="0.65"/>
+    <rect x="190" y="256" width="12" height="4" rx="2" fill="#1a5525" opacity="0.6"/>
+    <rect x="220" y="258" width="10" height="4" rx="2" fill="#0a5060" opacity="0.55"/>
+    <rect x="260" y="256" width="18" height="4" rx="2" fill="#0a5060" opacity="0.6"/>
+    <rect x="290" y="258" width="8" height="4" rx="2" fill="#0a5060" opacity="0.5"/>
+    <rect x="315" y="256" width="14" height="4" rx="2" fill="#0a5060" opacity="0.5"/>
+
+    <!-- Row 5 (lower - blue zone) -->
+    <rect x="175" y="288" width="12" height="4" rx="2" fill="#0a5060" opacity="0.6"/>
+    <rect x="200" y="286" width="16" height="4" rx="2" fill="#0a5060" opacity="0.55"/>
+    <rect x="240" y="288" width="10" height="4" rx="2" fill="#0a5060" opacity="0.5"/>
+    <rect x="270" y="286" width="14" height="4" rx="2" fill="#0a5060" opacity="0.55"/>
+    <rect x="300" y="288" width="8" height="4" rx="2" fill="#0a5060" opacity="0.45"/>
+
+    <!-- Row 6 -->
+    <rect x="185" y="318" width="14" height="4" rx="2" fill="#0a5060" opacity="0.55"/>
+    <rect x="210" y="316" width="10" height="4" rx="2" fill="#0a5060" opacity="0.5"/>
+    <rect x="250" y="318" width="16" height="4" rx="2" fill="#0a5060" opacity="0.5"/>
+    <rect x="280" y="316" width="8" height="4" rx="2" fill="#0a5060" opacity="0.45"/>
+
+    <!-- Row 7 (bottom) -->
+    <rect x="200" y="345" width="12" height="4" rx="2" fill="#0a5060" opacity="0.45"/>
+    <rect x="225" y="343" width="18" height="4" rx="2" fill="#0a5060" opacity="0.4"/>
+    <rect x="260" y="345" width="10" height="4" rx="2" fill="#0a5060" opacity="0.4"/>
+  </g>
+
+  <!-- === ORBITAL RINGS (in front of globe - partial arcs) === -->
+  <!-- Front portion of outer ring -->
+  <path d="M 140,380 A 210,195 -15 0 0 85,200" fill="none" stroke="url(#ringGreen)" stroke-width="4.5" opacity="0.9"/>
+
+  <!-- Front portion of middle ring -->
+  <path d="M 150,370 A 188,178 -12 0 0 100,210" fill="none" stroke="url(#ringMid)" stroke-width="4" opacity="0.8"/>
+
+  <!-- Front portion of inner ring -->
+  <path d="M 158,360 A 168,162 -8 0 0 112,218" fill="none" stroke="url(#ringCyan)" stroke-width="3.5" opacity="0.7"/>
+</svg>

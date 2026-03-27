@@ -156,11 +156,12 @@ class PixAdmin {
   // ===== MULTI-USER AUTH =====
 
   async _ensureAdminUser() {
-    const admin = await this._dbGet('users', 'admin');
-    if (!admin) {
+    // Seed default admin user: pix / admin
+    const existing = await this._dbGet('users', 'pix');
+    if (!existing) {
       const salt = Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => b.toString(16).padStart(2, '0')).join('');
-      const hash = await this._hashPw('pixadvisor', salt);
-      await this._dbPut('users', { username: 'admin', passwordHash: hash, salt, role: 'admin', createdAt: new Date().toISOString() });
+      const hash = await this._hashPw('admin', salt);
+      await this._dbPut('users', { username: 'pix', passwordHash: hash, salt, role: 'admin', createdAt: new Date().toISOString() });
     }
   }
 
@@ -191,12 +192,14 @@ class PixAdmin {
 
   _expandParentGroup(viewName) {
     const viewGroupMap = {
+      'manage-clients': 'cadastro-group', 'gis-dashboard': 'cadastro-group',
+      'management-zones': 'field-group', 'sampling-points': 'field-group', 'service-orders': 'field-group', 'samples': 'field-group',
       'soil': 'soil-group', 'soil-interpretation': 'soil-group', 'soil-relationships': 'soil-group', 'soil-amendments': 'soil-group',
       'leaf': 'leaf-group', 'leaf-dris': 'leaf-group', 'leaf-cross': 'leaf-group',
-      'gis-dashboard': 'gis-group', 'nutrient-maps': 'gis-group', 'relation-maps': 'gis-group', 'management-zones': 'gis-group', 'sampling-points': 'gis-group', 'prescription': 'gis-group',
       'engine-idw': 'engine-group', 'engine-kriging': 'engine-group', 'engine-variogram': 'engine-group', 'engine-validation': 'engine-group',
+      'nutrient-maps': 'maps-group', 'relation-maps': 'maps-group', 'prescription': 'maps-group',
       'interpretation': 'reports-group', 'report-protocol': 'reports-group', 'report-financial': 'reports-group', 'report-export': 'reports-group',
-      'service-orders': 'manage-group', 'samples': 'manage-group', 'manage-crops': 'manage-group', 'manage-clients': 'manage-group', 'settings': 'manage-group'
+      'manage-crops': 'config-group', 'settings': 'config-group'
     };
     const groupId = viewGroupMap[viewName];
     if (groupId) {
@@ -330,33 +333,30 @@ class PixAdmin {
     const profiles = crop.yieldProfiles || [];
     const currentProfile = InterpretationEngine.getYieldProfile(crop, this.yieldTarget);
 
+    const step = (crop.yieldRange[1] - crop.yieldRange[0]) > 50 ? 5 : (crop.yieldRange[1] - crop.yieldRange[0]) > 10 ? 1 : 0.1;
     container.innerHTML = `
-      <div class="yield-control-group">
-        <label class="form-label">Rendimiento Esperado</label>
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <div class="yb-row">
+        <div class="yb-slider">
           <input type="range" id="yieldSlider"
-            min="${crop.yieldRange[0]}" max="${crop.yieldRange[1]}"
-            step="${(crop.yieldRange[1] - crop.yieldRange[0]) > 50 ? 5 : (crop.yieldRange[1] - crop.yieldRange[0]) > 10 ? 1 : 0.1}"
+            min="${crop.yieldRange[0]}" max="${crop.yieldRange[1]}" step="${step}"
             value="${this.yieldTarget}"
-            style="flex:1;accent-color:var(--primary)"
             oninput="admin.setYieldTarget(parseFloat(this.value))">
-          <input type="number" id="yieldInput"
-            min="${crop.yieldRange[0]}" max="${crop.yieldRange[1]}"
-            step="${(crop.yieldRange[1] - crop.yieldRange[0]) > 50 ? 5 : (crop.yieldRange[1] - crop.yieldRange[0]) > 10 ? 1 : 0.1}"
-            value="${this.yieldTarget}"
-            style="width:70px;padding:4px 6px;background:var(--dark-3);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);text-align:center;font-size:13px"
-            onchange="admin.setYieldTarget(parseFloat(this.value))">
-          <span style="font-size:12px;color:var(--text-muted);white-space:nowrap">${crop.yieldUnit}</span>
         </div>
-        <div id="yieldProfileBadge" style="display:flex;align-items:center;gap:6px;font-size:12px">
-          <span style="padding:2px 8px;border-radius:10px;background:${this._yieldProfileColor(currentProfile)};color:#fff;font-weight:500">${currentProfile.label}</span>
-          <span style="color:var(--text-muted)">Extracción: ×${currentProfile.extractionMult.toFixed(2)} | Eficiencia: ×${currentProfile.efficiencyMult.toFixed(2)}</span>
+        <div class="yb-value">
+          <input type="number" id="yieldInput"
+            min="${crop.yieldRange[0]}" max="${crop.yieldRange[1]}" step="${step}"
+            value="${this.yieldTarget}"
+            onchange="admin.setYieldTarget(parseFloat(this.value))">
+          <span class="yb-unit">${crop.yieldUnit}</span>
+        </div>
+        <div id="yieldProfileBadge" class="yb-badge">
+          <span class="yb-profile" style="background:${this._yieldProfileColor(currentProfile)}">${currentProfile.label}</span>
+          <span class="yb-mults">Ext: ×${currentProfile.extractionMult.toFixed(2)} | Ef: ×${currentProfile.efficiencyMult.toFixed(2)}</span>
         </div>
         ${profiles.length > 0 ? `
-        <div style="display:flex;gap:4px;margin-top:6px">
-          ${profiles.map(p => `<button class="btn-xs ${p.label === currentProfile.label ? 'active' : ''}"
+        <div class="yb-profiles">
+          ${profiles.map(p => `<button class="yb-prof-btn ${p.label === currentProfile.label ? 'active' : ''}"
             onclick="admin.setYieldTarget(${(p.range[0] + p.range[1]) / 2})"
-            style="flex:1;padding:3px 4px;font-size:10px;border-radius:4px;border:1px solid var(--border);background:${p.label === currentProfile.label ? 'var(--primary)' : 'var(--dark-3)'};color:${p.label === currentProfile.label ? '#000' : 'var(--text-muted)'};cursor:pointer"
             >${p.label.split('(')[0].trim()}</button>`).join('')}
         </div>` : ''}
       </div>`;
@@ -390,9 +390,14 @@ class PixAdmin {
     const badge = document.getElementById('yieldProfileBadge');
     if (badge) {
       badge.innerHTML = `
-        <span style="padding:2px 8px;border-radius:10px;background:${this._yieldProfileColor(currentProfile)};color:#fff;font-weight:500">${currentProfile.label}</span>
-        <span style="color:var(--text-muted)">Extracción: ×${currentProfile.extractionMult.toFixed(2)} | Eficiencia: ×${currentProfile.efficiencyMult.toFixed(2)}</span>`;
+        <span class="yb-profile" style="background:${this._yieldProfileColor(currentProfile)}">${currentProfile.label}</span>
+        <span class="yb-mults">Ext: ×${currentProfile.extractionMult.toFixed(2)} | Ef: ×${currentProfile.efficiencyMult.toFixed(2)}</span>`;
     }
+    // Update profile buttons active state
+    document.querySelectorAll('.yb-prof-btn').forEach(btn => {
+      const isActive = btn.textContent.trim() === currentProfile.label.split('(')[0].trim();
+      btn.classList.toggle('active', isActive);
+    });
 
     // Update prescription yield if exists
     const prescYield = document.getElementById('prescYield');
