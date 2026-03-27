@@ -73,7 +73,7 @@
         </button>
         <div class="nav-group-items">
           <button class="nav-sub-link" data-view="manage-clients" onclick="admin.showView('manage-clients')">Clientes</button>
-          <button class="nav-sub-link" data-view="gis-dashboard" onclick="admin.showView('gis-dashboard')">Propiedades / Lotes / Perímetros</button>
+          <button class="nav-sub-link" data-view="gis-dashboard" onclick="admin.showView('gis-dashboard')">Lotes / Perímetros (GIS)</button>
         </div>
       </div>
 
@@ -1755,10 +1755,22 @@ InterpretationEngine.loadNorms('data/ibra-norms.json')
   .then(() => console.log('DRIS/IBRA norms loaded'))
   .catch(err => console.warn('Could not load DRIS/IBRA norms:', err));
 
-// Register PWA Service Worker
+// Register PWA Service Worker with auto-update
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').then(reg => {
     console.log('PIX Admin SW registered', reg.scope);
+    // Check for updates immediately and every 60s
+    reg.update();
+    setInterval(() => reg.update(), 60000);
+    reg.addEventListener('updatefound', () => {
+      const newWorker = reg.installing;
+      newWorker.addEventListener('statechange', () => {
+        if (newWorker.state === 'activated') {
+          console.log('PIX Admin updated - reloading');
+          window.location.reload();
+        }
+      });
+    });
   }).catch(err => console.warn('SW registration failed:', err));
 }
 

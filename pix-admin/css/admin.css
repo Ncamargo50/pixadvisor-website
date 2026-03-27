@@ -96,14 +96,14 @@ input,select,textarea,button { font-family:inherit; }
 .yb-slider { flex:1; min-width:120px; display:flex; align-items:center; }
 .yb-slider input[type=range] { width:100%; accent-color:var(--teal); cursor:pointer; height:6px; }
 .yb-value { display:flex; align-items:center; gap:6px; }
-.yb-value input[type=number] { width:72px; padding:5px 8px; background:var(--dark-3); border:1px solid var(--border); border-radius:6px; color:var(--text-primary); text-align:center; font-size:14px; font-weight:600; }
+.yb-value input[type=number] { width:72px; padding:5px 8px; background:var(--dark-3); border:1px solid var(--border); border-radius:6px; color:var(--text); text-align:center; font-size:14px; font-weight:600; }
 .yb-unit { font-size:12px; color:var(--text-muted); white-space:nowrap; }
 .yb-badge { display:flex; align-items:center; gap:8px; }
 .yb-profile { padding:3px 10px; border-radius:12px; color:#fff; font-size:11px; font-weight:600; white-space:nowrap; }
 .yb-mults { font-size:11px; color:var(--text-dim); white-space:nowrap; }
 .yb-profiles { display:flex; gap:4px; }
 .yb-prof-btn { padding:4px 10px; font-size:10px; font-weight:600; border-radius:6px; border:1px solid var(--border); background:var(--dark-3); color:var(--text-muted); cursor:pointer; transition:all .15s; white-space:nowrap; }
-.yb-prof-btn:hover { border-color:var(--teal); color:var(--text-primary); }
+.yb-prof-btn:hover { border-color:var(--teal); color:var(--text); }
 .yb-prof-btn.active { background:var(--teal); color:#000; border-color:var(--teal); }
 
 /* Views — all fullscreen */
@@ -587,7 +587,7 @@ select.form-input { cursor:pointer; }
 
 /* ===== FULL-SCREEN MAP VIEWS (PRO MAX v3) ===== */
 .view-fullmap { display:none; }
-.view-fullmap.active { display:grid; grid-template-columns:1fr 400px; height:calc(100vh - 56px); gap:0; overflow:hidden; }
+.view-fullmap.active { display:grid; grid-template-columns:1fr 400px; height:calc(100vh - 100px); gap:0; overflow:hidden; }
 .fullmap-map { height:100%; width:100%; position:relative; }
 .fullmap-map .leaflet-container { height:100% !important; width:100% !important; border-radius:0; }
 .fullmap-panel { overflow-y:auto; padding:16px; background:var(--dark-2); border-left:1px solid var(--border); display:flex; flex-direction:column; gap:12px; }
@@ -915,3 +915,11 @@ select.form-input { cursor:pointer; }
   .form-row { grid-template-columns:1fr; }
   .os-card-actions { opacity:1; }
 }
+
+/* ===== GIS DASHBOARD CLEANUP: Hide duplicate tabs =====
+   Fertility/Zones/VRT tabs and Downloads duplicate dedicated views
+   in Stage 3 (nutrient-maps, management-zones, prescription) and
+   Stage 4 (report-export). Only perimeter upload remains for Stage 1. */
+#view-gis-dashboard .gis-tabs,
+#view-gis-dashboard .gis-tab-content,
+#view-gis-dashboard > .fullmap-panel > div:last-child { display:none !important; }

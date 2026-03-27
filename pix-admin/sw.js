@@ -1,5 +1,5 @@
 // PIX Admin - Service Worker for PWA
-const CACHE_NAME = 'pix-admin-v7';
+const CACHE_NAME = 'pix-admin-v9';
 
 const STATIC_ASSETS = [
   '/pix-admin/',
@@ -15,6 +15,8 @@ const STATIC_ASSETS = [
   '/pix-admin/js/sampling-engine.js',
   '/pix-admin/js/admin-app.js',
   '/pix-admin/js/agent-admin.js',
+  '/pix-admin/js/utils.js',
+  '/pix-admin/data/ibra-norms.json',
   '/pix-admin/img/Logo.png',
   '/pix-admin/img/LOGO-PIX.png',
   '/pix-admin/img/icon-192.png',
@@ -33,7 +35,7 @@ self.addEventListener('install', event => {
   self.skipWaiting();
 });
 
-// Activate - clean old caches
+// Activate - clean ALL old caches
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
@@ -43,7 +45,7 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
-// Fetch - cache first, network fallback
+// Fetch - NETWORK FIRST for own assets, cache-first for external
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
@@ -63,7 +65,26 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Static assets - cache first
+  // Own assets (pixadvisor.network) - NETWORK FIRST so updates are always fresh
+  if (url.hostname.includes('pixadvisor.network') || url.hostname === self.location.hostname) {
+    event.respondWith(
+      fetch(event.request).then(response => {
+        if (response.ok && event.request.method === 'GET') {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+        }
+        return response;
+      }).catch(() => {
+        // Offline fallback - serve from cache
+        return caches.match(event.request).then(cached => {
+          return cached || caches.match('/pix-admin/index.html');
+        });
+      })
+    );
+    return;
+  }
+
+  // External assets (CDN, fonts) - cache first
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached;
@@ -73,7 +94,7 @@ self.addEventListener('fetch', event => {
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         }
         return response;
-      }).catch(() => caches.match('/pix-admin/index.html'));
+      }).catch(() => new Response('', { status: 404 }));
     })
   );
 });
