@@ -773,6 +773,11 @@ html[lang="pt"] [data-lang-pt] {
   color: var(--earth);
 }
 
+.cat-drones {
+  background: rgba(124, 58, 237, 0.1);
+  color: #7C3AED;
+}
+
 .service-card h3 {
   font-size: 1.15rem;
   margin-bottom: 8px;
