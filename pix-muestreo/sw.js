@@ -1,6 +1,6 @@
 // PIX Muestreo - Service Worker for Offline Support
-// v20 — GPS stability: adaptive Kalman smoothing, jitter reduction
-const CACHE_NAME = 'pix-muestreo-v20';
+// v21 — fix: save button re-enabled on every form open
+const CACHE_NAME = 'pix-muestreo-v21';
 const TILE_CACHE = 'pix-tiles-v1';
 
 // Derive base path dynamically — works in both web (/pix-muestreo/) and APK WebView

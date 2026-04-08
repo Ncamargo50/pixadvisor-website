@@ -837,6 +837,9 @@ class PixApp {
     // Photo DISABLED — not needed for field sampling workflow
     if (photoGroup) photoGroup.style.display = 'none';
 
+    // ALWAYS re-enable save button (it stays disabled after previous successful save)
+    if (saveBtn) { saveBtn.disabled = false; }
+
     if (isSubmuestra) {
       // SIMPLE form: hide QR, type, collector
       if (qrGroup) qrGroup.style.display = 'none';
