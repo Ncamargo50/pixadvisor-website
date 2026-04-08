@@ -37,7 +37,6 @@ class GPSNavigator {
     this.isMoving = false;
     this._lastPos = null;
     this._lastTime = 0;
-    this._updateCount = 0;
   }
 
   // Start watching position
@@ -50,8 +49,6 @@ class GPSNavigator {
 
     this.watchId = navigator.geolocation.watchPosition(
       pos => {
-        this._updateCount++;
-
         // Check GPS warm-up status
         this._checkWarmup(pos.coords.accuracy);
 
@@ -202,39 +199,6 @@ class GPSNavigator {
         { enableHighAccuracy: true, timeout: 10000 }
       );
     });
-  }
-
-  // Find nearest point from a list
-  findNearest(points) {
-    if (!this.currentPosition || !points || !points.length) return null;
-    let nearest = null;
-    let minDist = Infinity;
-    for (const p of points) {
-      // A1: Skip points with missing coordinates
-      if (!isFinite(p.lat) || !isFinite(p.lng)) continue;
-      const d = this.distanceTo(
-        this.currentPosition.lat, this.currentPosition.lng,
-        p.lat, p.lng
-      );
-      if (d < minDist) {
-        minDist = d;
-        nearest = { ...p, distance: d };
-      }
-    }
-    return nearest;
-  }
-
-  // Auto-detect which point we're at (within radius)
-  detectPoint(points, radiusMeters = 15) {
-    if (!this.currentPosition) return null;
-    for (const p of points) {
-      const d = this.distanceTo(
-        this.currentPosition.lat, this.currentPosition.lng,
-        p.lat, p.lng
-      );
-      if (d <= radiusMeters) return { ...p, distance: d };
-    }
-    return null;
   }
 
   // ═══════════════════════════════════════════════════════════

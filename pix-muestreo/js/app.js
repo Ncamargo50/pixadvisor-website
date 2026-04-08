@@ -658,47 +658,6 @@ class PixApp {
 
   // Auto-detect field from GPS position (DataFarm auto-populate feature)
   // Checks all fields in current project to find which one contains the GPS position
-  async autoDetectField() {
-    if (!this.currentProject || !gpsNav.currentPosition) return null;
-
-    const pos = gpsNav.currentPosition;
-    const fields = await pixDB.getAllByIndex('fields', 'projectId', this.currentProject.id);
-
-    for (const field of fields) {
-      if (!field.boundary) continue;
-
-      // C5 FIX: Handle both Polygon and MultiPolygon geometries
-      const features = field.boundary.features || [field.boundary];
-      for (const feature of features) {
-        const geom = feature.geometry;
-        if (!geom) continue;
-
-        // Get all outer rings (MultiPolygon has multiple, Polygon has one)
-        const outerRings = geom.type === 'MultiPolygon'
-          ? geom.coordinates.map(poly => poly[0])
-          : geom.type === 'Polygon' ? [geom.coordinates[0]] : [];
-
-        for (const coords of outerRings) {
-          if (!coords || coords.length < 3) continue;
-
-          // Point-in-polygon ray casting
-          let inside = false;
-          const x = pos.lng, y = pos.lat;
-          for (let i = 0, j = coords.length - 1; i < coords.length; j = i++) {
-            const xi = coords[i][0], yi = coords[i][1];
-            const xj = coords[j][0], yj = coords[j][1];
-            if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) {
-              inside = !inside;
-            }
-          }
-
-          if (inside) return field;
-        }
-      }
-    }
-    return null;
-  }
-
   // ===== GPS SETTINGS =====
   async saveGPSSetting(key, value) {
     await pixDB.setSetting('gps_' + key, value);
@@ -1908,7 +1867,7 @@ class PixApp {
 ${detailHTML}
 
 <div class="footer">
-  Generado por PIX Muestreo v3.4.1 — Pixadvisor Agricultura de Precision — pixadvisor.network — ${new Date().toLocaleString('es')}
+  Generado por PIX Muestreo v3.4.3 — Pixadvisor Agricultura de Precision — pixadvisor.network — ${new Date().toLocaleString('es')}
 </div>
 
 </body></html>`;
@@ -1942,18 +1901,6 @@ ${detailHTML}
   }
 
   // ===== SETTINGS =====
-  async saveDriveClientId() {
-    const id = document.getElementById('driveClientId').value.trim();
-    if (!id) return;
-    await pixDB.setSetting('driveClientId', id);
-    try {
-      await driveSync.init(id);
-      this.toast('Client ID guardado', 'success');
-    } catch (e) {
-      this.toast('Error: ' + e.message, 'error');
-    }
-  }
-
   async connectDrive() {
     const clientId = document.getElementById('driveClientId').value.trim();
     if (!clientId) {
@@ -2447,11 +2394,6 @@ ${detailHTML}
     }
 
     return suggestedDepth;
-  }
-
-  // Center map
-  centerMap() {
-    pixMap.centerOnUser();
   }
 
   // User menu (logout, user info)

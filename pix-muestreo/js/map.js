@@ -125,7 +125,6 @@ class PixMap {
 
   // Toggle follow mode (drag map to disable, button to re-enable)
   enableFollow() { this.followUser = true; }
-  disableFollow() { this.followUser = false; }
 
   // Start live track drawing (call when tracking starts)
   startLiveTrack() {
@@ -416,7 +415,6 @@ class PixMap {
       const bounds = group.getBounds();
       if (bounds.isValid()) {
         this.map.fitBounds(bounds.pad(0.12), { maxZoom: 19, animate: false });
-        this._fieldFocused = true;
         console.log('[Map] fitBounds: center', bounds.getCenter().lat.toFixed(5), bounds.getCenter().lng.toFixed(5), 'zoom', this.map.getZoom());
       }
     } catch (e) {
