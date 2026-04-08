@@ -205,7 +205,7 @@ class PixAdmin {
     container.innerHTML = `
       <div class="settings-group">
         <div class="settings-group-title">Nombre del Colector</div>
-        <div class="setting-item">
+        <div class="setting-item" style="flex-direction:column;align-items:stretch">
           <input type="text" id="collectorName" class="form-input" value="${collectorName}" placeholder="Tu nombre">
           <button class="action-btn primary" onclick="app.saveCollectorName()" style="margin-top:8px">Guardar</button>
         </div>
@@ -213,7 +213,7 @@ class PixAdmin {
 
       <div class="settings-group">
         <div class="settings-group-title">Google Drive</div>
-        <div class="setting-item">
+        <div class="setting-item" style="flex-direction:column;align-items:stretch">
           <label class="form-label">OAuth Client ID</label>
           <input type="text" id="driveClientId" class="form-input" value="${driveClientId}" placeholder="Client ID de Google">
           <button class="action-btn primary" onclick="app.connectDrive()" style="margin-top:8px">Conectar Google Drive</button>
@@ -222,7 +222,7 @@ class PixAdmin {
 
       <div class="settings-group">
         <div class="settings-group-title">Precision GPS</div>
-        <div class="setting-item">
+        <div class="setting-item" style="flex-direction:column;align-items:stretch">
           <label class="form-label">Precision minima</label>
           <select id="gpsMinAccuracy" class="form-input" onchange="app.saveGPSSetting('minAccuracy',this.value)">
             <option value="3" ${gpsMinAcc === '3' ? 'selected' : ''}>3m (Alta)</option>
@@ -231,7 +231,7 @@ class PixAdmin {
             <option value="20" ${gpsMinAcc === '20' ? 'selected' : ''}>20m (Baja)</option>
           </select>
         </div>
-        <div class="setting-item">
+        <div class="setting-item" style="flex-direction:column;align-items:stretch">
           <label class="form-label">Lecturas promedio</label>
           <select id="gpsAvgSamples" class="form-input" onchange="app.saveGPSSetting('avgSamples',this.value)">
             <option value="5" ${gpsAvgSamples === '5' ? 'selected' : ''}>5 lecturas</option>
@@ -240,7 +240,7 @@ class PixAdmin {
             <option value="30" ${gpsAvgSamples === '30' ? 'selected' : ''}>30 lecturas</option>
           </select>
         </div>
-        <div class="setting-item">
+        <div class="setting-item" style="flex-direction:column;align-items:stretch">
           <label class="form-label">Filtro Kalman</label>
           <select id="gpsKalmanEnabled" class="form-input" onchange="app.saveGPSSetting('kalmanEnabled',this.value)">
             <option value="true" ${gpsKalman === 'true' ? 'selected' : ''}>Habilitado</option>
@@ -251,7 +251,7 @@ class PixAdmin {
 
       <div class="settings-group">
         <div class="settings-group-title">Mapa Offline</div>
-        <div class="setting-item">
+        <div class="setting-item" style="flex-direction:column;align-items:stretch">
           <div id="tileCacheStats" style="font-size:13px;color:var(--text-muted);margin-bottom:8px">—</div>
           <button class="action-btn primary" onclick="app.downloadTilesOffline()">Descargar Mapa del Campo Actual</button>
           <button class="action-btn secondary" style="margin-top:8px;border-color:var(--danger);color:var(--danger)" onclick="app.clearTileCache()">Limpiar Cache de Tiles</button>
@@ -260,7 +260,7 @@ class PixAdmin {
 
       <div class="settings-group">
         <div class="settings-group-title">Datos</div>
-        <div class="setting-item">
+        <div class="setting-item" style="flex-direction:column;align-items:stretch">
           <button class="action-btn primary" onclick="app.exportLocalBackup()">Exportar Backup Completo</button>
           <button class="action-btn secondary" style="margin-top:8px" onclick="app.importLocalFile()">Importar Datos</button>
         </div>
@@ -268,7 +268,7 @@ class PixAdmin {
 
       <div style="text-align:center;padding:24px 0;color:var(--text-muted);font-size:12px">
         <img src="icons/icon-192.png" alt="PIX" style="width:40px;height:40px;border-radius:12px;margin-bottom:8px;display:block;margin:0 auto 8px">
-        PIX Muestreo v3.0.0<br>
+        PIX Muestreo v3.3.1<br>
         Pixadvisor — Agricultura de Precision
       </div>`;
 
