@@ -428,10 +428,16 @@ class PixApp {
       gpsNav.targetPoint.lat, gpsNav.targetPoint.lng
     );
 
-    // Auto-open collect form when close
-    if (dist < 10 && this.isNavigating) {
-      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-      this.toast('¡Llegaste al punto!', 'success');
+    // Auto-alert when arriving at point (vibration + beep + toast)
+    if (dist < 10 && this.isNavigating && !this._arrivedNotified) {
+      this._arrivedNotified = true;
+      // Strong vibration pattern
+      if (navigator.vibrate) navigator.vibrate([300, 100, 300, 100, 300]);
+      // Audible beep using Web Audio API
+      this._playArrivalBeep();
+      this.toast('Llegaste al punto!', 'success');
+      // Reset flag when navigating to next point
+      setTimeout(() => { this._arrivedNotified = false; }, 5000);
     }
   }
 
@@ -1925,6 +1931,33 @@ class PixApp {
   }
 
   // Toast notification
+  // Audible beep when arriving at sampling point (Web Audio API)
+  _playArrivalBeep() {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      // Two-tone beep: 880Hz then 1320Hz (attention-grabbing)
+      const playTone = (freq, startTime, duration) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = freq;
+        osc.type = 'sine';
+        gain.gain.value = 0.3;
+        gain.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+        osc.start(startTime);
+        osc.stop(startTime + duration);
+      };
+      playTone(880, ctx.currentTime, 0.15);
+      playTone(1320, ctx.currentTime + 0.2, 0.15);
+      playTone(880, ctx.currentTime + 0.4, 0.15);
+      // Close context after beeps
+      setTimeout(() => ctx.close(), 1000);
+    } catch (e) {
+      console.warn('[Audio] Beep failed:', e.message);
+    }
+  }
+
   toast(message, type = '') {
     const existing = document.querySelector('.toast');
     if (existing) existing.remove();
