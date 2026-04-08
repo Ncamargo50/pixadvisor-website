@@ -118,8 +118,8 @@ class GPSNavigator {
       },
       {
         enableHighAccuracy: true,
-        maximumAge: 2000,     // Allow 2-sec old positions for FASTER updates in WebView
-        timeout: 10000        // 10 sec timeout (was 15 — faster fallback)
+        maximumAge: 500,      // Sub-second freshness for real-time tracking
+        timeout: 8000         // 8 sec timeout
       }
     );
   }
@@ -473,10 +473,11 @@ class GPSNavigator {
     const measurementVariance = accuracy * accuracy;
     const kalmanGain = this.kalman.variance / (this.kalman.variance + measurementVariance);
 
-    // Clamp gain: never less than 0.15 (so marker ALWAYS moves at least a bit)
-    // and never more than 0.95 (some smoothing always applies)
-    // Lower floor (0.05) allows better stationary smoothing; 0.15 caused marker wander
-    const clampedGain = Math.max(0.05, Math.min(0.95, kalmanGain));
+    // Clamp gain: ADAPTIVE floor based on movement state
+    // Moving: high floor (0.5) → marker follows GPS closely in real-time
+    // Still: low floor (0.05) → aggressive smoothing, no jitter
+    const gainFloor = this.isMoving ? 0.5 : 0.05;
+    const clampedGain = Math.max(gainFloor, Math.min(0.95, kalmanGain));
 
     // Update estimate
     this.kalman.lat += clampedGain * (measurement.lat - this.kalman.lat);

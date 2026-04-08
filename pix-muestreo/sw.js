@@ -1,6 +1,6 @@
 // PIX Muestreo - Service Worker for Offline Support
-// v16 — Drive auto-reopen + WhatsApp KML/CSV + direct map import from map view
-const CACHE_NAME = 'pix-muestreo-v16';
+// v17 — GPS real-time + proximity lock 2m + nearest-neighbor routing + no photo
+const CACHE_NAME = 'pix-muestreo-v17';
 const TILE_CACHE = 'pix-tiles-v1';
 
 // Derive base path dynamically — works in both web (/pix-muestreo/) and APK WebView

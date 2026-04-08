@@ -601,8 +601,8 @@ class PixApp {
       }
     }
 
-    // Auto-alert when arriving at point (vibration + beep + toast)
-    if (dist < 10 && this.isNavigating && !this._arrivedNotified) {
+    // Auto-alert when arriving at point (vibration + beep + toast) — 3m radius trigger
+    if (dist < 3 && this.isNavigating && !this._arrivedNotified) {
       this._arrivedNotified = true;
       // Strong vibration pattern
       if (navigator.vibrate) navigator.vibrate([300, 100, 300, 100, 300]);
@@ -796,11 +796,21 @@ class PixApp {
       return;
     }
 
-    // A2 FIX: Warn if GPS is not active or accuracy is poor
+    // PROXIMITY LOCK: only allow collection within 2m of target point
+    if (gpsNav.currentPosition && this.currentPoint) {
+      const distToPoint = gpsNav.distanceTo(
+        gpsNav.currentPosition.lat, gpsNav.currentPosition.lng,
+        this.currentPoint.lat, this.currentPoint.lng
+      );
+      if (distToPoint > 2) {
+        this.toast(`Acercate al punto (${Math.round(distToPoint)}m) — máximo 2m para recolectar`, 'warning');
+        return;
+      }
+    }
+    // Warn if GPS is not active
     if (!gpsNav.currentPosition) {
-      this.toast('Sin señal GPS. Coordenadas serán del punto teórico.', 'warning');
-    } else if (gpsNav.currentPosition.accuracy > 30) {
-      this.toast(`GPS baja precisión (±${Math.round(gpsNav.currentPosition.accuracy)}m)`, 'warning');
+      this.toast('Sin señal GPS. Acercate al punto para recolectar.', 'warning');
+      return;
     }
 
     // Detect if this is a principal or submuestra
@@ -830,18 +840,19 @@ class PixApp {
     const collectorGroup = document.getElementById('collectorField')?.closest('.form-group');
     const saveBtn = document.querySelector('#collectModal .sync-btn');
 
+    // Photo DISABLED — not needed for field sampling workflow
+    if (photoGroup) photoGroup.style.display = 'none';
+
     if (isSubmuestra) {
-      // SIMPLE form: hide QR, type, photo, collector
+      // SIMPLE form: hide QR, type, collector
       if (qrGroup) qrGroup.style.display = 'none';
       if (typeGroup) typeGroup.style.display = 'none';
-      if (photoGroup) photoGroup.style.display = 'none';
       if (collectorGroup) collectorGroup.style.display = 'none';
       if (saveBtn) saveBtn.textContent = 'Confirmar submuestra';
     } else {
-      // COMPLETE form: show everything
+      // COMPLETE form: show QR, type, collector (no photo)
       if (qrGroup) qrGroup.style.display = '';
       if (typeGroup) typeGroup.style.display = '';
-      if (photoGroup) photoGroup.style.display = '';
       if (collectorGroup) collectorGroup.style.display = '';
       if (saveBtn) saveBtn.textContent = 'Guardar Muestra';
     }
@@ -2676,56 +2687,39 @@ ${detailHTML}
     return 999;
   }
 
-  // Zone-aware next point navigation
+  // NEAREST-NEIGHBOR point navigation: always go to closest pending point
   async nextPoint() {
     if (!this.currentField) return;
     const points = await pixDB.getAllByIndex('points', 'fieldId', this.currentField.id);
 
-    if (points.every(p => p.status === 'collected')) {
+    const pending = points.filter(p => p.status !== 'collected');
+    if (pending.length === 0) {
       this.toast('Todos los puntos recolectados!', 'success');
       return;
     }
 
-    // Group points by zone
-    const zones = {};
-    for (const p of points) {
-      const z = this._detectZone(p);
-      if (!zones[z]) zones[z] = [];
-      zones[z].push(p);
+    // If we have GPS, sort by distance to current position (nearest first)
+    if (gpsNav.currentPosition) {
+      const pos = gpsNav.currentPosition;
+      pending.sort((a, b) => {
+        const distA = gpsNav.distanceTo(pos.lat, pos.lng, a.lat, a.lng);
+        const distB = gpsNav.distanceTo(pos.lat, pos.lng, b.lat, b.lng);
+        return distA - distB;
+      });
     }
 
-    // Sort zone keys numerically
-    const sortedZoneKeys = Object.keys(zones).sort((a, b) => parseInt(a) - parseInt(b));
+    const nearest = pending[0];
+    const zona = this._detectZone(nearest);
+    const type = this._detectPointType(nearest);
+    const dist = gpsNav.currentPosition
+      ? Math.round(gpsNav.distanceTo(gpsNav.currentPosition.lat, gpsNav.currentPosition.lng, nearest.lat, nearest.lng))
+      : '?';
 
-    for (const zKey of sortedZoneKeys) {
-      const zonePoints = zones[zKey];
-      const pending = zonePoints.filter(p => p.status !== 'collected');
+    this.onPointClick(nearest);
 
-      if (pending.length === 0) continue; // Zone complete, try next
-
-      // Find principal first
-      const principal = pending.find(p => this._detectPointType(p) === 'principal');
-      if (principal) {
-        this.onPointClick(principal);
-        this.toast(`Zona ${zKey}: navegando a punto principal ${principal.name}`, 'success');
-        return;
-      }
-
-      // Principal done, find next submuestra in order
-      const subs = pending
-        .filter(p => this._detectPointType(p) === 'submuestra')
-        .sort((a, b) => this._getSubOrder(a) - this._getSubOrder(b));
-
-      if (subs.length > 0) {
-        this.onPointClick(subs[0]);
-        const totalSubs = zonePoints.filter(p => this._detectPointType(p) === 'submuestra').length;
-        const doneSubs = totalSubs - subs.length;
-        this.toast(`Zona ${zKey}: submuestra ${doneSubs + 1}/${totalSubs} → ${subs[0].name}`, '');
-        return;
-      }
-    }
-
-    this.toast('Todos los puntos recolectados!', 'success');
+    const remaining = pending.length - 1;
+    const label = type === 'principal' ? 'Principal' : 'Sub';
+    this.toast(`${label} ${nearest.name} (Zona ${zona}) — ${dist}m — faltan ${remaining}`, 'success');
   }
 
   // Delete project

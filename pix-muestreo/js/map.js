@@ -87,11 +87,11 @@ class PixMap {
       this.accuracyCircle.setLatLng([lat, lng]).setRadius(accuracy);
     }
 
-    // Auto-follow: pan map to keep user centered while navigating
+    // Auto-follow: pan map to keep user centered in real-time
     if (this.followUser) {
       const currentZoom = this.map.getZoom();
-      const targetZoom = currentZoom < 16 ? 17 : currentZoom; // ensure min zoom 17
-      this.map.setView([lat, lng], targetZoom, { animate: true, duration: 0.5 });
+      const targetZoom = currentZoom < 16 ? 17 : currentZoom;
+      this.map.setView([lat, lng], targetZoom, { animate: true, duration: 0.25 });
     }
 
     // Update live track line with decimation (min 3m between points to prevent memory leak)
