@@ -44,10 +44,10 @@ class PixMap {
       'Satélite': satellite,
       'Híbrido': hybrid,
       'Calles': streets
-    }, null, { position: 'topright' }).addTo(this.map);
+    }, null, { position: 'topleft' }).addTo(this.map);
 
     // Zoom control
-    L.control.zoom({ position: 'topright' }).addTo(this.map);
+    L.control.zoom({ position: 'topleft' }).addTo(this.map);
 
     // Scale
     L.control.scale({ metric: true, imperial: false }).addTo(this.map);
