@@ -1,6 +1,6 @@
 // PIX Muestreo - Service Worker for Offline Support
-// v18 — smart proximity + GPS max precision + save button fix
-const CACHE_NAME = 'pix-muestreo-v18';
+// v19 — proximity info-only (never blocks), nearest-point routing
+const CACHE_NAME = 'pix-muestreo-v19';
 const TILE_CACHE = 'pix-tiles-v1';
 
 // Derive base path dynamically — works in both web (/pix-muestreo/) and APK WebView

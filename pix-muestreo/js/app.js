@@ -796,27 +796,15 @@ class PixApp {
       return;
     }
 
-    // PROXIMITY CHECK: smart lock accounting for GPS accuracy
+    // PROXIMITY INFO: show distance but NEVER block collection
     if (gpsNav.currentPosition && this.currentPoint) {
       const distToPoint = gpsNav.distanceTo(
         gpsNav.currentPosition.lat, gpsNav.currentPosition.lng,
         this.currentPoint.lat, this.currentPoint.lng
       );
-      const acc = gpsNav.currentPosition.accuracy || 5;
-      // Effective distance = measured distance minus GPS error margin
-      const effectiveDist = Math.max(0, distToPoint - acc);
-      if (effectiveDist > 5) {
-        // Hard block: definitely too far (>5m even after accounting for GPS error)
-        this.toast(`Muy lejos del punto (${Math.round(distToPoint)}m ±${Math.round(acc)}m) — acercate`, 'warning');
-        return;
-      }
       if (distToPoint > 3) {
-        // Soft warning: close but not ideal — still allow collection
-        this.toast(`Distancia: ${Math.round(distToPoint)}m (±${Math.round(acc)}m GPS)`, 'warning');
+        this.toast(`Distancia al punto: ${Math.round(distToPoint)}m`, 'warning');
       }
-    }
-    if (!gpsNav.currentPosition) {
-      this.toast('Esperando señal GPS...', 'warning');
     }
 
     // Detect if this is a principal or submuestra
