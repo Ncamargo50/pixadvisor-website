@@ -118,7 +118,7 @@ class GPSNavigator {
       },
       {
         enableHighAccuracy: true,
-        maximumAge: 0,        // ALWAYS fresh readings — no cache, maximum precision
+        maximumAge: 2000,     // Allow up to 2s cached readings — reduces jitter
         timeout: 10000        // 10 sec timeout
       }
     );
@@ -215,14 +215,14 @@ class GPSNavigator {
         const rawSpeed = dist / dt;
 
         // Low-pass filter on speed to avoid GPS jitter spikes
-        // When standing still, GPS jitter causes ~0.5-2 m/s phantom speed
-        if (rawSpeed < 0.2) {
-          this.speed = 0; // noise threshold (lower = more sensitive)
+        // Standing-still GPS jitter produces 0.3-0.8 m/s phantom speed
+        if (rawSpeed < 0.5) {
+          this.speed = this.speed * 0.7; // decay slowly to zero (absorbs jitter)
         } else {
-          this.speed = this.speed * 0.4 + rawSpeed * 0.6; // faster response to speed changes
+          this.speed = this.speed * 0.6 + rawSpeed * 0.4; // smooth response to real movement
         }
 
-        this.isMoving = this.speed > 0.3; // walking threshold ~0.3 m/s = 1 km/h (very sensitive)
+        this.isMoving = this.speed > 0.6; // walking threshold ~0.6 m/s ≈ 2 km/h (filters GPS noise)
       }
     }
     this._lastPos = { lat, lng };
@@ -252,9 +252,9 @@ class GPSNavigator {
       const expectedMove = degPerSec * dt;
       this.kalman.processNoise = Math.max(expectedMove * expectedMove * 4, 0.000001);
     } else {
-      // Standing still: smooth aggressively but not frozen
-      // Allow ~1m drift per update to stay responsive
-      this.kalman.processNoise = 0.0000001;
+      // Standing still: smooth very aggressively — nearly frozen
+      // Only ~0.3m drift per update to minimize jitter
+      this.kalman.processNoise = 0.00000002;
     }
 
     this.kalman.lastTimestamp = timestamp;
@@ -474,9 +474,9 @@ class GPSNavigator {
     const kalmanGain = this.kalman.variance / (this.kalman.variance + measurementVariance);
 
     // Clamp gain: ADAPTIVE based on movement state
-    // Moving: near-raw GPS (0.7) → marker tracks position instantly
-    // Still: moderate smoothing (0.15) → reduces jitter but stays responsive
-    const gainFloor = this.isMoving ? 0.7 : 0.15;
+    // Moving: balanced (0.4) → follows direction but smooths jumps
+    // Still: heavy smoothing (0.08) → marker barely moves (eliminates jitter)
+    const gainFloor = this.isMoving ? 0.4 : 0.08;
     const clampedGain = Math.max(gainFloor, Math.min(0.95, kalmanGain));
 
     // Update estimate

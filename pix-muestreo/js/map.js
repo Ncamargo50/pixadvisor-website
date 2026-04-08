@@ -91,7 +91,7 @@ class PixMap {
     if (this.followUser) {
       const currentZoom = this.map.getZoom();
       const targetZoom = currentZoom < 16 ? 18 : currentZoom; // zoom 18 for max detail
-      this.map.setView([lat, lng], targetZoom, { animate: true, duration: 0.15 });
+      this.map.setView([lat, lng], targetZoom, { animate: true, duration: 0.3 });
     }
 
     // Update live track line with decimation (min 3m between points to prevent memory leak)
