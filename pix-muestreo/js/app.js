@@ -160,10 +160,15 @@ class PixApp {
       this.toast('GPS no disponible', 'warning');
     }
 
-    // Drive auth callback
+    // Drive auth callback — auto-reopen import modal after OAuth completes
     document.addEventListener('drive-authenticated', () => {
       this.toast('Google Drive conectado', 'success');
       this.updateConnectionStatus();
+      // If user was trying to import when auth was triggered, reopen modal automatically
+      if (this._pendingDriveImport) {
+        this._pendingDriveImport = false;
+        setTimeout(() => this.showImportModal(), 500);
+      }
     });
 
     // Listen for background sync messages from service worker
@@ -1106,12 +1111,16 @@ class PixApp {
         return;
       }
       try {
+        this._pendingDriveImport = true; // Flag: auto-reopen modal after auth callback
         await driveSync.init(clientId);
         await driveSync.authenticate();
-        // Wait for auth callback
+        this.toast('Autenticando con Google Drive...', '');
+        // In APK: Chrome Custom Tabs opens, token returns via drive-authenticated event
+        // In Web: GIS popup opens, token returns via callback → drive-authenticated event
         return;
       } catch (e) {
-        this.toast('Error de autenticación', 'error');
+        this._pendingDriveImport = false;
+        this.toast('Error de autenticación: ' + e.message, 'error');
         return;
       }
     }
@@ -1171,7 +1180,7 @@ class PixApp {
   async importLocalFile() {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.geojson,.json,.kml,.csv';
+    input.accept = '.geojson,.json,.kml,.kmz,.csv';
 
     input.onchange = async (e) => {
       const file = e.target.files[0];
@@ -1187,7 +1196,7 @@ class PixApp {
             await this.importProjectJSON(parsed);
             this.loadProjects();
             this.toast(`Proyecto importado: ${parsed.project.name} (${parsed.lotes.length} lotes)`, 'success');
-            // Auto-open first field on map
+            this.showView('map');
             await this._autoOpenFirstField();
             return;
           }
@@ -1195,6 +1204,7 @@ class PixApp {
           await this.processGeoJSON(parsed, file.name);
           this.loadProjects();
           this.toast('Importado: ' + file.name, 'success');
+          this.showView('map');
           await this._autoOpenFirstField();
           return;
         }
@@ -1211,6 +1221,7 @@ class PixApp {
         await this.processGeoJSON(geojson, file.name);
         this.loadProjects();
         this.toast('Importado: ' + file.name, 'success');
+        this.showView('map');
         await this._autoOpenFirstField();
       } catch (err) {
         this.toast('Error al importar: ' + err.message, 'error');
@@ -1227,7 +1238,33 @@ class PixApp {
     this.toast('Abriendo mapa: ' + filename + '...', '');
 
     try {
-      const parsed = JSON.parse(content);
+      const lowerName = (filename || '').toLowerCase();
+      const trimmed = content.trim();
+
+      // KML files (XML-based)
+      if (lowerName.endsWith('.kml') || (trimmed.startsWith('<?xml') && trimmed.includes('<kml'))) {
+        const geojson = driveSync._parseKML(trimmed);
+        await this.processGeoJSON(geojson, filename);
+        this.loadProjects();
+        this.toast('Mapa KML importado: ' + filename, 'success');
+        this.showView('map');
+        await this._autoOpenFirstField();
+        return;
+      }
+
+      // CSV files
+      if (lowerName.endsWith('.csv')) {
+        const geojson = driveSync._parseCSV(trimmed);
+        await this.processGeoJSON(geojson, filename);
+        this.loadProjects();
+        this.toast('Puntos CSV importados: ' + filename, 'success');
+        this.showView('map');
+        await this._autoOpenFirstField();
+        return;
+      }
+
+      // JSON-based formats (GeoJSON, Project JSON, Backup)
+      const parsed = JSON.parse(trimmed);
 
       // Check if this is a PIX project JSON (has project + lotes structure)
       if (parsed.project && parsed.lotes && Array.isArray(parsed.lotes)) {
@@ -1261,7 +1298,7 @@ class PixApp {
       }
 
       // Unknown JSON structure
-      this.toast('Archivo JSON no reconocido. Use GeoJSON o proyecto PIX.', 'error');
+      this.toast('Archivo no reconocido. Soporta: GeoJSON, KML, CSV, proyecto PIX.', 'error');
 
     } catch (err) {
       console.error('[App] receiveFileFromIntent error:', err);

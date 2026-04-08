@@ -1,6 +1,6 @@
 // PIX Muestreo - Service Worker for Offline Support
-// v15 — CSP fix + Google Auth + all FASE 3 audit improvements
-const CACHE_NAME = 'pix-muestreo-v15';
+// v16 — Drive auto-reopen + WhatsApp KML/CSV + direct map import from map view
+const CACHE_NAME = 'pix-muestreo-v16';
 const TILE_CACHE = 'pix-tiles-v1';
 
 // Derive base path dynamically — works in both web (/pix-muestreo/) and APK WebView
