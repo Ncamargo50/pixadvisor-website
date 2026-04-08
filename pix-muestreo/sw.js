@@ -1,6 +1,6 @@
 // PIX Muestreo - Service Worker for Offline Support
-// v14 — Fixed: relative paths for APK WebView + local lib caching
-const CACHE_NAME = 'pix-muestreo-v14';
+// v15 — CSP fix + Google Auth + all FASE 3 audit improvements
+const CACHE_NAME = 'pix-muestreo-v15';
 const TILE_CACHE = 'pix-tiles-v1';
 
 // Derive base path dynamically — works in both web (/pix-muestreo/) and APK WebView
