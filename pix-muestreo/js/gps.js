@@ -11,16 +11,33 @@ class GPSNavigator {
     this.accuracy = null;
 
     // Kalman filter state for position smoothing
-    this.kalman = { lat: null, lng: null, variance: 1, processNoise: 0.00001, initialized: false };
+    this.kalman = {
+      lat: null, lng: null,
+      variance: 1,
+      // Dynamic process noise — ADAPTIVE based on movement
+      // Base value: ~3m movement between readings (in degree² ≈ (3m / 111000m/deg)² ≈ 7e-10)
+      // But we boost when speed detected → up to 100x for fast walking/driving
+      baseProcessNoise: 0.000001,
+      processNoise: 0.000001,
+      initialized: false,
+      lastTimestamp: 0
+    };
 
     // GPS warm-up detection
     this.warmupReadings = [];
     this.isWarmedUp = false;
-    this.warmupThreshold = 5; // need 5 readings under 10m accuracy
+    this.warmupThreshold = 3; // need 3 readings under 15m accuracy (faster warm-up)
 
     // Position stabilization detection
     this.recentPositions = []; // last 10 positions
     this.isStabilized = false;
+
+    // Movement detection
+    this.speed = 0;              // m/s estimated from position delta
+    this.isMoving = false;
+    this._lastPos = null;
+    this._lastTime = 0;
+    this._updateCount = 0;
   }
 
   // Start watching position
@@ -33,13 +50,22 @@ class GPSNavigator {
 
     this.watchId = navigator.geolocation.watchPosition(
       pos => {
+        this._updateCount++;
+
         // Check GPS warm-up status
         this._checkWarmup(pos.coords.accuracy);
+
+        // Estimate speed from position delta (more reliable than GPS speed on WebView)
+        this._estimateSpeed(pos.coords.latitude, pos.coords.longitude, pos.timestamp);
+
+        // Adapt Kalman process noise based on movement
+        this._adaptProcessNoise(pos.coords.speed, pos.timestamp);
 
         // Apply Kalman filter for position smoothing
         const smoothed = this._kalmanUpdate(
           { lat: pos.coords.latitude, lng: pos.coords.longitude },
-          pos.coords.accuracy
+          pos.coords.accuracy,
+          pos.timestamp
         );
 
         this.currentPosition = {
@@ -47,7 +73,8 @@ class GPSNavigator {
           lng: smoothed.lng,
           accuracy: pos.coords.accuracy, // keep raw accuracy for display
           altitude: pos.coords.altitude,
-          speed: pos.coords.speed,
+          speed: this.speed,             // use our computed speed (more reliable)
+          gpsSpeed: pos.coords.speed,    // keep raw GPS speed too
           heading: pos.coords.heading,
           timestamp: pos.timestamp,
           raw: { lat: pos.coords.latitude, lng: pos.coords.longitude }
@@ -60,8 +87,8 @@ class GPSNavigator {
         // Record track
         if (this.isTracking) {
           this.trackPositions.push({
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
+            lat: smoothed.lat,
+            lng: smoothed.lng,
             accuracy: pos.coords.accuracy,
             timestamp: pos.timestamp
           });
@@ -70,11 +97,11 @@ class GPSNavigator {
         // Calculate distance to target
         if (this.targetPoint) {
           const dist = this.distanceTo(
-            pos.coords.latitude, pos.coords.longitude,
+            smoothed.lat, smoothed.lng,
             this.targetPoint.lat, this.targetPoint.lng
           );
           const bearing = this.bearingTo(
-            pos.coords.latitude, pos.coords.longitude,
+            smoothed.lat, smoothed.lng,
             this.targetPoint.lat, this.targetPoint.lng
           );
           if (this.onDistanceUpdate) {
@@ -92,8 +119,8 @@ class GPSNavigator {
       },
       {
         enableHighAccuracy: true,
-        maximumAge: 0,       // Force fresh readings for max precision
-        timeout: 15000       // More time for better fix
+        maximumAge: 2000,     // Allow 2-sec old positions for FASTER updates in WebView
+        timeout: 10000        // 10 sec timeout (was 15 — faster fallback)
       }
     );
   }
@@ -211,6 +238,63 @@ class GPSNavigator {
   }
 
   // ═══════════════════════════════════════════════════════════
+  // MOVEMENT DETECTION - Speed estimation from position deltas
+  // ═══════════════════════════════════════════════════════════
+
+  _estimateSpeed(lat, lng, timestamp) {
+    if (this._lastPos && this._lastTime) {
+      const dt = (timestamp - this._lastTime) / 1000; // seconds
+      if (dt > 0.5 && dt < 30) { // valid time delta
+        const dist = this.distanceTo(this._lastPos.lat, this._lastPos.lng, lat, lng);
+        const rawSpeed = dist / dt;
+
+        // Low-pass filter on speed to avoid GPS jitter spikes
+        // When standing still, GPS jitter causes ~0.5-2 m/s phantom speed
+        if (rawSpeed < 0.3) {
+          this.speed = 0; // noise threshold
+        } else {
+          this.speed = this.speed * 0.6 + rawSpeed * 0.4; // smoothed
+        }
+
+        this.isMoving = this.speed > 0.5; // walking threshold ~0.5 m/s = 1.8 km/h
+      }
+    }
+    this._lastPos = { lat, lng };
+    this._lastTime = timestamp;
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // ADAPTIVE KALMAN - Adjusts process noise based on movement
+  // ═══════════════════════════════════════════════════════════
+
+  _adaptProcessNoise(gpsSpeed, timestamp) {
+    // Use our estimated speed (more reliable on WebView) or GPS speed as fallback
+    const speed = this.speed || (gpsSpeed != null ? gpsSpeed : 0);
+
+    // Convert speed to degree-movement per second
+    // 1 m/s = ~0.000009 degrees/sec (at equator)
+    const degPerSec = speed / 111000;
+
+    // Time since last reading
+    const dt = this.kalman.lastTimestamp ? (timestamp - this.kalman.lastTimestamp) / 1000 : 1;
+
+    // Process noise = expected position change variance
+    // When moving: high noise → filter follows raw GPS closely
+    // When still: low noise → filter smooths aggressively
+    if (this.isMoving) {
+      // Moving: trust new readings more — noise proportional to distance traveled
+      const expectedMove = degPerSec * dt;
+      this.kalman.processNoise = Math.max(expectedMove * expectedMove * 4, 0.000001);
+    } else {
+      // Standing still: smooth aggressively but not frozen
+      // Allow ~1m drift per update to stay responsive
+      this.kalman.processNoise = 0.0000001;
+    }
+
+    this.kalman.lastTimestamp = timestamp;
+  }
+
+  // ═══════════════════════════════════════════════════════════
   // POINT AVERAGING - Mejora la precisión promediando lecturas
   // ═══════════════════════════════════════════════════════════
 
@@ -234,6 +318,7 @@ class GPSNavigator {
       // Filtro: solo aceptar lecturas con accuracy < 20m
       const maxAcceptableAccuracy = 20;
 
+      // Use maximumAge: 0 for averaging — we need FRESH readings only
       watchId = navigator.geolocation.watchPosition(
         (pos) => {
           const acc = pos.coords.accuracy;
@@ -343,8 +428,8 @@ class GPSNavigator {
         },
         {
           enableHighAccuracy: true,
-          maximumAge: 0,       // Forzar lecturas frescas
-          timeout: 15000       // Más tiempo para mejor fix
+          maximumAge: 0,       // FRESH readings only for averaging
+          timeout: 15000       // More time for precise fix
         }
       );
 
@@ -392,24 +477,26 @@ class GPSNavigator {
     return 10;
   }
 
+  // Speed in km/h
+  getSpeedKmh() {
+    return Math.round(this.speed * 3.6 * 10) / 10;
+  }
+
   // ═══════════════════════════════════════════════════════════
   // KALMAN FILTER - Suavizado de posición en tiempo real
   // ═══════════════════════════════════════════════════════════
 
   /**
    * Aplica un filtro Kalman simplificado a una lectura GPS.
-   * Suaviza el ruido de posición manteniendo respuesta rápida a movimientos reales.
-   *
-   * @param {{lat: number, lng: number}} measurement - Posición medida
-   * @param {number} accuracy - Precisión reportada en metros
-   * @returns {{lat: number, lng: number, accuracy: number}} Posición suavizada
+   * ADAPTIVE: responds fast to movement, smooths when still.
    */
-  _kalmanUpdate(measurement, accuracy) {
+  _kalmanUpdate(measurement, accuracy, timestamp) {
     if (!this.kalman.initialized) {
       this.kalman.lat = measurement.lat;
       this.kalman.lng = measurement.lng;
       this.kalman.variance = accuracy * accuracy;
       this.kalman.initialized = true;
+      this.kalman.lastTimestamp = timestamp;
       return { lat: measurement.lat, lng: measurement.lng, accuracy: accuracy };
     }
 
@@ -420,10 +507,17 @@ class GPSNavigator {
     const measurementVariance = accuracy * accuracy;
     const kalmanGain = this.kalman.variance / (this.kalman.variance + measurementVariance);
 
+    // Clamp gain: never less than 0.15 (so marker ALWAYS moves at least a bit)
+    // and never more than 0.95 (some smoothing always applies)
+    const clampedGain = Math.max(0.15, Math.min(0.95, kalmanGain));
+
     // Update estimate
-    this.kalman.lat += kalmanGain * (measurement.lat - this.kalman.lat);
-    this.kalman.lng += kalmanGain * (measurement.lng - this.kalman.lng);
-    this.kalman.variance *= (1 - kalmanGain);
+    this.kalman.lat += clampedGain * (measurement.lat - this.kalman.lat);
+    this.kalman.lng += clampedGain * (measurement.lng - this.kalman.lng);
+    this.kalman.variance *= (1 - clampedGain);
+
+    // Prevent variance from collapsing to near-zero (would freeze the filter)
+    this.kalman.variance = Math.max(this.kalman.variance, 0.0000001);
 
     return {
       lat: this.kalman.lat,
@@ -432,16 +526,22 @@ class GPSNavigator {
     };
   }
 
+  // Reset Kalman filter (useful when GPS jumps or re-entering field)
+  resetKalman() {
+    this.kalman.initialized = false;
+    this.kalman.lat = null;
+    this.kalman.lng = null;
+    this.kalman.variance = 1;
+    this._lastPos = null;
+    this._lastTime = 0;
+    this.speed = 0;
+    this.isMoving = false;
+  }
+
   // ═══════════════════════════════════════════════════════════
   // GPS WARM-UP DETECTION - Detecta cuando el GPS se estabiliza
   // ═══════════════════════════════════════════════════════════
 
-  /**
-   * Verifica si el GPS ya pasó el período de calentamiento.
-   * El GPS necesita varias lecturas buenas consecutivas antes de ser confiable.
-   *
-   * @param {number} accuracy - Precisión de la lectura actual en metros
-   */
   _checkWarmup(accuracy) {
     this.warmupReadings.push(accuracy);
 
@@ -450,10 +550,10 @@ class GPSNavigator {
       this.warmupReadings.shift();
     }
 
-    // Si las últimas 5 lecturas son todas < 10m → GPS calentado
+    // If ANY of the last 3 readings are < 15m → GPS warmed up (faster!)
     if (this.warmupReadings.length >= this.warmupThreshold) {
       const lastN = this.warmupReadings.slice(-this.warmupThreshold);
-      this.isWarmedUp = lastN.every(a => a < 10);
+      this.isWarmedUp = lastN.every(a => a < 15);
     }
   }
 
@@ -461,10 +561,6 @@ class GPSNavigator {
   // POSITION STABILIZATION - Detecta posición estable
   // ═══════════════════════════════════════════════════════════
 
-  /**
-   * Verifica si la posición GPS se ha estabilizado.
-   * Las últimas 5 posiciones deben estar dentro de 2m entre sí.
-   */
   _checkStabilization() {
     if (!this.currentPosition) return;
 
@@ -479,7 +575,7 @@ class GPSNavigator {
       this.recentPositions.shift();
     }
 
-    // Verificar si las últimas 5 están dentro de 2m
+    // Verificar si las últimas 5 están dentro de 3m (was 2m — too strict for real field)
     if (this.recentPositions.length >= 5) {
       const last5 = this.recentPositions.slice(-5);
       let maxSpread = 0;
@@ -489,7 +585,7 @@ class GPSNavigator {
           if (d > maxSpread) maxSpread = d;
         }
       }
-      this.isStabilized = maxSpread <= 2;
+      this.isStabilized = maxSpread <= 3;
     }
   }
 
@@ -497,22 +593,10 @@ class GPSNavigator {
   // ACCURACY GATE - Control de calidad para recolección
   // ═══════════════════════════════════════════════════════════
 
-  /**
-   * Verifica si las condiciones GPS son suficientes para recolectar datos.
-   *
-   * @param {number} requiredAccuracy - Precisión mínima requerida en metros (default 5)
-   * @returns {boolean} true si se puede recolectar
-   */
   canCollect(requiredAccuracy = 5) {
     return this.isWarmedUp && this.accuracy !== null && this.accuracy <= requiredAccuracy;
   }
 
-  /**
-   * Devuelve el estado actual para recolección con mensaje y color.
-   *
-   * @param {number} requiredAccuracy - Precisión mínima requerida en metros (default 5)
-   * @returns {{ok: boolean, msg: string, color: string}}
-   */
   getCollectionStatus(requiredAccuracy = 5) {
     if (!this.accuracy) return { ok: false, msg: 'Sin señal GPS', color: '#F44336' };
     if (!this.isWarmedUp) return { ok: false, msg: 'GPS calentando...', color: '#FF9800' };
@@ -521,15 +605,9 @@ class GPSNavigator {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // HDOP ESTIMATION - Estimación de HDOP desde accuracy
+  // HDOP ESTIMATION
   // ═══════════════════════════════════════════════════════════
 
-  /**
-   * Estima el HDOP (Horizontal Dilution of Precision) a partir de la precisión reportada.
-   * La API web no expone HDOP directamente, pero accuracy ≈ HDOP * UERE (5m típico).
-   *
-   * @returns {number|null} HDOP estimado, o null si no hay señal
-   */
   getEstimatedHDOP() {
     if (!this.accuracy) return null;
     return Math.round(this.accuracy / 5 * 10) / 10;

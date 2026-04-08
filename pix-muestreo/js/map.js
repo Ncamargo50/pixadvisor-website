@@ -7,8 +7,10 @@ class PixMap {
     this.pointMarkers = [];
     this.fieldLayers = [];
     this.trackLine = null;
+    this.liveTrackLine = null;   // Real-time track polyline
     this.navigationLine = null;
     this.selectedPoint = null;
+    this.followUser = true;       // Auto-follow user position
   }
 
   // Initialize map
@@ -52,10 +54,15 @@ class PixMap {
     // Scale
     L.control.scale({ metric: true, imperial: false }).addTo(this.map);
 
+    // When user drags the map manually, disable auto-follow
+    this.map.on('dragstart', () => {
+      this.followUser = false;
+    });
+
     return this.map;
   }
 
-  // Update user position marker
+  // Update user position marker with smooth movement
   updateUserPosition(lat, lng, accuracy) {
     if (!this.map) return;
 
@@ -78,12 +85,61 @@ class PixMap {
       this.userMarker.setLatLng([lat, lng]);
       this.accuracyCircle.setLatLng([lat, lng]).setRadius(accuracy);
     }
+
+    // Auto-follow: pan map to keep user centered while navigating
+    if (this.followUser) {
+      const currentZoom = this.map.getZoom();
+      const targetZoom = currentZoom < 16 ? 17 : currentZoom; // ensure min zoom 17
+      this.map.setView([lat, lng], targetZoom, { animate: true, duration: 0.5 });
+    }
+
+    // Update live track line
+    if (this.liveTrackLine && gpsNav.isTracking) {
+      this.liveTrackLine.addLatLng([lat, lng]);
+    }
   }
 
   // Center map on user
   centerOnUser() {
     if (this.userMarker) {
-      this.map.setView(this.userMarker.getLatLng(), 17);
+      this.followUser = true;
+      this.map.setView(this.userMarker.getLatLng(), 17, { animate: true });
+    }
+  }
+
+  // Toggle follow mode (drag map to disable, button to re-enable)
+  enableFollow() { this.followUser = true; }
+  disableFollow() { this.followUser = false; }
+
+  // Start live track drawing (call when tracking starts)
+  startLiveTrack() {
+    if (this.liveTrackLine) {
+      this.map.removeLayer(this.liveTrackLine);
+    }
+    this.liveTrackLine = L.polyline([], {
+      color: '#FF9800',
+      weight: 3,
+      opacity: 0.8,
+      dashArray: '8, 6'
+    }).addTo(this.map);
+
+    // Add current position as first point
+    if (gpsNav.currentPosition) {
+      this.liveTrackLine.addLatLng([gpsNav.currentPosition.lat, gpsNav.currentPosition.lng]);
+    }
+  }
+
+  // Stop live track drawing
+  stopLiveTrack() {
+    // Keep the line visible but stop adding points
+    // (liveTrackLine stays on map as reference)
+  }
+
+  // Clear live track
+  clearLiveTrack() {
+    if (this.liveTrackLine) {
+      this.map.removeLayer(this.liveTrackLine);
+      this.liveTrackLine = null;
     }
   }
 

@@ -58,16 +58,14 @@ class PixApp {
     // Show map view by default
     this.showView('map');
 
-    // Init GPS
+    // Init GPS with optimized real-time tracking
     try {
       gpsNav.startWatch(pos => {
         if (pos) {
           pixMap.updateUserPosition(pos.lat, pos.lng, pos.accuracy);
-          if (gpsNav.isTracking) {
-            pixMap.addTrackPoint(pos.lat, pos.lng);
-          }
           this.updateNavPanel();
           this.updateAccuracyDisplay(pos.accuracy);
+          this.updateSpeedDisplay();
 
           // Auto-detect point
           if (this.currentField) {
@@ -427,6 +425,18 @@ class PixApp {
       gpsNav.currentPosition.lat, gpsNav.currentPosition.lng,
       gpsNav.targetPoint.lat, gpsNav.targetPoint.lng
     );
+
+    // Show speed while navigating
+    const speedEl = document.getElementById('navSpeed');
+    if (speedEl) {
+      if (gpsNav.isMoving) {
+        speedEl.textContent = `${gpsNav.getSpeedKmh()} km/h`;
+        speedEl.style.display = '';
+      } else {
+        speedEl.textContent = 'Parado';
+        speedEl.style.display = '';
+      }
+    }
 
     // Auto-alert when arriving at point (vibration + beep + toast)
     if (dist < 10 && this.isNavigating && !this._arrivedNotified) {
@@ -1999,10 +2009,29 @@ ${detailHTML}
   _ensureTracking() {
     if (!gpsNav.isTracking && this.currentField) {
       gpsNav.startTracking();
+      pixMap.startLiveTrack(); // Start real-time track drawing on map
       const btn = document.getElementById('trackBtn');
       if (btn) btn.classList.add('active');
       console.log('[App] Auto-tracking started for field:', this.currentField.name);
     }
+  }
+
+  // Speed display in nav panel
+  updateSpeedDisplay() {
+    const speedEl = document.getElementById('navSpeed');
+    if (!speedEl) return;
+    if (gpsNav.speed > 0.5) {
+      speedEl.textContent = `${gpsNav.getSpeedKmh()} km/h`;
+      speedEl.style.color = '#00BFA5';
+    } else {
+      speedEl.textContent = '';
+    }
+  }
+
+  // Re-center map on user and re-enable follow
+  recenterOnUser() {
+    pixMap.centerOnUser();
+    this.toast('Siguiendo posición GPS', 'info');
   }
 
   // ===== AUTO-DEPTH ADJUSTMENT (DataFarm feature) =====
