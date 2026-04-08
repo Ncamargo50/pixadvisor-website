@@ -592,6 +592,28 @@ html, body {
 .badge-complete { background: rgba(76,175,80,0.2); color: var(--success); }
 .badge-active { background: rgba(0,191,165,0.2); color: var(--teal); }
 
+/* Delete button on project/field cards */
+.icon-btn-delete {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  padding: 6px;
+  margin: -6px -4px -6px 4px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+}
+.icon-btn-delete:active {
+  color: var(--danger);
+  background: rgba(244,67,54,0.15);
+  transform: scale(0.9);
+}
+
 .card-stats {
   display: flex;
   gap: 16px;

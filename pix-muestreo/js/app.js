@@ -246,11 +246,14 @@ class PixApp {
       html += `
         <div class="card" onclick="app.openProject(${proj.id})">
           <div class="card-header">
-            <div>
+            <div style="flex:1;min-width:0;">
               <div class="card-title">${proj.name}</div>
               <div class="card-subtitle">${proj.client || ''}</div>
             </div>
             <span class="card-badge badge-${badge}">${pct}%</span>
+            <button class="icon-btn-delete" onclick="event.stopPropagation();app.deleteProject(${proj.id})" title="Eliminar proyecto">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+            </button>
           </div>
           <div class="card-stats">
             <span class="stat">
@@ -278,10 +281,13 @@ class PixApp {
         <button class="fab-btn secondary" onclick="app.loadProjects()" style="width:36px;height:36px;">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
         </button>
-        <div>
+        <div style="flex:1;min-width:0;">
           <div class="card-title">${this.currentProject.name}</div>
           <div class="card-subtitle">${fields.length} campos</div>
         </div>
+        <button class="icon-btn-delete" onclick="app.deleteProject(${this.currentProject.id})" title="Eliminar proyecto">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+        </button>
       </div>`;
 
     for (const field of fields) {
@@ -292,11 +298,14 @@ class PixApp {
       html += `
         <div class="card" onclick="app.openField(${field.id})">
           <div class="card-header">
-            <div>
+            <div style="flex:1;min-width:0;">
               <div class="card-title">${field.name}</div>
               <div class="card-subtitle">${field.area ? field.area.toFixed(1) + ' ha' : ''}</div>
             </div>
             <span class="card-badge badge-${pct === 100 ? 'complete' : pct > 0 ? 'active' : 'pending'}">${collected}/${points.length}</span>
+            <button class="icon-btn-delete" onclick="event.stopPropagation();app.deleteField(${field.id})" title="Eliminar campo">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+            </button>
           </div>
           <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
         </div>`;
@@ -2423,8 +2432,49 @@ ${detailHTML}
     for (const o of orders) await pixDB.delete('serviceOrders', o.id);
 
     await pixDB.delete('projects', projectId);
+    this.currentProject = null;
+    this.currentField = null;
+    pixMap && pixMap.clearAll && pixMap.clearAll();
     this.loadProjects();
     this.toast('Proyecto eliminado', '');
+  }
+
+  // Delete a single field and all its data (points, samples, tracks)
+  async deleteField(fieldId) {
+    const field = await pixDB.get('fields', fieldId);
+    const fieldName = field ? field.name : 'Campo';
+    if (!confirm(`¿Eliminar "${fieldName}" y todos sus puntos?`)) return;
+
+    try {
+      // Delete all points of this field
+      const points = await pixDB.getAllByIndex('points', 'fieldId', fieldId);
+      for (const p of points) await pixDB.delete('points', p.id);
+      // Delete all samples of this field
+      const samples = await pixDB.getAllByIndex('samples', 'fieldId', fieldId);
+      for (const s of samples) await pixDB.delete('samples', s.id);
+      // Delete all tracks of this field
+      const tracks = await pixDB.getAllByIndex('tracks', 'fieldId', fieldId);
+      for (const t of tracks) await pixDB.delete('tracks', t.id);
+      // Delete the field itself
+      await pixDB.delete('fields', fieldId);
+
+      // If this was the current field on the map, clear it
+      if (this.currentField && this.currentField.id === fieldId) {
+        this.currentField = null;
+        pixMap && pixMap.clearAll && pixMap.clearAll();
+        document.getElementById('navPanel').style.display = 'none';
+      }
+
+      // Refresh the project view
+      if (this.currentProject) {
+        this.openProject(this.currentProject.id);
+      } else {
+        this.loadProjects();
+      }
+      this.toast(`"${fieldName}" eliminado`, '');
+    } catch (e) {
+      this.toast('Error al eliminar: ' + e.message, 'error');
+    }
   }
 
   // Toast notification
