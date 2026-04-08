@@ -113,13 +113,13 @@ class PixApp {
       n.classList.toggle('active', n.dataset.view === viewName);
     });
 
-    // Init map when showing map view
+    // Init map when showing map view (debounce to prevent double init)
     if (viewName === 'map') {
-      if (!pixMap.map) {
-        // First time: init map
-        setTimeout(() => {
+      if (this._mapInitTimer) clearTimeout(this._mapInitTimer);
+      this._mapInitTimer = setTimeout(() => {
+        this._mapInitTimer = null;
+        if (!pixMap.map) {
           pixMap.init('map');
-          // Priority: field > GPS position
           if (this.currentField) {
             this.loadFieldOnMap(this.currentField);
           } else if (gpsNav.currentPosition) {
@@ -130,16 +130,13 @@ class PixApp {
             );
             pixMap.map.setView([gpsNav.currentPosition.lat, gpsNav.currentPosition.lng], 15);
           }
-        }, 100);
-      } else {
-        // Map already exists: invalidate size (may have resized) and re-center on field
-        setTimeout(() => {
+        } else {
           pixMap.map.invalidateSize();
           if (this.currentField && pixMap.fieldLayers.length > 0) {
             pixMap.fitBounds();
           }
-        }, 100);
-      }
+        }
+      }, 100);
     }
 
     if (viewName === 'sync') this.updateSyncStats();
@@ -271,6 +268,55 @@ class PixApp {
     container.innerHTML = html;
   }
 
+  // ===== MANUAL CREATE PROJECT / FIELD =====
+  showCreateProjectModal() {
+    const name = prompt('Nombre del proyecto:');
+    if (!name || !name.trim()) return;
+    const client = prompt('Cliente (opcional):') || '';
+    this._doCreateProject(name.trim(), client.trim());
+  }
+
+  async _doCreateProject(name, client) {
+    try {
+      const projectId = await pixDB.add('projects', {
+        name,
+        client,
+        source: 'manual',
+        importDate: new Date().toISOString().slice(0, 10)
+      });
+      this.toast(`Proyecto "${name}" creado`, 'success');
+      this.loadProjects();
+      // Open it immediately to add fields
+      this.openProject(projectId);
+    } catch (e) {
+      this.toast('Error: ' + e.message, 'error');
+    }
+  }
+
+  async createField(projectId) {
+    const name = prompt('Nombre del campo:');
+    if (!name || !name.trim()) return;
+    const areaStr = prompt('Area en hectáreas (opcional):');
+    const area = areaStr ? parseFloat(areaStr) : null;
+
+    try {
+      const fieldId = await pixDB.add('fields', {
+        projectId,
+        name: name.trim(),
+        area: (area && !isNaN(area)) ? area : null,
+        boundary: null
+      });
+      this.toast(`Campo "${name.trim()}" creado`, 'success');
+
+      // Refresh the project view
+      if (this.currentProject && this.currentProject.id === projectId) {
+        this.openProject(projectId);
+      }
+    } catch (e) {
+      this.toast('Error: ' + e.message, 'error');
+    }
+  }
+
   async openProject(projectId) {
     this.currentProject = await pixDB.get('projects', projectId);
     const fields = await pixDB.getAllByIndex('fields', 'projectId', projectId);
@@ -285,6 +331,9 @@ class PixApp {
           <div class="card-title">${this.currentProject.name}</div>
           <div class="card-subtitle">${fields.length} campos</div>
         </div>
+        <button class="fab-btn primary" onclick="app.createField(${this.currentProject.id})" style="width:36px;height:36px;" title="Agregar campo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
         <button class="icon-btn-delete" onclick="app.deleteProject(${this.currentProject.id})" title="Eliminar proyecto">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
         </button>
@@ -1270,6 +1319,15 @@ class PixApp {
   async processGeoJSON(geojson, sourceName) {
     const projectName = sourceName.replace(/\.\w+$/, '').replace(/[_-]/g, ' ');
 
+    // Normalize bare geometries into FeatureCollection
+    if (geojson.type === 'Polygon' || geojson.type === 'MultiPolygon' || geojson.type === 'Point' || geojson.type === 'LineString') {
+      geojson = { type: 'FeatureCollection', features: [{ type: 'Feature', geometry: geojson, properties: {} }] };
+    } else if (geojson.type === 'Feature') {
+      geojson = { type: 'FeatureCollection', features: [geojson] };
+    } else if (geojson.type === 'GeometryCollection' && geojson.geometries) {
+      geojson = { type: 'FeatureCollection', features: geojson.geometries.map(g => ({ type: 'Feature', geometry: g, properties: {} })) };
+    }
+
     // Create project
     const projectId = await pixDB.add('projects', {
       name: projectName,
@@ -1281,7 +1339,7 @@ class PixApp {
     const polygons = [];
     const points = [];
 
-    const features = geojson.features || (geojson.type === 'Feature' ? [geojson] : []);
+    const features = geojson.features || [];
 
     features.forEach(f => {
       if (!f.geometry || !f.geometry.coordinates) return;
@@ -1855,10 +1913,39 @@ ${detailHTML}
       return;
     }
 
-    // Must have a field selected (or create one)
+    // If no field selected, auto-create one for boundary tracing
     if (!this.currentField) {
-      this.toast('Primero selecciona o crea un campo en Proyectos', 'warning');
-      return;
+      const fieldName = prompt('Nombre del campo a georreferenciar:');
+      if (!fieldName || !fieldName.trim()) return;
+      try {
+        // Create or reuse project
+        let projectId;
+        if (this.currentProject) {
+          projectId = this.currentProject.id;
+        } else {
+          projectId = await pixDB.add('projects', {
+            name: fieldName.trim(),
+            client: '',
+            source: 'gps-boundary',
+            importDate: new Date().toISOString().slice(0, 10)
+          });
+          this.currentProject = await pixDB.get('projects', projectId);
+        }
+        // Create field
+        const fieldId = await pixDB.add('fields', {
+          projectId,
+          name: fieldName.trim(),
+          area: null,
+          boundary: null
+        });
+        this.currentField = await pixDB.get('fields', fieldId);
+        document.getElementById('currentFieldName').textContent = fieldName.trim();
+        document.getElementById('navPanel').style.display = 'block';
+        this.toast(`Campo "${fieldName.trim()}" creado`, 'success');
+      } catch (e) {
+        this.toast('Error al crear campo: ' + e.message, 'error');
+        return;
+      }
     }
 
     this._boundaryTracing = true;

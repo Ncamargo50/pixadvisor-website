@@ -13,8 +13,9 @@ class PixMap {
     this.followUser = true;       // Auto-follow user position
   }
 
-  // Initialize map
+  // Initialize map (guard against double init)
   init(containerId) {
+    if (this.map) { this.map.invalidateSize(); return; }
     this.map = L.map(containerId, {
       zoomControl: false,
       attributionControl: false
