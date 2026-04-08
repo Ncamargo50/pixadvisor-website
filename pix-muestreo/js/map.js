@@ -183,25 +183,19 @@ class PixMap {
       const labelText = point.name || point.id;
       const shortLabel = labelText.length > 8 ? labelText.slice(-6) : labelText;
 
-      // Principal: bigger with label; Submuestra: small dot, label on hover
-      const size = isPrincipal ? 20 : 12;
+      // Principal: visible with label; Submuestra: tiny dot, label on hover
+      const size = isPrincipal ? 14 : 8;
+      const border = isPrincipal ? 2 : 1;
       const anchor = size / 2;
-      const dotStyle = `width:${size}px;height:${size}px;background:${color};border:2px solid #fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.5);`;
+      const dotStyle = `width:${size}px;height:${size}px;background:${color};border:${border}px solid #fff;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.6);`;
 
-      let html;
-      if (isPrincipal) {
-        html = `<div style="${dotStyle}display:flex;align-items:center;justify-content:center;">
-          <span style="font-size:8px;font-weight:700;color:#fff;text-shadow:0 1px 2px #000;">${shortLabel}</span>
-        </div>`;
-      } else {
-        html = `<div style="${dotStyle}"></div>`;
-      }
+      const html = `<div style="${dotStyle}"></div>`;
 
       const icon = L.divIcon({
-        className: 'sample-point-marker',
+        className: '',
         html: html,
-        iconSize: [size + 4, size + 4],
-        iconAnchor: [anchor + 2, anchor + 2]
+        iconSize: [size + border * 2, size + border * 2],
+        iconAnchor: [anchor + border, anchor + border]
       });
 
       const marker = L.marker([point.lat, point.lng], { icon }).addTo(this.map);
@@ -213,8 +207,11 @@ class PixMap {
         `<b>${labelText}</b><br>${tipoStr} ${zonaStr}<br>` +
         `<small>${point.lat.toFixed(6)}, ${point.lng.toFixed(6)}</small>`
       );
-      if (!isPrincipal) {
-        marker.bindTooltip(shortLabel, { direction: 'top', offset: [0, -8], className: 'point-tooltip' });
+      // Principal: permanent label; Submuestra: tooltip on hover
+      if (isPrincipal) {
+        marker.bindTooltip(shortLabel, { permanent: true, direction: 'top', offset: [0, -10], className: 'point-tooltip-main' });
+      } else {
+        marker.bindTooltip(shortLabel, { direction: 'top', offset: [0, -6], className: 'point-tooltip' });
       }
 
       marker.on('click', () => {
@@ -241,12 +238,10 @@ class PixMap {
       const shortLabel = label.length > 6 ? label.slice(-5) : label;
 
       const icon = L.divIcon({
-        className: 'sample-point-marker',
-        html: `<div style="width:16px;height:16px;background:${color};border:2px solid #fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;">
-          <span style="font-size:7px;font-weight:700;color:#fff;text-shadow:0 1px 1px #000;">${shortLabel}</span>
-        </div>`,
-        iconSize: [20, 20],
-        iconAnchor: [10, 10]
+        className: '',
+        html: `<div style="width:10px;height:10px;background:${color};border:1px solid #fff;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.6);"></div>`,
+        iconSize: [12, 12],
+        iconAnchor: [6, 6]
       });
 
       const marker = L.marker([point.lat, point.lng], { icon }).addTo(this.map);
@@ -274,19 +269,15 @@ class PixMap {
 
     const tipo = point.tipo || (point.properties && point.properties.tipo) || 'principal';
     const isPrincipal = tipo === 'principal';
-    const size = isPrincipal ? 20 : 12;
+    const size = isPrincipal ? 14 : 8;
+    const border = isPrincipal ? 2 : 1;
     const anchor = size / 2;
-    const label = point.name || point.id;
-    const shortLabel = label.length > 8 ? label.slice(-6) : label;
-    const dotStyle = `width:${size}px;height:${size}px;background:${color};border:2px solid #fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.5);`;
-    const html = isPrincipal
-      ? `<div style="${dotStyle}display:flex;align-items:center;justify-content:center;"><span style="font-size:8px;font-weight:700;color:#fff;text-shadow:0 1px 2px #000;">${shortLabel}</span></div>`
-      : `<div style="${dotStyle}"></div>`;
+    const dotStyle = `width:${size}px;height:${size}px;background:${color};border:${border}px solid #fff;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.6);`;
     marker.setIcon(L.divIcon({
-      className: 'sample-point-marker',
-      html: html,
-      iconSize: [size + 4, size + 4],
-      iconAnchor: [anchor + 2, anchor + 2]
+      className: '',
+      html: `<div style="${dotStyle}"></div>`,
+      iconSize: [size + border * 2, size + border * 2],
+      iconAnchor: [anchor + border, anchor + border]
     }));
   }
 
