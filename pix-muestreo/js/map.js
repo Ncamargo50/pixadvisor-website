@@ -127,6 +127,7 @@ class PixMap {
   }
 
   // Add colored zonas de manejo (from project JSON import)
+  // Zones are visually prominent: thick borders, high fill opacity, permanent labels
   addZonasColored(zonasFc, zonasMetadata) {
     if (!zonasFc || !zonasFc.features) return;
 
@@ -138,17 +139,17 @@ class PixMap {
       const layer = L.geoJSON(feature, {
         style: {
           color: color,
-          weight: 2,
+          weight: 3,
           fillColor: color,
-          fillOpacity: 0.25,
+          fillOpacity: 0.35,
           dashArray: null
         }
       }).addTo(this.map);
 
-      // Show zone name and class as tooltip
+      // Permanent tooltip so zones are always visible on the map
       const label = meta.clase ? `${zoneName} (${meta.clase})` : zoneName;
       layer.bindTooltip(label, {
-        permanent: false,
+        permanent: true,
         direction: 'center',
         className: 'field-label'
       });
@@ -319,17 +320,21 @@ class PixMap {
     }
   }
 
-  // Fit map to all content — with error guard
+  // Fit map to field content ONLY (never includes GPS userMarker)
   fitBounds() {
     if (!this.map) return;
     try {
-      const group = L.featureGroup([
-        ...this.pointMarkers,
-        ...this.fieldLayers
-      ]);
-      if (group.getLayers().length > 0) {
-        const bounds = group.getBounds();
-        if (bounds.isValid()) this.map.fitBounds(bounds.pad(0.1));
+      // Only use field layers + sample points — exclude GPS marker
+      const layers = [...this.pointMarkers, ...this.fieldLayers];
+      if (layers.length === 0) return;
+
+      const group = L.featureGroup(layers);
+      const bounds = group.getBounds();
+      if (bounds.isValid()) {
+        // Use maxZoom 19 to prevent zooming too close on small areas
+        this.map.fitBounds(bounds.pad(0.12), { maxZoom: 19, animate: false });
+        // Flag: map is focused on field, don't auto-pan to GPS
+        this._fieldFocused = true;
       }
     } catch (e) {
       console.warn('fitBounds error:', e.message);

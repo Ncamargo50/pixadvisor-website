@@ -119,17 +119,16 @@ class PixApp {
     if (viewName === 'map' && !pixMap.map) {
       setTimeout(() => {
         pixMap.init('map');
-        if (gpsNav.currentPosition) {
+        // Priority: if a field is loaded, zoom to field (not GPS)
+        if (this.currentField) {
+          this.loadFieldOnMap(this.currentField);
+        } else if (gpsNav.currentPosition) {
           pixMap.updateUserPosition(
             gpsNav.currentPosition.lat,
             gpsNav.currentPosition.lng,
             gpsNav.currentPosition.accuracy
           );
           pixMap.map.setView([gpsNav.currentPosition.lat, gpsNav.currentPosition.lng], 15);
-        }
-        // Load current field data
-        if (this.currentField) {
-          this.loadFieldOnMap(this.currentField);
         }
       }, 100);
     }
