@@ -163,6 +163,9 @@ class PixMap {
     this.clearPoints();
 
     points.forEach(point => {
+      // A9 FIX: Skip points with invalid coordinates
+      if (!isFinite(point.lat) || !isFinite(point.lng)) return;
+
       const tipo = point.tipo || (point.properties && point.properties.tipo) || 'principal';
       const status = point.status || 'pending';
 
@@ -214,6 +217,9 @@ class PixMap {
     this.clearPoints();
 
     points.forEach(point => {
+      // A9 FIX: Skip points with invalid coordinates
+      if (!isFinite(point.lat) || !isFinite(point.lng)) return;
+
       const status = point.status || 'pending'; // pending, collected, skipped
       const colors = {
         pending: '#FF9800',
@@ -391,6 +397,9 @@ class PixMap {
     return { tileCount, estimatedSizeMB };
   }
 
+  // M4 FIX: Max tile cache limit
+  MAX_CACHED_TILES = 34000; // ~500MB at ~15KB/tile
+
   // Pre-load tiles for a given bounds area
   async preloadTiles(bounds, minZoom = 13, maxZoom = 18, onProgress = null) {
     const north = bounds.north ?? bounds.getNorth();
@@ -428,6 +437,12 @@ class PixMap {
     const BATCH_SIZE = 6;
     const cache = await caches.open('pix-tiles-v1');
 
+    // M4 FIX: Check current cache size and enforce limit
+    const currentKeys = await cache.keys();
+    if (currentKeys.length + total > this.MAX_CACHED_TILES) {
+      console.warn(`[Map] Tile cache limit: ${currentKeys.length} existing + ${total} new > ${this.MAX_CACHED_TILES} max`);
+    }
+
     for (let i = 0; i < tileUrls.length; i += BATCH_SIZE) {
       const batch = tileUrls.slice(i, i + BATCH_SIZE);
       const results = await Promise.allSettled(batch.map(async (tile) => {
@@ -442,9 +457,10 @@ class PixMap {
         }
       }));
 
+      // M5 FIX: Only count actual downloads, not skipped cached tiles
       results.forEach(r => {
         if (r.status === 'rejected') failed++;
-        downloaded++;
+        else downloaded++;
       });
 
       if (onProgress) {

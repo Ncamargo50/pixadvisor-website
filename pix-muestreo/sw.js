@@ -1,38 +1,50 @@
 // PIX Muestreo - Service Worker for Offline Support
-const CACHE_NAME = 'pix-muestreo-v13';
+// v14 — Fixed: relative paths for APK WebView + local lib caching
+const CACHE_NAME = 'pix-muestreo-v14';
 const TILE_CACHE = 'pix-tiles-v1';
-const DATA_CACHE = 'pix-data-v1';
+
+// Derive base path dynamically — works in both web (/pix-muestreo/) and APK WebView
+const SW_PATH = self.location.pathname; // e.g. "/pix-muestreo/sw.js" or "/assets/sw.js"
+const BASE = SW_PATH.replace(/sw\.js$/, ''); // e.g. "/pix-muestreo/" or "/assets/"
 
 const STATIC_ASSETS = [
-  '/pix-muestreo/',
-  '/pix-muestreo/index.html',
-  '/pix-muestreo/manifest.json',
-  '/pix-muestreo/css/app.css',
-  '/pix-muestreo/js/app.js',
-  '/pix-muestreo/js/db.js',
-  '/pix-muestreo/js/map.js',
-  '/pix-muestreo/js/gps.js',
-  '/pix-muestreo/js/scanner.js',
-  '/pix-muestreo/js/sync.js',
-  '/pix-muestreo/js/drive.js',
-  '/pix-muestreo/js/auth.js',
-  '/pix-muestreo/js/orders.js',
-  '/pix-muestreo/js/admin.js',
-  '/pix-muestreo/js/agent-field.js',
-  '/pix-muestreo/icons/icon-192.png',
-  '/pix-muestreo/icons/icon-512.png',
-  '/pix-muestreo/icons/globe-only-192.png',
-  '/pix-muestreo/icons/globe-only-512.png',
-  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
-  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
-  'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js',
-  'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'
+  BASE,
+  BASE + 'index.html',
+  BASE + 'manifest.json',
+  BASE + 'css/app.css',
+  // Local libs (what index.html actually loads)
+  BASE + 'lib/leaflet.css',
+  BASE + 'lib/leaflet.js',
+  BASE + 'lib/html5-qrcode.min.js',
+  // App JS modules
+  BASE + 'js/app.js',
+  BASE + 'js/db.js',
+  BASE + 'js/map.js',
+  BASE + 'js/gps.js',
+  BASE + 'js/scanner.js',
+  BASE + 'js/drive.js',
+  BASE + 'js/auth.js',
+  BASE + 'js/orders.js',
+  BASE + 'js/admin.js',
+  BASE + 'js/agent-field.js',
+  // Icons
+  BASE + 'icons/icon-192.png',
+  BASE + 'icons/icon-512.png',
 ];
 
 // Install - cache static assets
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
+    caches.open(CACHE_NAME).then(cache => {
+      // Use addAll but don't fail install if some assets are missing
+      return cache.addAll(STATIC_ASSETS).catch(err => {
+        console.warn('[SW] Some assets failed to cache:', err);
+        // Cache what we can individually
+        return Promise.allSettled(
+          STATIC_ASSETS.map(url => cache.add(url).catch(() => {}))
+        );
+      });
+    })
   );
   self.skipWaiting();
 });
@@ -41,7 +53,7 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME && k !== TILE_CACHE && k !== DATA_CACHE).map(k => caches.delete(k)))
+      Promise.all(keys.filter(k => k !== CACHE_NAME && k !== TILE_CACHE).map(k => caches.delete(k)))
     )
   );
   self.clients.claim();
@@ -51,30 +63,53 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
-  // Cache map tiles
+  // Cache map tiles (Google + OSM)
   if (url.hostname.includes('tile.openstreetmap.org') || (url.hostname.includes('mt') && url.hostname.includes('google'))) {
     event.respondWith(
       caches.open(TILE_CACHE).then(cache =>
         cache.match(event.request).then(cached => {
           if (cached) return cached;
           return fetch(event.request).then(response => {
-            cache.put(event.request, response.clone());
+            if (response.ok) cache.put(event.request, response.clone());
             return response;
-          }).catch(() => new Response('', { status: 404 }));
+          }).catch(() => new Response('', { status: 404, statusText: 'Tile offline' }));
         })
       )
     );
     return;
   }
 
-  // Google API calls - network only
-  if (url.hostname.includes('googleapis.com')) {
-    event.respondWith(fetch(event.request));
+  // Google API calls - network only, with offline error handling
+  if (url.hostname.includes('googleapis.com') || url.hostname.includes('accounts.google.com')) {
+    event.respondWith(
+      fetch(event.request).catch(() =>
+        new Response(JSON.stringify({ error: 'offline' }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      )
+    );
     return;
   }
 
-  // App files - network first (ensures updates are loaded immediately)
-  // Falls back to cache only when offline
+  // Google Fonts - cache first (they never change)
+  if (url.hostname.includes('fonts.googleapis.com') || url.hostname.includes('fonts.gstatic.com')) {
+    event.respondWith(
+      caches.match(event.request).then(cached => {
+        if (cached) return cached;
+        return fetch(event.request).then(response => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          }
+          return response;
+        }).catch(() => new Response('', { status: 404 }));
+      })
+    );
+    return;
+  }
+
+  // App files - network first, fallback to cache
   event.respondWith(
     fetch(event.request).then(response => {
       if (response.ok) {
@@ -84,7 +119,7 @@ self.addEventListener('fetch', event => {
       return response;
     }).catch(() => {
       return caches.match(event.request).then(cached => {
-        return cached || caches.match('/pix-muestreo/index.html');
+        return cached || caches.match(BASE + 'index.html');
       });
     })
   );
@@ -112,12 +147,10 @@ self.addEventListener('message', event => {
     event.waitUntil(
       caches.open(TILE_CACHE).then(cache =>
         cache.match(event.data.url).then(existing => {
-          if (existing) return; // already cached
+          if (existing) return;
           return fetch(event.data.url).then(response => {
-            if (response.ok) {
-              return cache.put(event.data.url, response);
-            }
-          });
+            if (response.ok) return cache.put(event.data.url, response);
+          }).catch(() => {});
         })
       )
     );

@@ -217,51 +217,131 @@ class DriveSync {
     throw new Error('Formato no soportado: ' + fileName);
   }
 
-  // Parse KML to GeoJSON
+  // A6 FIX: Enhanced KML parser — handles MultiGeometry, LineString, MultiPolygon
   _parseKML(kmlText) {
     const parser = new DOMParser();
     const kml = parser.parseFromString(kmlText, 'text/xml');
     const features = [];
 
-    // Parse Placemarks
+    // Helper: parse coordinate string to [lng, lat] array
+    const parseCoordStr = (str) => {
+      return str.trim().split(/\s+/).filter(c => c.length > 0).map(c => {
+        const parts = c.split(',').map(Number);
+        return [parts[0], parts[1]]; // [lng, lat]
+      });
+    };
+
+    // Helper: extract geometries from a geometry container element
+    const extractGeometries = (container, props) => {
+      // Point
+      const points = container.querySelectorAll(':scope > Point');
+      points.forEach(pt => {
+        const coordEl = pt.querySelector('coordinates');
+        if (!coordEl) return;
+        const [lng, lat] = coordEl.textContent.trim().split(',').map(Number);
+        if (isFinite(lng) && isFinite(lat)) {
+          features.push({
+            type: 'Feature', properties: { ...props },
+            geometry: { type: 'Point', coordinates: [lng, lat] }
+          });
+        }
+      });
+
+      // Polygon
+      const polygons = container.querySelectorAll(':scope > Polygon');
+      polygons.forEach(poly => {
+        const outerCoordEl = poly.querySelector('outerBoundaryIs LinearRing coordinates');
+        if (!outerCoordEl) return;
+        const outerCoords = parseCoordStr(outerCoordEl.textContent);
+        if (outerCoords.length < 3) return;
+
+        // Also parse inner boundaries (holes)
+        const holes = [];
+        poly.querySelectorAll('innerBoundaryIs LinearRing coordinates').forEach(inner => {
+          const holeCoords = parseCoordStr(inner.textContent);
+          if (holeCoords.length >= 3) holes.push(holeCoords);
+        });
+
+        const coordinates = [outerCoords, ...holes];
+        features.push({
+          type: 'Feature', properties: { ...props },
+          geometry: { type: 'Polygon', coordinates }
+        });
+      });
+
+      // LineString → convert to Polygon if ring is closed, else keep as LineString
+      const lines = container.querySelectorAll(':scope > LineString');
+      lines.forEach(line => {
+        const coordEl = line.querySelector('coordinates');
+        if (!coordEl) return;
+        const coords = parseCoordStr(coordEl.textContent);
+        if (coords.length < 2) return;
+
+        // Check if it's a closed ring (first ≈ last point)
+        const first = coords[0], last = coords[coords.length - 1];
+        const isClosed = Math.abs(first[0] - last[0]) < 0.00001 && Math.abs(first[1] - last[1]) < 0.00001;
+
+        if (isClosed && coords.length >= 4) {
+          features.push({
+            type: 'Feature', properties: { ...props },
+            geometry: { type: 'Polygon', coordinates: [coords] }
+          });
+        } else {
+          features.push({
+            type: 'Feature', properties: { ...props },
+            geometry: { type: 'LineString', coordinates: coords }
+          });
+        }
+      });
+
+      // MultiGeometry — recurse into children
+      const multiGeoms = container.querySelectorAll(':scope > MultiGeometry');
+      multiGeoms.forEach(mg => extractGeometries(mg, props));
+    };
+
+    // Parse all Placemarks
     const placemarks = kml.querySelectorAll('Placemark');
     placemarks.forEach(pm => {
       const name = pm.querySelector('name')?.textContent || '';
       const desc = pm.querySelector('description')?.textContent || '';
-
-      // Point
-      const point = pm.querySelector('Point coordinates');
-      if (point) {
-        const [lng, lat, alt] = point.textContent.trim().split(',').map(Number);
-        features.push({
-          type: 'Feature',
-          properties: { name, description: desc },
-          geometry: { type: 'Point', coordinates: [lng, lat] }
-        });
-      }
-
-      // Polygon
-      const polygon = pm.querySelector('Polygon outerBoundaryIs LinearRing coordinates');
-      if (polygon) {
-        const coords = polygon.textContent.trim().split(/\s+/).map(c => {
-          const [lng, lat] = c.split(',').map(Number);
-          return [lng, lat];
-        });
-        features.push({
-          type: 'Feature',
-          properties: { name, description: desc },
-          geometry: { type: 'Polygon', coordinates: [coords] }
-        });
-      }
+      const props = { name, description: desc };
+      extractGeometries(pm, props);
     });
 
     return { type: 'FeatureCollection', features };
   }
 
-  // Parse CSV with lat/lng columns
+  // A10 FIX: CSV parser with RFC 4180 quoted field support
   _parseCSV(csvText) {
-    const lines = csvText.trim().split('\n');
-    const headers = lines[0].split(/[,;\t]/).map(h => h.trim().toLowerCase());
+    // Smart CSV line parser — handles "quoted, fields" correctly
+    const parseCSVLine = (line, sep) => {
+      const result = [];
+      let current = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (inQuotes) {
+          if (ch === '"' && line[i + 1] === '"') { current += '"'; i++; } // escaped quote
+          else if (ch === '"') { inQuotes = false; }
+          else { current += ch; }
+        } else {
+          if (ch === '"') { inQuotes = true; }
+          else if (ch === sep) { result.push(current.trim()); current = ''; }
+          else { current += ch; }
+        }
+      }
+      result.push(current.trim());
+      return result;
+    };
+
+    const lines = csvText.trim().split(/\r?\n/);
+    if (lines.length < 2) throw new Error('CSV vacío o sin datos');
+
+    // Detect separator: comma, semicolon, or tab
+    const firstLine = lines[0];
+    const sep = firstLine.includes('\t') ? '\t' : firstLine.includes(';') ? ';' : ',';
+
+    const headers = parseCSVLine(firstLine, sep).map(h => h.toLowerCase().replace(/^["']|["']$/g, ''));
     const latIdx = headers.findIndex(h => ['lat', 'latitude', 'latitud', 'y'].includes(h));
     const lngIdx = headers.findIndex(h => ['lng', 'lon', 'longitude', 'longitud', 'long', 'x'].includes(h));
     const nameIdx = headers.findIndex(h => ['name', 'nombre', 'nome', 'id', 'punto', 'point', 'ponto'].includes(h));
@@ -270,14 +350,15 @@ class DriveSync {
 
     const features = [];
     for (let i = 1; i < lines.length; i++) {
-      const vals = lines[i].split(/[,;\t]/).map(v => v.trim());
+      if (!lines[i].trim()) continue; // skip empty lines
+      const vals = parseCSVLine(lines[i], sep);
       const lat = parseFloat(vals[latIdx]);
       const lng = parseFloat(vals[lngIdx]);
       if (isNaN(lat) || isNaN(lng)) continue;
 
       const props = {};
-      headers.forEach((h, idx) => { props[h] = vals[idx]; });
-      if (nameIdx >= 0) props.name = vals[nameIdx];
+      headers.forEach((h, idx) => { props[h] = vals[idx] || ''; });
+      if (nameIdx >= 0) props.name = vals[nameIdx] || `P${i}`;
       else props.name = `P${i}`;
 
       features.push({
@@ -371,8 +452,8 @@ class DriveSync {
     return resp.json();
   }
 
-  // Sync all unsynced samples to Drive
-  async syncAll() {
+  // A12+M15 FIX: Sync with parallel photo upload (batches of 3) + progress callback
+  async syncAll(onProgress = null) {
     const unsynced = await pixDB.getUnsyncedSamples();
     if (unsynced.length === 0) return { synced: 0 };
 
@@ -385,12 +466,14 @@ class DriveSync {
     }
 
     let totalSynced = 0;
+    const totalToSync = unsynced.length;
 
     for (const [fieldId, samples] of Object.entries(byField)) {
-      // Get field info
+      // A5 FIX: Handle 'general' fieldId before parseInt
       let fieldName = 'campo';
-      if (fieldId !== 'general') {
-        const field = await pixDB.get('fields', parseInt(fieldId));
+      const numericFieldId = fieldId !== 'general' ? parseInt(fieldId) : null;
+      if (numericFieldId !== null && !isNaN(numericFieldId)) {
+        const field = await pixDB.get('fields', numericFieldId);
         if (field) fieldName = field.name;
       }
 
@@ -398,7 +481,9 @@ class DriveSync {
       const fileName = `muestreo_${fieldName}_${timestamp}.json`;
 
       // Get track data
-      const tracks = await pixDB.getAllByIndex('tracks', 'fieldId', parseInt(fieldId));
+      const tracks = numericFieldId !== null
+        ? await pixDB.getAllByIndex('tracks', 'fieldId', numericFieldId)
+        : [];
 
       const exportData = {
         app: 'PIX Muestreo',
@@ -424,27 +509,40 @@ class DriveSync {
 
       await this.uploadJSON(fileName, exportData);
 
-      // Upload photos — track failures separately for retry
-      for (const s of samples) {
-        let photoSynced = true;
-        if (s.photo) {
-          const photoName = `foto_${s.pointName || s.id}_${timestamp}.jpg`;
-          try {
-            await this.uploadPhoto(photoName, s.photo);
-          } catch (e) {
-            console.warn('Error uploading photo for', s.pointName, ':', e.message);
-            photoSynced = false;
+      // A12 FIX: Upload photos in parallel batches of 3 for better performance
+      const PHOTO_BATCH = 3;
+      const photosToUpload = samples.filter(s => s.photo).map(s => ({
+        sample: s,
+        photoName: `foto_${s.pointName || s.id}_${timestamp}.jpg`
+      }));
+
+      for (let i = 0; i < photosToUpload.length; i += PHOTO_BATCH) {
+        const batch = photosToUpload.slice(i, i + PHOTO_BATCH);
+        const results = await Promise.allSettled(
+          batch.map(({ sample, photoName }) =>
+            this.uploadPhoto(photoName, sample.photo).then(() => ({ id: sample.id, ok: true }))
+          )
+        );
+        // Mark each sample
+        for (let j = 0; j < batch.length; j++) {
+          const res = results[j];
+          if (res.status === 'fulfilled') {
+            await pixDB.markSynced(batch[j].sample.id);
+          } else {
+            console.warn('Photo upload failed for', batch[j].photoName, ':', res.reason?.message);
+            await pixDB.markSynced(batch[j].sample.id, { photoFailed: true });
           }
-        }
-        // Only mark as synced if data AND photo both succeeded (or no photo)
-        if (photoSynced) {
-          await pixDB.markSynced(s.id);
           totalSynced++;
-        } else {
-          // Mark data synced but flag photo pending for retry
-          await pixDB.markSynced(s.id, { photoFailed: true });
-          totalSynced++;
+          if (onProgress) onProgress(totalSynced, totalToSync);
         }
+      }
+
+      // Mark samples without photos
+      const noPhotoSamples = samples.filter(s => !s.photo);
+      for (const s of noPhotoSamples) {
+        await pixDB.markSynced(s.id);
+        totalSynced++;
+        if (onProgress) onProgress(totalSynced, totalToSync);
       }
     }
 

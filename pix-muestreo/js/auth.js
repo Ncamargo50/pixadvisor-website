@@ -12,10 +12,18 @@ class PixAuth {
     const userId = localStorage.getItem('pix_user_id');
     if (!userId) return false;
 
-    // Handle master admin session restore
+    // M7 FIX: Master admin session restore — validate with timestamp check
     if (userId === 'master-admin') {
-      this.currentUser = { id: 'master-admin', name: 'Administrador PIX', email: 'admin', role: 'admin', active: true, _isMaster: true };
-      return true;
+      const masterTs = localStorage.getItem('pix_master_ts');
+      // Session expires after 24 hours
+      if (masterTs && (Date.now() - parseInt(masterTs)) < 86400000) {
+        this.currentUser = { id: 'master-admin', name: 'Administrador PIX', email: 'admin', role: 'admin', active: true, _isMaster: true };
+        return true;
+      }
+      // Expired master session
+      localStorage.removeItem('pix_user_id');
+      localStorage.removeItem('pix_master_ts');
+      return false;
     }
 
     try {
@@ -48,6 +56,7 @@ class PixAuth {
       };
       this.currentUser = masterUser;
       localStorage.setItem('pix_user_id', masterUser.id);
+      localStorage.setItem('pix_master_ts', String(Date.now()));
       console.log('[Auth] Master key login');
       return masterUser;
     }

@@ -155,10 +155,11 @@ class GPSNavigator {
     return (meters / 1000).toFixed(1) + ' km';
   }
 
-  // Compass direction
+  // B1 FIX: Compass direction (Spanish: O=Oeste, SO=Suroeste, NO=Noroeste)
   compassDirection(bearing) {
-    const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
-    return dirs[Math.round(bearing / 45) % 8];
+    const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO']; // Spanish cardinals
+    const idx = Math.round(((bearing % 360) + 360) % 360 / 45) % 8;
+    return dirs[idx];
   }
 
   // Get current position once

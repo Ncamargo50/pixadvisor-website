@@ -133,19 +133,27 @@ class PixDB {
   }
 
   // Generic CRUD
+  // A3 FIX: Don't overwrite caller's createdAt (e.g. from sync/import)
   async add(store, data) {
     return new Promise((resolve, reject) => {
       const tx = this.db.transaction(store, 'readwrite');
-      const req = tx.objectStore(store).add({ ...data, createdAt: new Date().toISOString() });
+      const req = tx.objectStore(store).add({
+        ...data,
+        createdAt: data.createdAt || new Date().toISOString()
+      });
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
     });
   }
 
+  // A4 FIX: Don't overwrite caller's updatedAt (e.g. from remote sync)
   async put(store, data) {
     return new Promise((resolve, reject) => {
       const tx = this.db.transaction(store, 'readwrite');
-      const req = tx.objectStore(store).put({ ...data, updatedAt: new Date().toISOString() });
+      const req = tx.objectStore(store).put({
+        ...data,
+        updatedAt: data.updatedAt || new Date().toISOString()
+      });
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
     });

@@ -42,11 +42,9 @@ class PixApp {
       document.getElementById('driveClientId').value = clientId;
       try {
         await driveSync.init(clientId);
-        // Try restore token
-        const savedToken = localStorage.getItem('pix_drive_token');
-        if (savedToken) {
-          driveSync.accessToken = savedToken;
-          driveSync.isInitialized = true;
+        // C3 FIX: Use driveSync.isAuthenticated() which restores from sessionStorage
+        if (driveSync.isAuthenticated()) {
+          console.log('[App] Drive token restored from session');
         }
       } catch (e) { console.log('Drive init deferred'); }
     }
@@ -416,10 +414,13 @@ class PixApp {
     }
   }
 
-  // Auto-detect nearest point when user is within detection radius
-  // DataFarm methodology: auto-populate project/field/point from GPS position
+  // M8 FIX: Debounced auto-detect (runs max once per 3 seconds)
+  _autoDetectThrottle = 0;
   async autoDetectPoint() {
     if (!gpsNav.currentPosition || this.isNavigating) return;
+    const now = Date.now();
+    if (now - this._autoDetectThrottle < 3000) return;
+    this._autoDetectThrottle = now;
 
     const pos = gpsNav.currentPosition;
     const points = await pixDB.getAllByIndex('points', 'fieldId', this.currentField.id);
@@ -454,25 +455,32 @@ class PixApp {
     for (const field of fields) {
       if (!field.boundary) continue;
 
-      // Check if GPS position is inside field boundary polygon
+      // C5 FIX: Handle both Polygon and MultiPolygon geometries
       const features = field.boundary.features || [field.boundary];
       for (const feature of features) {
-        const coords = feature.geometry?.coordinates?.[0];
-        if (!coords || coords.length < 3) continue;
+        const geom = feature.geometry;
+        if (!geom) continue;
 
-        // Point-in-polygon ray casting
-        let inside = false;
-        const x = pos.lng, y = pos.lat;
-        for (let i = 0, j = coords.length - 1; i < coords.length; j = i++) {
-          const xi = coords[i][0], yi = coords[i][1];
-          const xj = coords[j][0], yj = coords[j][1];
-          if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) {
-            inside = !inside;
+        // Get all outer rings (MultiPolygon has multiple, Polygon has one)
+        const outerRings = geom.type === 'MultiPolygon'
+          ? geom.coordinates.map(poly => poly[0])
+          : geom.type === 'Polygon' ? [geom.coordinates[0]] : [];
+
+        for (const coords of outerRings) {
+          if (!coords || coords.length < 3) continue;
+
+          // Point-in-polygon ray casting
+          let inside = false;
+          const x = pos.lng, y = pos.lat;
+          for (let i = 0, j = coords.length - 1; i < coords.length; j = i++) {
+            const xi = coords[i][0], yi = coords[i][1];
+            const xj = coords[j][0], yj = coords[j][1];
+            if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) {
+              inside = !inside;
+            }
           }
-        }
 
-        if (inside) {
-          return field;
+          if (inside) return field;
         }
       }
     }
@@ -581,6 +589,13 @@ class PixApp {
     if (!this.currentPoint) {
       this.toast('Seleccioná un punto en el mapa', 'warning');
       return;
+    }
+
+    // A2 FIX: Warn if GPS is not active or accuracy is poor
+    if (!gpsNav.currentPosition) {
+      this.toast('Sin señal GPS. Coordenadas serán del punto teórico.', 'warning');
+    } else if (gpsNav.currentPosition.accuracy > 30) {
+      this.toast(`GPS baja precisión (±${Math.round(gpsNav.currentPosition.accuracy)}m)`, 'warning');
     }
 
     document.getElementById('collectPointName').textContent = `Punto ${this.currentPoint.name}`;
@@ -728,13 +743,26 @@ class PixApp {
     const collector = document.getElementById('collectorField').value;
     const notes = document.getElementById('sampleNotes').value;
 
+    // A7 FIX: Validate sampleType has a real value
+    if (!sampleType || sampleType === '' || sampleType === 'none') {
+      this.toast('Seleccioná el tipo de análisis', 'warning');
+      return;
+    }
+
+    // A8 FIX: Validate collector name
+    if (!collector || collector.trim() === '') {
+      this.toast('Ingresá el nombre del colector', 'warning');
+      document.getElementById('collectorField').focus();
+      return;
+    }
+
     // Save collector name
-    if (collector) await pixDB.setSetting('collectorName', collector);
+    await pixDB.setSetting('collectorName', collector.trim());
 
     // Build IBRA metadata if available
     const ibraData = this.collectForm.parsedIBRA || null;
 
-    // Use GPS averaging for maximum precision at collect time
+    // A1 FIX: GPS averaging with cancel support + timeout guard
     let gpsLat = gpsNav.currentPosition?.lat || this.currentPoint.lat;
     let gpsLng = gpsNav.currentPosition?.lng || this.currentPoint.lng;
     let gpsAcc = gpsNav.currentPosition?.accuracy || null;
@@ -744,16 +772,24 @@ class PixApp {
       try {
         const avgSamples = parseInt(await pixDB.getSetting('gps_avgSamples') || '10');
         this.toast(`Promediando ${avgSamples} lecturas GPS...`, 'info');
-        const avg = await gpsNav.averagePosition(avgSamples, 1500, (taken, total, acc) => {
+
+        // Wrap averaging with a max 15-second timeout to prevent UI freeze
+        const avgPromise = gpsNav.averagePosition(avgSamples, 1500, (taken, total, acc) => {
           const el = document.getElementById('collectCoords');
-          if (el) el.textContent = `GPS: ${taken}/${total} lecturas (±${acc.toFixed(1)}m)`;
+          if (el) el.textContent = `GPS: ${taken}/${total} lecturas (+-${acc.toFixed(1)}m)`;
         });
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('GPS averaging timeout')), 15000)
+        );
+
+        const avg = await Promise.race([avgPromise, timeoutPromise]);
         gpsLat = avg.lat;
         gpsLng = avg.lng;
         gpsAcc = avg.accuracy;
-        gpsMethod = `averaged_${avg.samples}pts`;
+        gpsMethod = `averaged_${avg.samples || avg.samplesUsed || '?'}pts`;
       } catch (e) {
-        console.warn('GPS averaging failed, using single reading:', e);
+        console.warn('GPS averaging failed, using single reading:', e.message);
+        this.toast('GPS: usando lectura simple', 'warning');
       }
     }
 
@@ -1033,6 +1069,9 @@ class PixApp {
       }
     });
 
+    // M14 FIX: Track assigned points to prevent duplicates across polygons
+    const assignedPointIndices = new Set();
+
     // If we have polygons, create fields from them (with DB error handling)
     if (polygons.length > 0) {
       for (let i = 0; i < polygons.length; i++) {
@@ -1048,12 +1087,20 @@ class PixApp {
             boundary: { type: 'FeatureCollection', features: [poly] }
           });
 
-          // Assign points that fall inside this polygon (or all if only 1 polygon)
-          const fieldPoints = polygons.length === 1 ? points :
-            points.filter(p => this.pointInPolygon(p.geometry.coordinates, poly.geometry));
+          // Assign points: if only 1 polygon use all, otherwise do point-in-polygon
+          let fieldPoints;
+          if (polygons.length === 1) {
+            fieldPoints = points.map((p, idx) => ({ ...p, _idx: idx }));
+          } else {
+            fieldPoints = points
+              .map((p, idx) => ({ ...p, _idx: idx }))
+              .filter(p => !assignedPointIndices.has(p._idx) &&
+                this.pointInPolygon(p.geometry.coordinates, poly.geometry));
+          }
 
           for (let j = 0; j < fieldPoints.length; j++) {
             const pt = fieldPoints[j];
+            assignedPointIndices.add(pt._idx);
             await pixDB.add('points', {
               fieldId,
               name: pt.properties?.name || pt.properties?.Name || pt.properties?.id || `P${j + 1}`,
@@ -1094,42 +1141,70 @@ class PixApp {
     }
   }
 
-  // Calculate polygon area (approximate, in hectares)
+  // M9 FIX: Calculate polygon area — handles MultiPolygon + holes correctly
   calculateArea(geometry) {
-    const coords = geometry.type === 'MultiPolygon'
-      ? geometry.coordinates[0][0]
-      : geometry.coordinates[0];
+    // Get all polygon rings (MultiPolygon may have multiple polygons)
+    const polygonRings = geometry.type === 'MultiPolygon'
+      ? geometry.coordinates.map(poly => poly) // each poly = [outerRing, ...holes]
+      : [geometry.coordinates]; // single polygon = [outerRing, ...holes]
+
+    let totalArea = 0;
+
+    for (const rings of polygonRings) {
+      const outerRing = rings[0];
+      if (!outerRing || outerRing.length < 3) continue;
+
+      // Calculate outer ring area
+      totalArea += this._ringArea(outerRing);
+
+      // Subtract hole areas
+      for (let h = 1; h < rings.length; h++) {
+        if (rings[h] && rings[h].length >= 3) {
+          totalArea -= this._ringArea(rings[h]);
+        }
+      }
+    }
+
+    return Math.abs(totalArea);
+  }
+
+  // Helper: Shoelace area of a coordinate ring in hectares
+  _ringArea(coords) {
     if (!coords || coords.length < 3) return 0;
+    const latMid = coords.reduce((s, c) => s + c[1], 0) / coords.length;
+    const mPerDegLat = 111320;
+    const mPerDegLng = 111320 * Math.cos(latMid * Math.PI / 180);
 
     let area = 0;
     for (let i = 0; i < coords.length - 1; i++) {
-      const [lng1, lat1] = coords[i];
-      const [lng2, lat2] = coords[i + 1];
-      area += lng1 * lat2 - lng2 * lat1;
+      const x1 = coords[i][0] * mPerDegLng, y1 = coords[i][1] * mPerDegLat;
+      const x2 = coords[i + 1][0] * mPerDegLng, y2 = coords[i + 1][1] * mPerDegLat;
+      area += x1 * y2 - x2 * y1;
     }
-    area = Math.abs(area) / 2;
-    // Convert degrees² to hectares (approximate)
-    const latMid = coords.reduce((s, c) => s + c[1], 0) / coords.length;
-    const metersPerDegreeLat = 111320;
-    const metersPerDegreeLng = 111320 * Math.cos(latMid * Math.PI / 180);
-    return (area * metersPerDegreeLat * metersPerDegreeLng) / 10000;
+    return Math.abs(area / 2) / 10000; // m² → hectares
   }
 
-  // Point in polygon test
+  // Point in polygon test — handles MultiPolygon
   pointInPolygon(point, polygon) {
-    const coords = polygon.type === 'MultiPolygon'
-      ? polygon.coordinates[0][0]
-      : polygon.coordinates[0];
     const [x, y] = point;
-    let inside = false;
-    for (let i = 0, j = coords.length - 1; i < coords.length; j = i++) {
-      const [xi, yi] = coords[i];
-      const [xj, yj] = coords[j];
-      if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) {
-        inside = !inside;
+    // Get all outer rings to test against
+    const outerRings = polygon.type === 'MultiPolygon'
+      ? polygon.coordinates.map(poly => poly[0])
+      : [polygon.coordinates[0]];
+
+    for (const coords of outerRings) {
+      if (!coords || coords.length < 3) continue;
+      let inside = false;
+      for (let i = 0, j = coords.length - 1; i < coords.length; j = i++) {
+        const [xi, yi] = coords[i];
+        const [xj, yj] = coords[j];
+        if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) {
+          inside = !inside;
+        }
       }
+      if (inside) return true;
     }
-    return inside;
+    return false;
   }
 
   // ===== SYNC =====
@@ -1159,7 +1234,10 @@ class PixApp {
     this.addSyncLog('Iniciando sincronización...');
 
     try {
-      const result = await driveSync.syncAll();
+      const result = await driveSync.syncAll((done, total) => {
+        const pct = Math.round((done / total) * 100);
+        btn.innerHTML = `<svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg> ${done}/${total} (${pct}%)`;
+      });
       this.addSyncLog(`✓ ${result.synced} muestras sincronizadas a Drive`);
       this.toast(`${result.synced} muestras sincronizadas`, 'success');
     } catch (e) {
@@ -1174,6 +1252,7 @@ class PixApp {
 
   // Export all data as JSON (offline backup)
   async exportLocalBackup() {
+    // B5 FIX: Include serviceOrders in backup
     const data = {
       app: 'PIX Muestreo',
       exportDate: new Date().toISOString(),
@@ -1181,7 +1260,9 @@ class PixApp {
       fields: await pixDB.getAll('fields'),
       points: await pixDB.getAll('points'),
       samples: await pixDB.getAll('samples'),
-      tracks: await pixDB.getAll('tracks')
+      tracks: await pixDB.getAll('tracks'),
+      serviceOrders: await pixDB.getAll('serviceOrders'),
+      users: await pixDB.getAll('users')
     };
 
     // Remove photos from backup (too large)
@@ -1200,7 +1281,9 @@ class PixApp {
 
   addSyncLog(message) {
     const log = document.getElementById('syncLog');
-    const time = new Date().toLocaleTimeString().slice(0, 5);
+    // B8 FIX: Use 24h format for consistent time display across locales
+    const now = new Date();
+    const time = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
     log.innerHTML += `<div class="sync-log-entry"><span class="time">${time}</span>${message}</div>`;
     log.scrollTop = log.scrollHeight;
   }
@@ -1356,17 +1439,25 @@ class PixApp {
       }]
     };
 
-    // Calculate area (Shoelace formula)
+    // C4 FIX: Correct Shoelace formula — convert ALL coords to meters first
+    const centerLat = positions.reduce((s, p) => s + p.lat, 0) / positions.length;
+    const mPerDegLat = 111320;
+    const mPerDegLng = 111320 * Math.cos(centerLat * Math.PI / 180);
+
+    // Convert to local metric coordinates
+    const mCoords = positions.map(p => ({
+      x: p.lng * mPerDegLng,
+      y: p.lat * mPerDegLat
+    }));
+
+    // Shoelace formula on metric coords
     let area = 0;
-    for (let i = 0; i < positions.length; i++) {
-      const j = (i + 1) % positions.length;
-      // Convert to meters using average latitude
-      const avgLat = (positions[i].lat + positions[j].lat) / 2;
-      const dx = (positions[j].lng - positions[i].lng) * 111320 * Math.cos(avgLat * Math.PI / 180);
-      const dy = (positions[j].lat - positions[i].lat) * 111320;
-      area += positions[i].lat * dx - positions[j].lat * dx;
+    for (let i = 0; i < mCoords.length; i++) {
+      const j = (i + 1) % mCoords.length;
+      area += mCoords[i].x * mCoords[j].y;
+      area -= mCoords[j].x * mCoords[i].y;
     }
-    area = Math.abs(area / 2) / 10000; // to hectares
+    area = Math.abs(area / 2) / 10000; // m² → hectares
 
     // Save to field in DB
     if (this.currentField) {
@@ -1461,6 +1552,7 @@ class PixApp {
   }
 
   // Delete project
+  // A11 FIX: Also delete service orders + tracks associated with the project
   async deleteProject(projectId) {
     if (!confirm('¿Eliminar este proyecto y todos sus datos?')) return;
 
@@ -1470,8 +1562,14 @@ class PixApp {
       for (const p of points) await pixDB.delete('points', p.id);
       const samples = await pixDB.getAllByIndex('samples', 'fieldId', f.id);
       for (const s of samples) await pixDB.delete('samples', s.id);
+      const tracks = await pixDB.getAllByIndex('tracks', 'fieldId', f.id);
+      for (const t of tracks) await pixDB.delete('tracks', t.id);
       await pixDB.delete('fields', f.id);
     }
+    // Delete service orders for this project
+    const orders = await pixDB.getAllByIndex('serviceOrders', 'projectId', projectId);
+    for (const o of orders) await pixDB.delete('serviceOrders', o.id);
+
     await pixDB.delete('projects', projectId);
     this.loadProjects();
     this.toast('Proyecto eliminado', '');
