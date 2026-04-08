@@ -103,11 +103,9 @@
             </div>
         </div>
         <div class="header-actions">
-            <div class="header-user-pill" id="userPill" style="display:none">
-                <span id="currentUserName" style="font-size:11px;color:var(--text-muted);max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
-                <button class="header-btn" onclick="pixAuth.logout()" title="Cerrar sesion" style="width:28px;height:28px">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
-                </button>
+            <div class="header-user-pill" id="userPill" style="display:none;cursor:pointer" onclick="app.showUserMenu()">
+                <span id="currentUserName" style="font-size:11px;color:var(--text-muted);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;opacity:0.5"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
             </div>
             <div class="header-status-pill" id="connectionPill">
                 <span id="connectionDot" class="status-dot offline"></span>

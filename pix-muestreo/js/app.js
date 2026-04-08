@@ -1753,23 +1753,33 @@ ${detailHTML}
     }
 
     if (!gpsNav.currentPosition) {
-      this.toast('Esperá señal GPS antes de iniciar', 'warning');
+      this.toast('Espera señal GPS antes de iniciar', 'warning');
+      return;
+    }
+
+    // Must have a field selected (or create one)
+    if (!this.currentField) {
+      this.toast('Primero selecciona o crea un campo en Proyectos', 'warning');
       return;
     }
 
     this._boundaryTracing = true;
     this._boundaryPositions = [];
     this._boundaryPolyline = null;
+    this._boundaryPolygonPreview = null;
+
+    // Enable map follow
+    pixMap.enableFollow();
 
     // Start GPS tracking
     gpsNav.startTracking();
 
-    // Record positions at regular intervals (every 3 seconds)
+    // Record positions at regular intervals (every 2 seconds for better resolution)
     this._boundaryInterval = setInterval(() => {
       if (!gpsNav.currentPosition) return;
 
       const pos = gpsNav.currentPosition;
-      // Only add if accuracy is reasonable and moved > 2m from last point
+      // Only add if accuracy is reasonable
       if (pos.accuracy > 20) return;
 
       const last = this._boundaryPositions[this._boundaryPositions.length - 1];
@@ -1780,26 +1790,69 @@ ${detailHTML}
 
       this._boundaryPositions.push({ lat: pos.lat, lng: pos.lng, accuracy: pos.accuracy });
 
-      // Draw polyline on map
-      if (this._boundaryPolyline) {
-        pixMap.map.removeLayer(this._boundaryPolyline);
-      }
-      const latlngs = this._boundaryPositions.map(p => [p.lat, p.lng]);
-      this._boundaryPolyline = L.polyline(latlngs, {
-        color: '#7FD633', weight: 3, dashArray: '8,6', opacity: 0.9
-      }).addTo(pixMap.map);
+      // Draw CLOSED polygon preview on map (not just polyline)
+      this._updateBoundaryPreview();
 
-      // Show point count
-      const btn = document.getElementById('boundaryBtn');
-      if (btn) btn.textContent = `Trazando (${this._boundaryPositions.length} pts)`;
-    }, 3000);
+      // Update stop bar counter
+      const countEl = document.getElementById('boundaryPtCount');
+      if (countEl) countEl.textContent = this._boundaryPositions.length;
+    }, 2000);
 
+    // Show prominent stop bar at bottom of map
+    this._showBoundaryStopBar();
+
+    // Highlight the boundary button
     const btn = document.getElementById('boundaryBtn');
-    if (btn) {
-      btn.classList.add('active');
-      btn.textContent = 'Trazando...';
+    if (btn) btn.classList.add('active');
+
+    this.toast('Camina alrededor del lote. El area se dibuja en tiempo real.', 'success');
+  }
+
+  // Update the closed polygon preview while tracing
+  _updateBoundaryPreview() {
+    if (!pixMap.map) return;
+    const positions = this._boundaryPositions;
+    if (positions.length < 2) return;
+
+    // Remove old layers
+    if (this._boundaryPolyline) pixMap.map.removeLayer(this._boundaryPolyline);
+    if (this._boundaryPolygonPreview) pixMap.map.removeLayer(this._boundaryPolygonPreview);
+
+    const latlngs = positions.map(p => [p.lat, p.lng]);
+
+    // Draw walked path (solid green line)
+    this._boundaryPolyline = L.polyline(latlngs, {
+      color: '#7FD633', weight: 3, opacity: 0.9
+    }).addTo(pixMap.map);
+
+    // Draw closing line + polygon fill (dashed line from last to first point)
+    if (positions.length >= 3) {
+      this._boundaryPolygonPreview = L.polygon(latlngs, {
+        color: '#7FD633', weight: 2, dashArray: '6,6', opacity: 0.5,
+        fillColor: '#7FD633', fillOpacity: 0.08
+      }).addTo(pixMap.map);
     }
-    this.toast('Caminá alrededor del lote. Trazando perímetro...', 'success');
+  }
+
+  // Show a prominent bar at bottom of map during boundary tracing
+  _showBoundaryStopBar() {
+    // Remove if already exists
+    const existing = document.getElementById('boundaryStopBar');
+    if (existing) existing.remove();
+
+    const bar = document.createElement('div');
+    bar.id = 'boundaryStopBar';
+    bar.style.cssText = 'position:fixed;bottom:60px;left:0;right:0;z-index:9999;padding:12px 16px;background:linear-gradient(135deg,rgba(127,214,51,0.95),rgba(13,148,136,0.95));display:flex;align-items:center;justify-content:space-between;gap:12px;backdrop-filter:blur(8px);box-shadow:0 -4px 20px rgba(0,0,0,0.4);';
+    bar.innerHTML = `
+      <div style="color:white">
+        <div style="font-size:14px;font-weight:700">Trazando perimetro GPS</div>
+        <div style="font-size:12px;opacity:0.85"><span id="boundaryPtCount">${this._boundaryPositions.length}</span> puntos registrados</div>
+      </div>
+      <button onclick="app.stopBoundaryTrace()" style="padding:10px 20px;border-radius:10px;border:2px solid white;background:rgba(255,255,255,0.15);color:white;font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap">
+        CERRAR Y GUARDAR
+      </button>
+    `;
+    document.body.appendChild(bar);
   }
 
   // Stop boundary tracing and save as field boundary GeoJSON
@@ -1812,7 +1865,7 @@ ${detailHTML}
 
     const positions = this._boundaryPositions || [];
     if (positions.length < 4) {
-      this.toast('Necesitás al menos 4 puntos para un perímetro', 'warning');
+      this.toast('Necesitas al menos 4 puntos para cerrar un area. Camina mas.', 'warning');
       this._cleanupBoundaryTrace();
       return;
     }
@@ -1858,13 +1911,21 @@ ${detailHTML}
 
     // Save to field in DB
     if (this.currentField) {
-      this.currentField.boundary = geojson;
-      this.currentField.area = Math.round(area * 100) / 100;
-      await pixDB.put('fields', this.currentField);
+      try {
+        this.currentField.boundary = geojson;
+        this.currentField.area = Math.round(area * 100) / 100;
+        await pixDB.put('fields', this.currentField);
 
-      // Reload field on map
-      this.loadFieldOnMap(this.currentField);
-      this.toast(`Perímetro guardado: ${positions.length} puntos, ${area.toFixed(1)} ha`, 'success');
+        // Reload field on map
+        this.loadFieldOnMap(this.currentField);
+        this.toast(`Area guardada: ${positions.length} puntos, ${area.toFixed(2)} ha`, 'success');
+        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+      } catch (err) {
+        console.error('[Boundary] Save error:', err);
+        this.toast('Error al guardar el area: ' + err.message, 'error');
+      }
+    } else {
+      this.toast('Error: no hay campo seleccionado. El area no se guardo.', 'error');
     }
 
     this._cleanupBoundaryTrace();
@@ -1874,12 +1935,22 @@ ${detailHTML}
     if (this._boundaryPolyline && pixMap.map) {
       pixMap.map.removeLayer(this._boundaryPolyline);
     }
+    if (this._boundaryPolygonPreview && pixMap.map) {
+      pixMap.map.removeLayer(this._boundaryPolygonPreview);
+    }
     this._boundaryPositions = [];
     this._boundaryPolyline = null;
+    this._boundaryPolygonPreview = null;
+
+    // Remove stop bar
+    const bar = document.getElementById('boundaryStopBar');
+    if (bar) bar.remove();
+
+    // Restore boundary button
     const btn = document.getElementById('boundaryBtn');
     if (btn) {
       btn.classList.remove('active');
-      btn.textContent = 'Contornar';
+      btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3,6 9,3 15,6 21,3 21,18 15,21 9,18 3,21"/></svg>';
     }
   }
 
@@ -2078,6 +2149,45 @@ ${detailHTML}
   // Center map
   centerMap() {
     pixMap.centerOnUser();
+  }
+
+  // User menu (logout, user info)
+  showUserMenu() {
+    const user = pixAuth.currentUser;
+    if (!user) return;
+
+    // Remove existing menu
+    const existing = document.getElementById('userMenuPopup');
+    if (existing) { existing.remove(); return; }
+
+    const popup = document.createElement('div');
+    popup.id = 'userMenuPopup';
+    popup.style.cssText = 'position:fixed;top:56px;right:8px;z-index:99999;background:#1a2744;border:1px solid rgba(127,214,51,0.2);border-radius:14px;padding:16px;min-width:220px;box-shadow:0 8px 32px rgba(0,0,0,0.5);font-family:Inter,sans-serif;';
+    popup.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.08)">
+        <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#7FD633,#0d9488);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:16px">${(user.name || 'U')[0].toUpperCase()}</div>
+        <div>
+          <div style="color:white;font-size:14px;font-weight:600">${user.name}</div>
+          <div style="color:#94a3b8;font-size:11px">${user.email || ''}</div>
+          <div style="color:#7FD633;font-size:10px;font-weight:600;text-transform:uppercase">${pixAuth.getRoleLabel(user.role)}</div>
+        </div>
+      </div>
+      <button onclick="pixAuth.logout()" style="width:100%;padding:12px;border-radius:10px;border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.1);color:#ef4444;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;font-family:Inter,sans-serif">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        Cerrar Sesion
+      </button>
+    `;
+
+    // Close when clicking outside
+    const closeHandler = (e) => {
+      if (!popup.contains(e.target) && !document.getElementById('userPill').contains(e.target)) {
+        popup.remove();
+        document.removeEventListener('click', closeHandler);
+      }
+    };
+    setTimeout(() => document.addEventListener('click', closeHandler), 100);
+
+    document.body.appendChild(popup);
   }
 
   // Navigate to next pending
