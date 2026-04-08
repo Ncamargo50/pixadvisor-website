@@ -359,6 +359,12 @@ class PixApp {
 
     // Auto-prefetch tiles for field area (background, non-blocking)
     this._prefetchFieldTiles(field);
+
+    // Auto-start GPS tracking when entering a field
+    this._ensureTracking();
+
+    // Auto-navigate to first pending point
+    setTimeout(() => this.nextPoint(), 800);
   }
 
   // Pre-fetch satellite tiles for field area at useful zoom levels
@@ -646,7 +652,13 @@ class PixApp {
       this.toast(`GPS baja precisión (±${Math.round(gpsNav.currentPosition.accuracy)}m)`, 'warning');
     }
 
-    document.getElementById('collectPointName').textContent = `Punto ${this.currentPoint.name}`;
+    // Detect if this is a principal or submuestra
+    const isSubmuestra = this._detectPointType(this.currentPoint) === 'submuestra';
+    const zona = this._detectZone(this.currentPoint);
+
+    document.getElementById('collectPointName').textContent = isSubmuestra
+      ? `Submuestra ${this.currentPoint.name} (Zona ${zona})`
+      : `Punto Principal ${this.currentPoint.name} (Zona ${zona})`;
     document.getElementById('collectCoords').textContent =
       `${this.currentPoint.lat.toFixed(6)}, ${this.currentPoint.lng.toFixed(6)}`;
 
@@ -660,11 +672,34 @@ class PixApp {
     document.getElementById('photoPlaceholder').style.display = 'flex';
     this.collectForm = { barcode: null, photo: null, parsedIBRA: null };
 
+    // SIMPLE vs COMPLETE form: hide fields for submuestras
+    const qrGroup = document.getElementById('barcodeDisplay')?.closest('.form-group');
+    const typeGroup = document.getElementById('sampleType')?.closest('.form-group');
+    const photoGroup = document.getElementById('photoPreviewImg')?.closest('.form-group');
+    const collectorGroup = document.getElementById('collectorField')?.closest('.form-group');
+    const saveBtn = document.querySelector('#collectModal .sync-btn');
+
+    if (isSubmuestra) {
+      // SIMPLE form: hide QR, type, photo, collector
+      if (qrGroup) qrGroup.style.display = 'none';
+      if (typeGroup) typeGroup.style.display = 'none';
+      if (photoGroup) photoGroup.style.display = 'none';
+      if (collectorGroup) collectorGroup.style.display = 'none';
+      if (saveBtn) saveBtn.textContent = 'Confirmar submuestra';
+    } else {
+      // COMPLETE form: show everything
+      if (qrGroup) qrGroup.style.display = '';
+      if (typeGroup) typeGroup.style.display = '';
+      if (photoGroup) photoGroup.style.display = '';
+      if (collectorGroup) collectorGroup.style.display = '';
+      if (saveBtn) saveBtn.textContent = 'Guardar Muestra';
+    }
+
     // Set default collector
     const collector = await pixDB.getSetting('collectorName');
     if (collector) document.getElementById('collectorField').value = collector;
 
-    // Auto-adjust depth based on previous samples (DataFarm feature)
+    // Auto-adjust depth
     this.autoAdjustDepth();
 
     // Show modal
@@ -786,26 +821,28 @@ class PixApp {
       return;
     }
 
+    const isSubmuestra = this._detectPointType(this.currentPoint) === 'submuestra';
     const depth = this.collectForm.depth || document.querySelector('.depth-chip.active')?.dataset.depth || '0-20';
     const sampleType = document.getElementById('sampleType').value;
-    const collector = document.getElementById('collectorField').value;
+    const collector = document.getElementById('collectorField').value || await pixDB.getSetting('collectorName') || '';
     const notes = document.getElementById('sampleNotes').value;
 
-    // A7 FIX: Validate sampleType has a real value
-    if (!sampleType || sampleType === '' || sampleType === 'none') {
-      this.toast('Seleccioná el tipo de análisis', 'warning');
-      return;
+    // Validations only for principal points (subs inherit from principal)
+    if (!isSubmuestra) {
+      if (!sampleType || sampleType === '' || sampleType === 'none') {
+        this.toast('Seleccioná el tipo de análisis', 'warning');
+        return;
+      }
+      if (!collector || collector.trim() === '') {
+        this.toast('Ingresá el nombre del colector', 'warning');
+        document.getElementById('collectorField').focus();
+        return;
+      }
+      // Save collector name for subs to inherit
+      await pixDB.setSetting('collectorName', collector.trim());
+      // Save sampleType for subs to inherit
+      await pixDB.setSetting('lastSampleType', sampleType);
     }
-
-    // A8 FIX: Validate collector name
-    if (!collector || collector.trim() === '') {
-      this.toast('Ingresá el nombre del colector', 'warning');
-      document.getElementById('collectorField').focus();
-      return;
-    }
-
-    // Save collector name
-    await pixDB.setSetting('collectorName', collector.trim());
 
     // Build IBRA metadata if available
     const ibraData = this.collectForm.parsedIBRA || null;
@@ -841,22 +878,28 @@ class PixApp {
       }
     }
 
+    // For submuestras: inherit sampleType and collector from last principal
+    const effectiveType = isSubmuestra ? (await pixDB.getSetting('lastSampleType') || sampleType) : sampleType;
+    const effectiveCollector = isSubmuestra ? (await pixDB.getSetting('collectorName') || collector) : collector;
+
     const sample = {
       pointId: this.currentPoint.id,
       fieldId: this.currentField.id,
       pointName: this.currentPoint.name,
+      pointType: isSubmuestra ? 'submuestra' : 'principal',
+      zona: this._detectZone(this.currentPoint),
       lat: gpsLat,
       lng: gpsLng,
       accuracy: gpsAcc,
       gpsMethod: gpsMethod,
       depth: depth,
-      sampleType: sampleType,
+      sampleType: effectiveType,
       barcode: this.collectForm.barcode,
       ibraSampleId: ibraData?.sampleId || null,
       ibraLabOrder: ibraData?.labOrder || null,
       ibraSource: ibraData?.source || null,
       ibraRaw: ibraData?.raw || null,
-      collector: collector,
+      collector: effectiveCollector,
       userId: pixAuth.getUserId(),
       notes: notes,
       photo: this.collectForm.photo,
@@ -878,18 +921,18 @@ class PixApp {
     }
 
     this.closeCollectForm();
-    this.toast(`Muestra guardada: ${this.currentPoint.name}`, 'success');
+    this.toast(`${isSubmuestra ? 'Submuestra' : 'Muestra'} guardada: ${this.currentPoint.name}`, 'success');
 
-    // Navigate to next pending point
-    const points = await pixDB.getAllByIndex('points', 'fieldId', this.currentField.id);
-    const nextPending = points.find(p => p.status === 'pending');
-    if (nextPending) {
-      this.onPointClick(nextPending);
+    // Check if current zone is complete → show QR modal
+    const currentZone = this._detectZone(this.currentPoint);
+    const zoneComplete = await this._checkZoneComplete(currentZone);
+
+    if (zoneComplete) {
+      // Zone done! Show QR IBRA modal
+      this._openZoneCompleteModal(currentZone);
     } else {
-      gpsNav.clearTarget();
-      pixMap.clearNavigationLine();
-      this.isNavigating = false;
-      this.toast('¡Todos los puntos recolectados!', 'success');
+      // Navigate to next point in same zone (principal first, then subs in order)
+      this.nextPoint();
     }
   }
 
@@ -1555,6 +1598,138 @@ class PixApp {
     }
   }
 
+  // ===== ZONE COMPLETION WORKFLOW =====
+
+  // Check if all points in a zone are collected
+  async _checkZoneComplete(zona) {
+    const points = await pixDB.getAllByIndex('points', 'fieldId', this.currentField.id);
+    const zonePoints = points.filter(p => this._detectZone(p) == zona);
+    return zonePoints.length > 0 && zonePoints.every(p => p.status === 'collected');
+  }
+
+  // Show zone complete modal with QR IBRA scan
+  async _openZoneCompleteModal(zona) {
+    const points = await pixDB.getAllByIndex('points', 'fieldId', this.currentField.id);
+    const zonePoints = points.filter(p => this._detectZone(p) == zona);
+    const subs = zonePoints.filter(p => this._detectPointType(p) === 'submuestra');
+    const principal = zonePoints.find(p => this._detectPointType(p) === 'principal');
+
+    // Get zone metadata for class name
+    const clase = principal?.properties?.clase || this.currentField?.zonasMetadata?.[zona - 1]?.clase || '';
+    const colorMap = { 'Alta': '#4CAF50', 'Media': '#FFEB3B', 'Baja': '#F44336' };
+    const color = colorMap[clase] || '#00BFA5';
+
+    // Update modal content
+    const badge = document.getElementById('zoneCompleteBadge');
+    badge.textContent = `Zona ${zona} (${clase || 'Completa'})`;
+    badge.style.background = color;
+    badge.style.color = clase === 'Media' ? '#333' : '#fff';
+
+    document.getElementById('zoneCompleteTitle').textContent = `Zona ${zona} completa!`;
+    document.getElementById('zoneCompleteSubtitle').textContent =
+      `${subs.length} submuestras + 1 principal recolectadas`;
+
+    // Reset QR display
+    document.getElementById('zoneBarcodeValue').textContent = 'Sin escanear';
+    const detailsEl = document.getElementById('zoneIbraDetails');
+    if (detailsEl) detailsEl.style.display = 'none';
+    this._zoneCompleteData = { zona, zonePoints };
+
+    // Check if all zones are done
+    const allPoints = await pixDB.getAllByIndex('points', 'fieldId', this.currentField.id);
+    const allDone = allPoints.every(p => p.status === 'collected');
+    const nextBtn = document.querySelector('#zoneCompleteModal .sync-btn');
+    if (allDone && nextBtn) {
+      nextBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg> Campo Completo!';
+    }
+
+    gpsNav.clearTarget();
+    pixMap.clearNavigationLine();
+    this.isNavigating = false;
+
+    document.getElementById('zoneCompleteModal').classList.add('active');
+    if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]);
+  }
+
+  // Scan QR IBRA for zone bag
+  async scanZoneBarcode() {
+    document.getElementById('scannerOverlay').classList.add('active');
+    try {
+      await barcodeScanner.init('scannerViewfinder', async (code) => {
+        const parsed = BarcodeScanner.parseIBRA(code);
+        const display = document.getElementById('zoneBarcodeValue');
+        const details = document.getElementById('zoneIbraDetails');
+
+        if (parsed.isIBRA && parsed.sampleId) {
+          display.innerHTML = `<span class="ibra-badge">IBRA</span> ${parsed.sampleId}`;
+          if (details) {
+            details.textContent = BarcodeScanner.formatIBRADisplay(parsed);
+            details.style.display = 'block';
+          }
+        } else {
+          display.textContent = code;
+          if (details) details.style.display = 'none';
+        }
+
+        // Associate QR with all samples in this zone
+        if (this._zoneCompleteData) {
+          const { zona, zonePoints } = this._zoneCompleteData;
+          const samples = await pixDB.getAll('samples');
+          const zoneSamples = samples.filter(s =>
+            s.fieldId === this.currentField.id && this._zonePointIds(zonePoints).includes(s.pointId)
+          );
+          for (const s of zoneSamples) {
+            s.zoneBarcode = code;
+            s.zoneIbraSampleId = parsed.sampleId || null;
+            s.zoneIbraRaw = parsed.raw || code;
+            await pixDB.put('samples', s);
+          }
+          this.toast(`QR IBRA asociado a ${zoneSamples.length} muestras de Zona ${zona}`, 'success');
+        }
+
+        this.closeScannerOverlay();
+      });
+    } catch (e) {
+      this.toast('Error al iniciar cámara', 'error');
+      this.closeScannerOverlay();
+    }
+  }
+
+  _zonePointIds(zonePoints) {
+    return zonePoints.map(p => p.id);
+  }
+
+  // Navigate to next zone after completing current one
+  async nextZone() {
+    document.getElementById('zoneCompleteModal').classList.remove('active');
+
+    const points = await pixDB.getAllByIndex('points', 'fieldId', this.currentField.id);
+    const allDone = points.every(p => p.status === 'collected');
+
+    if (allDone) {
+      // Stop tracking when all done
+      if (gpsNav.isTracking) this.toggleTracking();
+      this.toast('CAMPO COMPLETO! Todas las zonas muestreadas', 'success');
+      gpsNav.clearTarget();
+      pixMap.clearNavigationLine();
+      this.isNavigating = false;
+    } else {
+      // Navigate to next zone's principal
+      this.nextPoint();
+    }
+  }
+
+  // ===== AUTO GPS TRACKING =====
+  // Automatically start tracking when first point is collected
+  _ensureTracking() {
+    if (!gpsNav.isTracking && this.currentField) {
+      gpsNav.startTracking();
+      const btn = document.getElementById('trackBtn');
+      if (btn) btn.classList.add('active');
+      console.log('[App] Auto-tracking started for field:', this.currentField.name);
+    }
+  }
+
   // ===== AUTO-DEPTH ADJUSTMENT (DataFarm feature) =====
   // Automatically sets depth based on last collected sample or field plan
   async autoAdjustDepth() {
@@ -1602,22 +1777,127 @@ class PixApp {
   }
 
   // Navigate to next pending
+  // ===== ZONE-AWARE NAVIGATION =====
+  // Guides: principal first → subs in order → zone QR → next zone
+
+  // Detect point type from various nomenclatures
+  _detectPointType(point) {
+    const tipo = point.tipo || (point.properties && point.properties.tipo) || '';
+    const name = (point.name || point.id || '').toLowerCase();
+
+    // Explicit tipo field
+    if (tipo === 'principal' || tipo === 'main' || tipo === 'ppal') return 'principal';
+    if (tipo === 'submuestra' || tipo === 'sub' || tipo === 'subsample') return 'submuestra';
+
+    // Name patterns: P1, P2, P3 (no dash/sub suffix) = principal
+    // P1-S1, P1-S2, P1_S1, P1.S1, P1-Sub1, P1_sub1 = submuestra
+    if (/^p\d+$/i.test(name)) return 'principal';
+    if (/^p\d+[-_.](s|sub)\d+/i.test(name)) return 'submuestra';
+
+    // DataFarm: "A1", "A2" = principal; "A1-1", "A1-2" = submuestra
+    if (/^a\d+$/i.test(name)) return 'principal';
+    if (/^a\d+[-_.]\d+/i.test(name)) return 'submuestra';
+
+    // IBRA: "001", "002" = principal; "001-A", "001-B" = submuestra
+    if (/^\d{2,4}$/.test(name)) return 'principal';
+    if (/^\d{2,4}[-_.][a-z]/i.test(name)) return 'submuestra';
+
+    // Generic: names with "-S", "-Sub", "_sub" = submuestra
+    if (/[-_](s|sub|sm|submuestra|subsample)/i.test(name)) return 'submuestra';
+
+    // Default: if point has a parent field, it's a submuestra
+    if (point.parent || (point.properties && point.properties.parent)) return 'submuestra';
+
+    return 'principal';
+  }
+
+  // Detect zone number from various nomenclatures
+  _detectZone(point) {
+    // Explicit zona field
+    if (point.zona) return point.zona;
+    if (point.properties && point.properties.zona) return point.properties.zona;
+
+    const name = (point.name || point.id || '');
+
+    // P1-S3 → zone 1, P2-S5 → zone 2
+    const pMatch = name.match(/^P(\d+)/i);
+    if (pMatch) return parseInt(pMatch[1]);
+
+    // A1-3 → zone 1, A2-5 → zone 2
+    const aMatch = name.match(/^A(\d+)/i);
+    if (aMatch) return parseInt(aMatch[1]);
+
+    // Zona property in point.properties
+    if (point.properties) {
+      const z = point.properties.zone || point.properties.Zone || point.properties.ambiente || point.properties.Ambiente;
+      if (z) return parseInt(z) || z;
+    }
+
+    return 1; // default zone 1
+  }
+
+  // Get subsample order number for sorting
+  _getSubOrder(point) {
+    const name = (point.name || point.id || '');
+    // P1-S3 → 3, P2-S10 → 10
+    const sMatch = name.match(/[-_.][sS](?:ub)?(\d+)/);
+    if (sMatch) return parseInt(sMatch[1]);
+    // A1-3 → 3
+    const aMatch = name.match(/[-_.](\d+)$/);
+    if (aMatch) return parseInt(aMatch[1]);
+    return 999;
+  }
+
+  // Zone-aware next point navigation
   async nextPoint() {
     if (!this.currentField) return;
     const points = await pixDB.getAllByIndex('points', 'fieldId', this.currentField.id);
-    const pending = points.filter(p => p.status === 'pending');
 
-    if (pending.length === 0) {
-      this.toast('Todos los puntos recolectados', 'success');
+    if (points.every(p => p.status === 'collected')) {
+      this.toast('Todos los puntos recolectados!', 'success');
       return;
     }
 
-    // Find nearest pending
-    const nearest = gpsNav.findNearest(pending);
-    if (nearest) {
-      this.onPointClick(nearest);
-      this.toast(`Navegando a ${nearest.name}`, '');
+    // Group points by zone
+    const zones = {};
+    for (const p of points) {
+      const z = this._detectZone(p);
+      if (!zones[z]) zones[z] = [];
+      zones[z].push(p);
     }
+
+    // Sort zone keys numerically
+    const sortedZoneKeys = Object.keys(zones).sort((a, b) => parseInt(a) - parseInt(b));
+
+    for (const zKey of sortedZoneKeys) {
+      const zonePoints = zones[zKey];
+      const pending = zonePoints.filter(p => p.status !== 'collected');
+
+      if (pending.length === 0) continue; // Zone complete, try next
+
+      // Find principal first
+      const principal = pending.find(p => this._detectPointType(p) === 'principal');
+      if (principal) {
+        this.onPointClick(principal);
+        this.toast(`Zona ${zKey}: navegando a punto principal ${principal.name}`, 'success');
+        return;
+      }
+
+      // Principal done, find next submuestra in order
+      const subs = pending
+        .filter(p => this._detectPointType(p) === 'submuestra')
+        .sort((a, b) => this._getSubOrder(a) - this._getSubOrder(b));
+
+      if (subs.length > 0) {
+        this.onPointClick(subs[0]);
+        const totalSubs = zonePoints.filter(p => this._detectPointType(p) === 'submuestra').length;
+        const doneSubs = totalSubs - subs.length;
+        this.toast(`Zona ${zKey}: submuestra ${doneSubs + 1}/${totalSubs} → ${subs[0].name}`, '');
+        return;
+      }
+    }
+
+    this.toast('Todos los puntos recolectados!', 'success');
   }
 
   // Delete project
