@@ -223,6 +223,11 @@
                     Descargar Backup Local
                 </button>
 
+                <button class="sync-btn" style="background:linear-gradient(135deg,#F44336,#FF9800);margin-top:8px" onclick="app.generateFieldReport()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8M16 17H8M10 9H8"/></svg>
+                    Reporte IBRA — Ficha de Envio
+                </button>
+
                 <div class="section-title" style="margin-top:24px;font-size:14px">Registro de actividad</div>
                 <div class="sync-log" id="syncLog">
                     <div class="sync-log-entry"><span class="time">—</span>Esperando primera sincronización...</div>
@@ -307,6 +312,54 @@
                             <div class="gps-quality-fill" id="tileProgressFill" style="width:0%;background:var(--teal)"></div>
                         </div>
                         <div id="tileProgressText" style="font-size:11px;color:var(--text-muted)">Descargando tiles...</div>
+                    </div>
+                </div>
+
+                <!-- IBRA Cadastro Settings -->
+                <div style="margin-top:24px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.08)">
+                    <div class="section-title" style="font-size:14px;color:#F44336">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
+                        Datos IBRA Megalab
+                    </div>
+                    <div class="settings-group">
+                        <label class="form-label">Solicitante</label>
+                        <input type="text" class="form-input" id="ibraSolicitante" value="PIXADVISOR AGRICULTURA DE PRECISAO" onchange="app.saveIbraSetting('solicitante',this.value)">
+                    </div>
+                    <div class="settings-group">
+                        <label class="form-label">Responsavel pelo envio</label>
+                        <input type="text" class="form-input" id="ibraResponsavel" value="NILTON LUIZ CAMARGO" onchange="app.saveIbraSetting('responsavel',this.value)">
+                    </div>
+                    <div style="display:flex;gap:8px">
+                        <div class="settings-group" style="flex:1">
+                            <label class="form-label">Telefone</label>
+                            <input type="text" class="form-input" id="ibraTelefone" value="43 999819554" onchange="app.saveIbraSetting('telefone',this.value)">
+                        </div>
+                        <div class="settings-group" style="flex:1">
+                            <label class="form-label">CPF/CNPJ</label>
+                            <input type="text" class="form-input" id="ibraCnpj" value="41.196.481/0001-30" onchange="app.saveIbraSetting('cnpj',this.value)">
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <label class="form-label">Endereco</label>
+                        <input type="text" class="form-input" id="ibraEndereco" value="RUA ELIEZER MARTINS BANDEIRA 44" onchange="app.saveIbraSetting('endereco',this.value)">
+                    </div>
+                    <div style="display:flex;gap:8px">
+                        <div class="settings-group" style="flex:1">
+                            <label class="form-label">Municipio</label>
+                            <input type="text" class="form-input" id="ibraMunicipio" value="IBIPORA" onchange="app.saveIbraSetting('municipio',this.value)">
+                        </div>
+                        <div class="settings-group" style="flex:0 0 60px">
+                            <label class="form-label">UF</label>
+                            <input type="text" class="form-input" id="ibraUf" value="PR" onchange="app.saveIbraSetting('uf',this.value)">
+                        </div>
+                        <div class="settings-group" style="flex:1">
+                            <label class="form-label">CEP</label>
+                            <input type="text" class="form-input" id="ibraCep" value="86200536" onchange="app.saveIbraSetting('cep',this.value)">
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <label class="form-label">E-mail para laudos</label>
+                        <input type="text" class="form-input" id="ibraEmail" value="nilton.camargo@pixadvisor.network, gis.agronomico@gmail.com" onchange="app.saveIbraSetting('email',this.value)">
                     </div>
                 </div>
 

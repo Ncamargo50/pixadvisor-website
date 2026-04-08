@@ -146,7 +146,7 @@ class PixApp {
 
     if (viewName === 'sync') this.updateSyncStats();
     if (viewName === 'projects') this.loadProjects();
-    if (viewName === 'settings') this.updateTileCacheStats();
+    if (viewName === 'settings') { this.updateTileCacheStats(); this.loadIbraSettings(); }
     if (viewName === 'orders') pixOrders.loadOrders();
     if (viewName === 'admin') pixAdmin.renderAdminView();
   }
@@ -1395,6 +1395,275 @@ class PixApp {
     URL.revokeObjectURL(url);
 
     this.toast('Backup descargado', 'success');
+  }
+
+  // ===== IBRA SETTINGS =====
+  async saveIbraSetting(key, value) {
+    await pixDB.setSetting('ibra_' + key, value);
+  }
+
+  async loadIbraSettings() {
+    const defaults = {
+      solicitante: 'PIXADVISOR AGRICULTURA DE PRECISAO',
+      responsavel: 'NILTON LUIZ CAMARGO',
+      telefone: '43 999819554',
+      cnpj: '41.196.481/0001-30',
+      endereco: 'RUA ELIEZER MARTINS BANDEIRA 44',
+      municipio: 'IBIPORA',
+      uf: 'PR',
+      cep: '86200536',
+      email: 'nilton.camargo@pixadvisor.network, gis.agronomico@gmail.com'
+    };
+    const ibra = {};
+    for (const [k, def] of Object.entries(defaults)) {
+      ibra[k] = (await pixDB.getSetting('ibra_' + k)) || def;
+      const el = document.getElementById('ibra' + k.charAt(0).toUpperCase() + k.slice(1));
+      if (el) el.value = ibra[k];
+    }
+    return ibra;
+  }
+
+  // ===== FIELD REPORT — FICHA DE ENVIO IBRA =====
+  async generateFieldReport() {
+    if (!this.currentField && !this.currentProject) {
+      this.toast('Abrí un proyecto primero', 'warning');
+      return;
+    }
+
+    // Load all data
+    const ibra = await this.loadIbraSettings();
+    const project = this.currentProject || (await pixDB.getAll('projects'))[0];
+    if (!project) { this.toast('Sin proyecto para reportar', 'warning'); return; }
+
+    const fields = await pixDB.getAllByIndex('fields', 'projectId', project.id);
+    const allSamples = await pixDB.getAll('samples');
+    const collector = await pixDB.getSetting('collectorName') || '';
+    const today = new Date().toISOString().slice(0, 10);
+
+    // Build zones data for each field
+    let zonesHTML = '';
+    let detailHTML = '';
+    let totalMuestras = 0;
+    let totalPuntos = 0;
+
+    for (const field of fields) {
+      const points = await pixDB.getAllByIndex('points', 'fieldId', field.id);
+      const fieldSamples = allSamples.filter(s => s.fieldId === field.id);
+
+      // Group by zone
+      const zones = {};
+      for (const p of points) {
+        const z = this._detectZone(p);
+        if (!zones[z]) zones[z] = { principal: null, subs: [], samples: [] };
+        if (this._detectPointType(p) === 'principal') zones[z].principal = p;
+        else zones[z].subs.push(p);
+      }
+
+      // Match samples to zones
+      for (const s of fieldSamples) {
+        const z = s.zona || 1;
+        if (zones[z]) zones[z].samples.push(s);
+      }
+
+      const sortedZones = Object.keys(zones).sort((a, b) => a - b);
+
+      // Summary table
+      zonesHTML += `
+        <tr style="background:#e8f5e9"><td colspan="7" style="font-weight:700;padding:8px">
+          ${field.name} — ${field.area ? field.area.toFixed(1) + ' ha' : ''}
+        </td></tr>`;
+
+      for (const zk of sortedZones) {
+        const z = zones[zk];
+        const clase = z.principal?.properties?.clase || field.zonasMetadata?.[zk - 1]?.clase || '';
+        const qr = z.samples.find(s => s.zoneBarcode)?.zoneIbraSampleId || z.samples.find(s => s.zoneBarcode)?.zoneBarcode || '—';
+        const depth = z.samples[0]?.depth || '0-20';
+        const tipo = z.samples[0]?.sampleType || '—';
+        const nPts = 1 + z.subs.length;
+        totalMuestras++;
+        totalPuntos += nPts;
+
+        zonesHTML += `
+          <tr>
+            <td style="text-align:center;font-weight:600">${zk}</td>
+            <td style="font-family:monospace;font-size:11px">${qr}</td>
+            <td style="text-align:center"><span style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;color:#fff;background:${clase==='Alta'?'#4CAF50':clase==='Media'?'#FFC107':clase==='Baja'?'#F44336':'#607D8B'}">${clase || '—'}</span></td>
+            <td style="text-align:center">${nPts}</td>
+            <td style="text-align:center">${depth} cm</td>
+            <td>${tipo}</td>
+            <td style="text-align:center">${z.samples.length > 0 ? 'OK' : 'Pendiente'}</td>
+          </tr>`;
+
+        // Detail table
+        detailHTML += `
+          <div style="margin-bottom:20px">
+            <h3 style="margin:0 0 6px;font-size:14px;color:#333;border-bottom:2px solid ${clase==='Alta'?'#4CAF50':clase==='Media'?'#FFC107':'#F44336'}; padding-bottom:4px">
+              ${field.name} — Zona ${zk} (${clase}) — QR: ${qr}
+            </h3>
+            <table style="width:100%;border-collapse:collapse;font-size:11px">
+              <tr style="background:#f5f5f5">
+                <th style="padding:4px 6px;text-align:left;border:1px solid #ddd">Punto</th>
+                <th style="padding:4px 6px;text-align:left;border:1px solid #ddd">Tipo</th>
+                <th style="padding:4px 6px;text-align:right;border:1px solid #ddd">Latitud</th>
+                <th style="padding:4px 6px;text-align:right;border:1px solid #ddd">Longitud</th>
+                <th style="padding:4px 6px;text-align:center;border:1px solid #ddd">Prof.</th>
+                <th style="padding:4px 6px;text-align:center;border:1px solid #ddd">Precision</th>
+                <th style="padding:4px 6px;text-align:center;border:1px solid #ddd">Hora</th>
+              </tr>`;
+
+        // Principal first, then subs sorted
+        const allZonePoints = [z.principal, ...z.subs.sort((a, b) => this._getSubOrder(a) - this._getSubOrder(b))].filter(Boolean);
+        for (const p of allZonePoints) {
+          const s = fieldSamples.find(s => s.pointId === p.id);
+          const isPrin = this._detectPointType(p) === 'principal';
+          const hora = s?.collectedAt ? new Date(s.collectedAt).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }) : '—';
+          const acc = s?.accuracy ? s.accuracy.toFixed(1) + 'm' : '—';
+          const lat = s?.lat || p.lat;
+          const lng = s?.lng || p.lng;
+
+          detailHTML += `
+              <tr style="${isPrin ? 'background:#fff3e0;font-weight:600' : ''}">
+                <td style="padding:3px 6px;border:1px solid #ddd">${p.name || p.id}</td>
+                <td style="padding:3px 6px;border:1px solid #ddd">${isPrin ? 'Principal' : 'Sub'}</td>
+                <td style="padding:3px 6px;border:1px solid #ddd;text-align:right;font-family:monospace">${lat.toFixed(6)}</td>
+                <td style="padding:3px 6px;border:1px solid #ddd;text-align:right;font-family:monospace">${lng.toFixed(6)}</td>
+                <td style="padding:3px 6px;border:1px solid #ddd;text-align:center">${s?.depth || '0-20'}</td>
+                <td style="padding:3px 6px;border:1px solid #ddd;text-align:center">${acc}</td>
+                <td style="padding:3px 6px;border:1px solid #ddd;text-align:center">${hora}</td>
+              </tr>`;
+        }
+        detailHTML += '</table></div>';
+      }
+    }
+
+    // Build full HTML report
+    const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Reporte de Campo — ${project.name}</title>
+<style>
+  @page { size: A4; margin: 15mm; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #333; margin: 0; padding: 20px; }
+  .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #4CAF50; padding-bottom: 12px; margin-bottom: 16px; }
+  .header h1 { font-size: 18px; margin: 0; color: #2E7D32; }
+  .header .logo { font-size: 22px; font-weight: 800; color: #F44336; }
+  .section { margin-bottom: 16px; }
+  .section-title { font-size: 13px; font-weight: 700; color: #fff; background: #4CAF50; padding: 6px 12px; margin-bottom: 0; }
+  .section-title.ibra { background: #F44336; }
+  .info-grid { display: grid; grid-template-columns: 140px 1fr; gap: 0; border: 1px solid #ddd; }
+  .info-grid .label { background: #f5f5f5; padding: 5px 10px; font-weight: 600; font-size: 11px; border-bottom: 1px solid #ddd; border-right: 1px solid #ddd; }
+  .info-grid .value { padding: 5px 10px; font-size: 12px; border-bottom: 1px solid #ddd; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #e8f5e9; padding: 6px 8px; text-align: left; font-size: 11px; border: 1px solid #ddd; }
+  td { padding: 5px 8px; border: 1px solid #ddd; font-size: 12px; }
+  .page-break { page-break-before: always; }
+  .footer { margin-top: 24px; text-align: center; font-size: 10px; color: #999; border-top: 1px solid #eee; padding-top: 8px; }
+  @media print { .no-print { display: none; } body { padding: 0; } }
+</style>
+</head>
+<body>
+
+<!-- PRINT BUTTON -->
+<div class="no-print" style="text-align:center;margin-bottom:16px">
+  <button onclick="window.print()" style="padding:12px 32px;background:#4CAF50;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer">
+    Imprimir / Guardar como PDF
+  </button>
+</div>
+
+<!-- PAGE 1: FICHA DE ENVIO -->
+<div class="header">
+  <div>
+    <div class="logo">IBRA <span style="font-size:11px;color:#666;font-weight:400">megalab</span></div>
+    <div style="font-size:10px;color:#888">FICHA PARA ENVIO DE AMOSTRAS</div>
+  </div>
+  <div style="text-align:right">
+    <h1>PIX Muestreo</h1>
+    <div style="font-size:10px;color:#888">Pixadvisor Agricultura de Precision</div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title ibra">1. SOLICITANTE (Cadastro IBRA)</div>
+  <div class="info-grid">
+    <div class="label">Solicitante</div><div class="value">${ibra.solicitante}</div>
+    <div class="label">Responsavel</div><div class="value">${ibra.responsavel}</div>
+    <div class="label">Telefone</div><div class="value">${ibra.telefone}</div>
+    <div class="label">CPF/CNPJ</div><div class="value">${ibra.cnpj}</div>
+    <div class="label">Endereco</div><div class="value">${ibra.endereco}</div>
+    <div class="label">Municipio/UF</div><div class="value">${ibra.municipio} - ${ibra.uf} | CEP: ${ibra.cep}</div>
+    <div class="label">E-mail laudos</div><div class="value">${ibra.email}</div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">2. CLIENTE / PROPRIEDADE</div>
+  <div class="info-grid">
+    <div class="label">Cliente</div><div class="value" style="font-weight:700;font-size:14px">${project.client || '—'}</div>
+    <div class="label">Hacienda</div><div class="value" style="font-weight:700;font-size:14px">${project.name}</div>
+    <div class="label">Campo/Lote</div><div class="value">${fields.map(f => f.name + (f.area ? ' (' + f.area.toFixed(1) + ' ha)' : '')).join(', ')}</div>
+    <div class="label">Fecha colecta</div><div class="value">${today}</div>
+    <div class="label">Tecnico</div><div class="value">${collector}</div>
+    <div class="label">Total puntos GPS</div><div class="value">${totalPuntos} puntos georreferenciados</div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">3. AMOSTRAS POR ZONA DE MANEJO</div>
+  <table>
+    <tr>
+      <th style="text-align:center;width:40px">Zona</th>
+      <th>QR IBRA</th>
+      <th style="text-align:center;width:70px">Clase</th>
+      <th style="text-align:center;width:50px">Puntos</th>
+      <th style="text-align:center;width:70px">Prof.</th>
+      <th>Analisis</th>
+      <th style="text-align:center;width:60px">Estado</th>
+    </tr>
+    ${zonesHTML}
+  </table>
+  <div style="margin-top:8px;font-size:11px;color:#666">
+    <strong>Total:</strong> ${totalMuestras} muestras compuestas | ${totalPuntos} puntos GPS | ${fields.length} campo(s)
+  </div>
+</div>
+
+<div style="margin-top:16px;padding:10px;background:#FFF3E0;border:1px solid #FFB74D;border-radius:6px;font-size:11px">
+  <strong>Obs:</strong> Cada muestra compuesta es la mezcla de 1 punto principal + submuestras de la misma zona de manejo.
+  Los codigos QR de las bolsas IBRA vinculan los datos de campo con los resultados de laboratorio.
+</div>
+
+<!-- PAGE 2: DETALLE -->
+<div class="page-break"></div>
+<div class="header">
+  <div><h1 style="font-size:16px;color:#333">Detalle de Puntos por Zona</h1></div>
+  <div style="text-align:right;font-size:11px;color:#888">${project.name} — ${today}</div>
+</div>
+
+${detailHTML}
+
+<div class="footer">
+  Generado por PIX Muestreo v3.4.1 — Pixadvisor Agricultura de Precision — pixadvisor.network — ${new Date().toLocaleString('es')}
+</div>
+
+</body></html>`;
+
+    // Open in new window for print
+    const win = window.open('', '_blank', 'width=800,height=1000');
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+      this.toast('Reporte generado — usá Imprimir para PDF', 'success');
+    } else {
+      // Fallback: download as HTML
+      const blob = new Blob([html], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `reporte_ibra_${project.name.replace(/\s/g, '_')}_${today}.html`;
+      a.click();
+      URL.revokeObjectURL(url);
+      this.toast('Reporte descargado como HTML', 'success');
+    }
   }
 
   addSyncLog(message) {
