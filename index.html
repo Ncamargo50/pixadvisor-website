@@ -1,745 +1,1344 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#0F1B2D">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://mt0.google.com https://mt1.google.com https://mt2.google.com https://mt3.google.com; connect-src 'self' https://*.googleapis.com https://pixadvisor.network https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://mt0.google.com https://mt1.google.com https://mt2.google.com https://mt3.google.com; font-src 'self' data:; worker-src 'self';">
-    <title>PIX Muestreo - Pixadvisor</title>
-    
-    <link rel="icon" type="image/png" href="icons/icon-192.png">
-    <link rel="apple-touch-icon" href="icons/icon-192.png">
-    
-    <style>@font-face{font-family:Inter;src:local(Inter),local(Roboto),local(sans-serif)}</style>
-    <link rel="stylesheet" href="lib/leaflet.css">
-    <link rel="stylesheet" href="css/app.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Pixadvisor - Agricultura de Precisión. Mapeo satelital, muestreo inteligente, IA propia y prescripción variable para maximizar cada hectárea. Bolivia y Brasil.">
+  <meta name="keywords" content="agricultura de precisión, precision agriculture, IA agrícola, NDVI, fertilización variable, muestreo inteligente, prescripción VRT, Pixadvisor, Bolivia, Brasil">
+  <meta property="og:title" content="Pixadvisor - Agricultura de Precisión">
+  <meta property="og:description" content="Tecnología que transforma resultados en el campo. Mapeo satelital, muestreo inteligente, IA propia y prescripción variable.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://pixadvisor.network/img/logo.png">
+  <meta property="og:url" content="https://pixadvisor.network">
+  <meta property="og:locale" content="es_ES">
+  <meta property="og:locale:alternate" content="pt_BR">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Pixadvisor - Agricultura de Precisión">
+  <meta name="twitter:description" content="Tecnología que transforma resultados en el campo. Mapeo satelital, muestreo inteligente, IA propia y prescripción variable.">
+  <meta name="twitter:image" content="https://pixadvisor.network/img/logo.png">
+  <link rel="icon" type="image/png" href="img/favicon.png">
+  <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+  <link rel="canonical" href="https://pixadvisor.network">
+  <title>Pixadvisor - Agricultura de Precisión</title>
+  <link rel="preload" as="image" href="vista_aerea_ap_hd.jpg">
+  <link rel="stylesheet" href="css/main.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "Pixadvisor",
+    "url": "https://pixadvisor.network",
+    "logo": "https://pixadvisor.network/img/logo.png",
+    "description": "Agricultura de Precisión - Mapeo satelital, muestreo inteligente, IA propia y prescripción variable.",
+    "areaServed": ["Bolivia", "Brasil"],
+    "contactPoint": {
+      "@type": "ContactPoint",
+      "telephone": "+591-72149171",
+      "contactType": "sales",
+      "availableLanguage": ["Spanish", "Portuguese"]
+    },
+    "sameAs": [
+      "https://www.facebook.com/pixadvisor",
+      "https://www.instagram.com/pixadvisor",
+      "https://www.linkedin.com/company/pixadvisor"
+    ]
+  }
+  </script>
 </head>
 <body>
+  <a href="#main" class="skip-link"><span data-lang-es>Ir al contenido principal</span><span data-lang-pt>Ir ao conteúdo principal</span></a>
 
-<!-- LOGIN OVERLAY -->
-<div id="loginOverlay" style="display:none;position:fixed;inset:0;background:#0F1B2D;z-index:99999;align-items:center;justify-content:center;font-family:Inter,sans-serif;">
-    <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(127,214,51,0.15);border-radius:24px;padding:48px 36px;max-width:360px;width:90%;text-align:center;backdrop-filter:blur(20px);">
-        <img src="icons/icon-192.png" alt="PIX" style="width:72px;height:72px;border-radius:16px;filter:drop-shadow(0 0 20px rgba(127,214,51,0.3));margin-bottom:16px;">
-        <h2 style="color:white;font-size:1.5rem;font-weight:700;margin:0 0 4px;">PIX Muestreo</h2>
-        <p style="color:#94a3b8;font-size:0.85rem;margin:0 0 28px;">Ingresa tus credenciales para acceder</p>
-        <input type="text" id="loginEmail" placeholder="Email o nombre de usuario"
-            onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()"
-            style="width:100%;padding:14px 16px;border-radius:12px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.06);color:white;font-size:15px;outline:none;box-sizing:border-box;margin-bottom:10px;font-family:Inter,sans-serif;">
-        <input type="password" id="loginPass" placeholder="Contrasena"
-            onkeydown="if(event.key==='Enter')pixAuthLogin()"
-            style="width:100%;padding:14px 16px;border-radius:12px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.06);color:white;font-size:15px;outline:none;box-sizing:border-box;margin-bottom:12px;font-family:Inter,sans-serif;">
-        <div id="loginError" style="display:none;color:#ef4444;font-size:13px;margin-bottom:12px;">Credenciales incorrectas</div>
-        <button onclick="pixAuthLogin()" id="loginBtn" style="width:100%;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#7FD633,#0d9488);color:#0F1B2D;font-size:15px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;">
-            Ingresar
-        </button>
-        <div id="loginHelp" style="display:none;margin-top:14px;background:rgba(127,214,51,0.06);border:1px solid rgba(127,214,51,0.12);border-radius:10px;padding:10px;text-align:left">
-            <div style="color:#7FD633;font-size:12px;font-weight:600;margin-bottom:6px">Primer acceso?</div>
-            <div style="color:#94a3b8;font-size:11px;line-height:1.5">
-                <strong style="color:white">Admin default:</strong><br>
-                Email: <code style="background:rgba(255,255,255,0.08);padding:1px 4px;border-radius:4px;color:#7FD633">admin@pixadvisor.local</code><br>
-                Clave: <code style="background:rgba(255,255,255,0.08);padding:1px 4px;border-radius:4px;color:#7FD633">pix2026</code><br>
-                <span style="color:#64748b;font-size:10px">(o use clave maestra: pixmaster2026)</span>
-            </div>
+  <!-- NAV -->
+  <nav class="nav">
+    <div class="nav-container">
+      <a href="#" class="nav-logo">
+        <img src="img/logo-negro.png" alt="Pixadvisor" height="56" width="218">
+        <span class="nav-brand-name">PIXADVISOR</span>
+      </a>
+      <div class="nav-links">
+        <a href="#about">
+          <span data-lang-es>Nosotros</span>
+          <span data-lang-pt>Sobre Nós</span>
+        </a>
+        <a href="#services">
+          <span data-lang-es>Servicios</span>
+          <span data-lang-pt>Serviços</span>
+        </a>
+        <a href="#technology">
+          <span data-lang-es>Tecnología</span>
+          <span data-lang-pt>Tecnologia</span>
+        </a>
+        <a href="#contact">
+          <span data-lang-es>Contacto</span>
+          <span data-lang-pt>Contato</span>
+        </a>
+        <div class="lang-switcher">
+          <button class="lang-btn active" data-lang="es">ES</button>
+          <button class="lang-btn" data-lang="pt">PT</button>
         </div>
-        <button onclick="document.getElementById('loginHelp').style.display=document.getElementById('loginHelp').style.display==='none'?'block':'none'" style="background:none;border:none;color:#475569;font-size:0.75rem;margin-top:12px;cursor:pointer;text-decoration:underline">
-            Necesita ayuda para ingresar?
-        </button>
-        <p style="color:#475569;font-size:0.75rem;margin-top:8px;">Pixadvisor — Agricultura de Precision</p>
+      </div>
+      <button class="hamburger" aria-label="Menu" aria-expanded="false">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
     </div>
-</div>
-
-<!-- INSTALL SCREEN (shown after login, before app) -->
-<div id="installOverlay" style="display:none;position:fixed;inset:0;background:#0F1B2D;z-index:99998;align-items:center;justify-content:center;font-family:Inter,sans-serif;overflow-y:auto;">
-    <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(127,214,51,0.15);border-radius:24px;padding:40px 32px;max-width:380px;width:90%;text-align:center;backdrop-filter:blur(20px);margin:20px auto;">
-        <img src="icons/icon-192.png" alt="PIX" style="width:80px;height:80px;border-radius:20px;filter:drop-shadow(0 0 24px rgba(127,214,51,0.4));margin-bottom:16px;">
-        <h2 style="color:white;font-size:1.4rem;font-weight:700;margin:0 0 6px;">Instalar PIX Muestreo</h2>
-        <p style="color:#94a3b8;font-size:0.85rem;margin:0 0 24px;">Instalá la app en tu celular para trabajar 100% offline</p>
-
-        <!-- Auto install button (shown when beforeinstallprompt fires) -->
-        <button id="autoInstallBtn" onclick="pixInstall()" style="display:none;width:100%;padding:16px;border-radius:14px;border:none;background:linear-gradient(135deg,#7FD633,#0d9488);color:#0F1B2D;font-size:16px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;margin-bottom:16px;box-shadow:0 4px 20px rgba(127,214,51,0.3);">
-            ⬇ DESCARGAR APP AHORA
-        </button>
-
-        <!-- Manual instructions (always visible) -->
-        <div style="text-align:left;margin-bottom:20px;">
-            <!-- Android -->
-            <div style="background:rgba(127,214,51,0.08);border:1px solid rgba(127,214,51,0.15);border-radius:14px;padding:16px;margin-bottom:12px;">
-                <div style="color:#7FD633;font-weight:700;font-size:14px;margin-bottom:10px;">📱 Android (Chrome)</div>
-                <div style="color:#cbd5e1;font-size:13px;line-height:1.7;">
-                    <strong style="color:white;">1.</strong> Tocá los <strong style="color:white;">3 puntos ⋮</strong> arriba a la derecha<br>
-                    <strong style="color:white;">2.</strong> Seleccioná <strong style="color:white;">"Instalar aplicación"</strong><br>
-                    <strong style="color:white;">3.</strong> Confirmá tocando <strong style="color:white;">"Instalar"</strong><br>
-                    <span style="color:#94a3b8;font-size:11px;">La app aparecerá en tu pantalla de inicio</span>
-                </div>
-            </div>
-            <!-- iPhone -->
-            <div style="background:rgba(14,165,233,0.08);border:1px solid rgba(14,165,233,0.15);border-radius:14px;padding:16px;">
-                <div style="color:#0ea5e9;font-weight:700;font-size:14px;margin-bottom:10px;">🍎 iPhone (Safari)</div>
-                <div style="color:#cbd5e1;font-size:13px;line-height:1.7;">
-                    <strong style="color:white;">1.</strong> Tocá el botón <strong style="color:white;">Compartir ⬆</strong> abajo<br>
-                    <strong style="color:white;">2.</strong> Buscá <strong style="color:white;">"Agregar a pantalla de inicio"</strong><br>
-                    <strong style="color:white;">3.</strong> Tocá <strong style="color:white;">"Agregar"</strong><br>
-                    <span style="color:#94a3b8;font-size:11px;">Debe abrirse en Safari (no Chrome)</span>
-                </div>
-            </div>
-        </div>
-
-        <button onclick="skipInstall()" style="width:100%;padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:#94a3b8;font-size:14px;font-weight:500;cursor:pointer;font-family:Inter,sans-serif;">
-            Continuar sin instalar →
-        </button>
-        <p style="color:#475569;font-size:0.7rem;margin-top:14px;">Una vez instalada, funciona sin internet</p>
+    <div class="mobile-nav" id="mobileNav">
+      <a href="#about">
+        <span data-lang-es>Nosotros</span>
+        <span data-lang-pt>Sobre Nós</span>
+      </a>
+      <a href="#services">
+        <span data-lang-es>Servicios</span>
+        <span data-lang-pt>Serviços</span>
+      </a>
+      <a href="#technology">
+        <span data-lang-es>Tecnología</span>
+        <span data-lang-pt>Tecnologia</span>
+      </a>
+      <a href="#contact">
+        <span data-lang-es>Contacto</span>
+        <span data-lang-pt>Contato</span>
+      </a>
+      <div class="lang-switcher">
+        <button class="lang-btn active" data-lang="es">ES</button>
+        <button class="lang-btn" data-lang="pt">PT</button>
+      </div>
     </div>
-</div>
+  </nav>
 
-<div class="app-container">
-    <!-- ===== HEADER PRO ===== -->
-    <header class="app-header">
-        <div class="logo">
-            <img src="icons/icon-192.png" alt="PIX" onerror="this.style.background='var(--teal)';this.style.display='block'">
-            <div>
-                <h1>PIX Muestreo</h1>
-                <small>Agricultura de Precisión</small>
-            </div>
+  <main id="main">
+
+    <!-- 1. HERO -->
+    <section class="hero" style="background-image:url('vista_aerea_ap_hd.jpg')">
+      <div class="hero-container">
+        <div class="hero-badge">
+          <span data-lang-es>Agricultura de Precisión</span>
+          <span data-lang-pt>Agricultura de Precisão</span>
         </div>
-        <div class="header-actions">
-            <div class="header-user-pill" id="userPill" style="display:none;cursor:pointer" onclick="app.showUserMenu()">
-                <span id="currentUserName" style="font-size:11px;color:var(--text-muted);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;opacity:0.5"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
-            </div>
-            <div class="header-status-pill" id="connectionPill">
-                <span id="connectionDot" class="status-dot offline"></span>
-                <span id="connectionLabel">Offline</span>
-            </div>
-            <button class="header-btn" id="trackBtn" onclick="app.toggleTracking()" title="Grabar recorrido">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
-            </button>
-        </div>
-    </header>
-
-    <!-- ===== MAIN CONTENT ===== -->
-    <main class="app-content">
-
-        <!-- MAP VIEW -->
-        <div id="view-map" class="view active">
-            <div id="mapContainer">
-                <div id="map"></div>
-
-                <!-- 2.1: Floating distance overlay — always visible on map during navigation -->
-                <div id="mapDistOverlay" class="map-dist-overlay" style="display:none">
-                    <span id="mapDistText">—</span>
-                </div>
-
-                <!-- Map FAB buttons -->
-                <div class="map-fab">
-                    <button class="fab-btn primary" onclick="app.recenterOnUser()" title="Seguir mi ubicación GPS">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
-                    </button>
-                    <button class="fab-btn secondary" onclick="app.nextPoint()" title="Siguiente punto">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                    </button>
-                    <button class="fab-btn secondary" onclick="app.downloadTilesOffline()" title="Descargar mapa offline" id="btnDownloadTiles">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                    </button>
-                    <button class="fab-btn secondary" onclick="app.startBoundaryTrace()" title="Contornar talhão (mapear perímetro GPS)" id="boundaryBtn">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3,6 9,3 15,6 21,3 21,18 15,21 9,18 3,21"/></svg>
-                    </button>
-                </div>
-
-                <!-- Navigation Panel -->
-                <div class="map-controls">
-                    <div class="nav-panel" id="navPanel" style="display:none">
-                        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px" id="currentFieldName">—</div>
-                        <div class="nav-info">
-                            <div id="navDistance" class="nav-distance">—</div>
-                            <div class="nav-details">
-                                <div class="nav-target-name" id="navTargetName">Seleccioná un punto</div>
-                                <div class="nav-direction" id="navDirection"></div>
-                                <div style="display:flex;align-items:center;gap:8px">
-                                    <div class="nav-accuracy" id="navAccuracy">GPS: buscando...</div>
-                                    <span id="navSpeed" style="font-size:11px;font-weight:600;color:#00BFA5"></span>
-                                </div>
-                                <div class="gps-quality-bar" id="gpsQualityBar">
-                                    <div class="gps-quality-fill" id="gpsQualityFill" style="width:0%"></div>
-                                </div>
-                                <div class="gps-status-row" id="gpsStatusRow" style="display:none">
-                                    <span class="gps-status-dot" id="gpsStatusDot"></span>
-                                    <span class="gps-status-text" id="gpsStatusText">Calentando...</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="map-action-bar">
-                            <button class="action-btn primary" onclick="app.openCollectForm()">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-                                Recolectar
-                            </button>
-                            <button class="action-btn secondary" onclick="app.nextPoint()">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                                Siguiente
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- PROJECTS VIEW -->
-        <div id="view-projects" class="view">
-            <div class="view-padded">
-                <div class="section-title" style="justify-content:space-between">
-                    <div style="display:flex;align-items:center;gap:8px">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
-                        Proyectos
-                    </div>
-                    <div style="display:flex;gap:8px">
-                        <button class="fab-btn primary" style="width:36px;height:36px" onclick="app.showCreateProjectModal()" title="Crear proyecto">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                        </button>
-                        <button class="fab-btn secondary" style="width:36px;height:36px" onclick="app.importLocalFile()" title="Importar archivo local">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
-                        </button>
-                        <button class="fab-btn secondary" style="width:36px;height:36px" onclick="app.showImportModal()" title="Importar desde Drive">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-                        </button>
-                    </div>
-                </div>
-                <div id="projectsList"></div>
-            </div>
-        </div>
-
-        <!-- SYNC VIEW -->
-        <div id="view-sync" class="view">
-            <div class="view-padded">
-                <div class="section-title">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/><path d="M21 3v9h-9"/></svg>
-                    Sincronización
-                </div>
-
-                <div class="sync-stats">
-                    <div class="sync-stat-card">
-                        <div class="sync-stat-value" id="syncPending">0</div>
-                        <div class="sync-stat-label">Pendientes</div>
-                    </div>
-                    <div class="sync-stat-card">
-                        <div class="sync-stat-value" id="syncCompleted">0</div>
-                        <div class="sync-stat-label">Sincronizadas</div>
-                    </div>
-                    <div class="sync-stat-card">
-                        <div class="sync-stat-value" id="syncTotal">0</div>
-                        <div class="sync-stat-label">Total muestras</div>
-                    </div>
-                    <div class="sync-stat-card">
-                        <div class="sync-stat-value" id="syncProjects">0</div>
-                        <div class="sync-stat-label">Proyectos</div>
-                    </div>
-                </div>
-
-                <button class="sync-btn" id="syncBtn" onclick="app.syncToDrive()">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/><path d="M21 3v9h-9"/></svg>
-                    Sincronizar con Drive
-                </button>
-
-                <button class="sync-btn" style="background:var(--dark-3)" onclick="app.exportLocalBackup()">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
-                    Descargar Backup Local
-                </button>
-
-                <button class="sync-btn" style="background:linear-gradient(135deg,#F44336,#FF9800);margin-top:8px" onclick="app.generateFieldReport()">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8M16 17H8M10 9H8"/></svg>
-                    Reporte IBRA — Ficha de Envio
-                </button>
-
-                <div class="section-title" style="margin-top:24px;font-size:14px">Registro de actividad</div>
-                <div class="sync-log" id="syncLog">
-                    <div class="sync-log-entry"><span class="time">—</span>Esperando primera sincronización...</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- SETTINGS VIEW -->
-        <div id="view-settings" class="view">
-            <div class="view-padded">
-                <div class="section-title">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
-                    Ajustes
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">Nombre del recolector</label>
-                    <div style="display:flex;gap:8px">
-                        <input type="text" class="form-input" id="collectorName" placeholder="Ej: Ing. Agr. Nilton Camargo">
-                        <button class="barcode-btn" onclick="app.saveCollectorName()">Guardar</button>
-                    </div>
-                </div>
-
-                <div class="form-group" style="margin-top:24px">
-                    <label class="form-label">Google Drive - OAuth Client ID</label>
-                    <input type="text" class="form-input" id="driveClientId" placeholder="xxxx.apps.googleusercontent.com" style="margin-bottom:8px;font-size:13px">
-                    <button class="sync-btn" onclick="app.connectDrive()">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>
-                        Conectar Google Drive
-                    </button>
-                    <p style="font-size:12px;color:var(--text-muted);margin-top:8px">
-                        Creá un proyecto en <a href="https://console.cloud.google.com" target="_blank" style="color:var(--teal)">Google Cloud Console</a>,
-                        habilitá la API de Drive, y creá credenciales OAuth 2.0 (Web Application).
-                    </p>
-                </div>
-
-                <div class="form-group" style="margin-top:24px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.08)">
-                    <div class="section-title" style="font-size:14px;margin-bottom:12px">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
-                        Precisión GPS
-                    </div>
-                    <label class="form-label">Precisión mínima para recolección</label>
-                    <select class="form-input" id="gpsMinAccuracy" onchange="app.saveGPSSetting('minAccuracy', this.value)">
-                        <option value="3">3m (Ultra preciso - lento)</option>
-                        <option value="5" selected>5m (Recomendado)</option>
-                        <option value="10">10m (Rápido)</option>
-                        <option value="20">20m (Baja precisión)</option>
-                    </select>
-                    <label class="form-label" style="margin-top:12px">Muestras para promediado</label>
-                    <select class="form-input" id="gpsAvgSamples" onchange="app.saveGPSSetting('avgSamples', this.value)">
-                        <option value="5">5 lecturas (rápido)</option>
-                        <option value="10" selected>10 lecturas (estándar)</option>
-                        <option value="20">20 lecturas (alta precisión)</option>
-                        <option value="30">30 lecturas (máxima precisión)</option>
-                    </select>
-                    <label class="form-label" style="margin-top:12px">Filtro Kalman</label>
-                    <select class="form-input" id="gpsKalmanEnabled" onchange="app.saveGPSSetting('kalmanEnabled', this.value)">
-                        <option value="1" selected>Activado (suaviza posición)</option>
-                        <option value="0">Desactivado (posición cruda)</option>
-                    </select>
-                    <div style="font-size:11px;color:var(--text-muted);margin-top:8px;padding:8px;background:var(--dark-2);border-radius:6px">
-                        El filtro Kalman suaviza las lecturas GPS en tiempo real, reduciendo el ruido de la señal. El promediado se aplica solo al momento de recolectar la muestra para máxima precisión.
-                    </div>
-                </div>
-
-                <div class="form-group" style="margin-top:24px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.08)">
-                    <div class="section-title" style="font-size:14px;margin-bottom:12px">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/></svg>
-                        Mapa Offline
-                    </div>
-                    <div id="tileCacheStats" style="font-size:12px;color:var(--text-muted);margin-bottom:10px">Cache: calculando...</div>
-                    <button class="sync-btn" style="background:var(--dark-3);margin-bottom:8px" onclick="app.downloadTilesOffline()">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                        Descargar Mapa del Campo Actual
-                    </button>
-                    <button class="sync-btn" style="background:rgba(239,68,68,0.15);color:var(--danger)" onclick="app.clearTileCache()">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
-                        Limpiar Cache de Tiles
-                    </button>
-                    <div id="tileDownloadProgress" style="display:none;margin-top:10px">
-                        <div class="gps-quality-bar" style="height:6px;margin-bottom:4px">
-                            <div class="gps-quality-fill" id="tileProgressFill" style="width:0%;background:var(--teal)"></div>
-                        </div>
-                        <div id="tileProgressText" style="font-size:11px;color:var(--text-muted)">Descargando tiles...</div>
-                    </div>
-                    <!-- 2.4: Storage quota indicator -->
-                    <div style="margin-top:12px;padding:10px;background:var(--dark-2);border-radius:8px">
-                        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted)">
-                            <span>Almacenamiento</span>
-                            <span id="storageText">—</span>
-                        </div>
-                        <div class="storage-bar">
-                            <div class="storage-fill ok" id="storageFill" style="width:0%"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- IBRA Cadastro Settings -->
-                <div style="margin-top:24px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.08)">
-                    <div class="section-title" style="font-size:14px;color:#F44336">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
-                        Datos IBRA Megalab
-                    </div>
-                    <div class="settings-group">
-                        <label class="form-label">Solicitante</label>
-                        <input type="text" class="form-input" id="ibraSolicitante" value="PIXADVISOR AGRICULTURA DE PRECISAO" onchange="app.saveIbraSetting('solicitante',this.value)">
-                    </div>
-                    <div class="settings-group">
-                        <label class="form-label">Responsavel pelo envio</label>
-                        <input type="text" class="form-input" id="ibraResponsavel" value="NILTON LUIZ CAMARGO" onchange="app.saveIbraSetting('responsavel',this.value)">
-                    </div>
-                    <div style="display:flex;gap:8px">
-                        <div class="settings-group" style="flex:1">
-                            <label class="form-label">Telefone</label>
-                            <input type="text" class="form-input" id="ibraTelefone" value="43 999819554" onchange="app.saveIbraSetting('telefone',this.value)">
-                        </div>
-                        <div class="settings-group" style="flex:1">
-                            <label class="form-label">CPF/CNPJ</label>
-                            <input type="text" class="form-input" id="ibraCnpj" value="41.196.481/0001-30" onchange="app.saveIbraSetting('cnpj',this.value)">
-                        </div>
-                    </div>
-                    <div class="settings-group">
-                        <label class="form-label">Endereco</label>
-                        <input type="text" class="form-input" id="ibraEndereco" value="RUA ELIEZER MARTINS BANDEIRA 44" onchange="app.saveIbraSetting('endereco',this.value)">
-                    </div>
-                    <div style="display:flex;gap:8px">
-                        <div class="settings-group" style="flex:1">
-                            <label class="form-label">Municipio</label>
-                            <input type="text" class="form-input" id="ibraMunicipio" value="IBIPORA" onchange="app.saveIbraSetting('municipio',this.value)">
-                        </div>
-                        <div class="settings-group" style="flex:0 0 60px">
-                            <label class="form-label">UF</label>
-                            <input type="text" class="form-input" id="ibraUf" value="PR" onchange="app.saveIbraSetting('uf',this.value)">
-                        </div>
-                        <div class="settings-group" style="flex:1">
-                            <label class="form-label">CEP</label>
-                            <input type="text" class="form-input" id="ibraCep" value="86200536" onchange="app.saveIbraSetting('cep',this.value)">
-                        </div>
-                    </div>
-                    <div class="settings-group">
-                        <label class="form-label">E-mail para laudos</label>
-                        <input type="text" class="form-input" id="ibraEmail" value="nilton.camargo@pixadvisor.network, gis.agronomico@gmail.com" onchange="app.saveIbraSetting('email',this.value)">
-                    </div>
-                </div>
-
-                <div style="margin-top:32px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.08)">
-                    <div class="section-title" style="font-size:14px">Acerca de</div>
-                    <div style="text-align:center;padding:16px">
-                        <img src="icons/icon-192.png" alt="Pixadvisor" style="width:80px;height:80px;border-radius:16px;filter:drop-shadow(0 0 16px rgba(127,214,51,0.3));margin-bottom:12px">
-                        <div style="font-size:24px;font-weight:700;background:var(--gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent">PIX Muestreo</div>
-                        <div style="font-size:13px;color:var(--text-muted);margin-top:4px">v3.4.1 · Pixadvisor Agricultura de Precisión</div>
-                        <div style="font-size:12px;color:var(--text-muted);margin-top:8px">
-                            App de muestreo de suelo georreferenciado.<br>
-                            Funciona 100% offline en campo.
-                        </div>
-                        <div style="margin-top:16px">
-                            <a href="https://pixadvisor.network" target="_blank" style="color:var(--teal);font-size:13px">pixadvisor.network</a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <!-- ORDERS VIEW -->
-        <div id="view-orders" class="view">
-            <div class="view-padded">
-                <div class="section-title" style="justify-content:space-between">
-                    <div style="display:flex;align-items:center;gap:8px">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-                        Ordenes de Servicio
-                    </div>
-                    <button class="fab-btn secondary" id="btnCreateOrder" style="width:36px;height:36px;display:none" onclick="pixOrders.showCreateOrderModal()" title="Nueva orden">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M12 5v14M5 12h14"/></svg>
-                    </button>
-                </div>
-                <div class="order-filter-bar">
-                    <button class="order-filter-pill active" data-status="todas" onclick="pixOrders.setFilter('todas')">Todas</button>
-                    <button class="order-filter-pill" data-status="pendiente" onclick="pixOrders.setFilter('pendiente')">Pendientes</button>
-                    <button class="order-filter-pill" data-status="en_progreso" onclick="pixOrders.setFilter('en_progreso')">En Progreso</button>
-                    <button class="order-filter-pill" data-status="completada" onclick="pixOrders.setFilter('completada')">Completadas</button>
-                </div>
-                <div id="ordersList"></div>
-            </div>
-        </div>
-
-        <!-- ADMIN VIEW -->
-        <div id="view-admin" class="view">
-            <div class="view-padded">
-                <div class="section-title">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-                    Panel Admin
-                </div>
-                <div id="adminContent"></div>
-            </div>
-        </div>
-
-    </main>
-
-    <!-- ===== BOTTOM NAV ===== -->
-    <nav class="bottom-nav">
-        <button class="nav-item active" data-view="map">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
-            Mapa
-        </button>
-        <button class="nav-item" data-view="orders" id="navOrders">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-            Ordenes
-        </button>
-        <button class="nav-item" data-view="projects">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
-            Proyectos
-        </button>
-        <button class="nav-item" data-view="sync" id="navSync">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/><path d="M21 3v9h-9"/></svg>
-            Sync
-        </button>
-        <button class="nav-item" data-view="settings" id="navSettings">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
-            Ajustes
-        </button>
-        <button class="nav-item nav-hidden" data-view="admin" id="navAdmin">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-            Admin
-        </button>
-    </nav>
-</div>
-
-<!-- ===== COLLECT MODAL ===== -->
-<div class="modal-overlay" id="collectModal">
-    <div class="modal-sheet">
-        <div class="modal-handle"></div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-            <div>
-                <div class="modal-title" id="collectPointName">Punto —</div>
-                <div style="font-size:12px;color:var(--text-muted)" id="collectCoords">—</div>
-            </div>
-            <button class="fab-btn secondary" style="width:32px;height:32px" onclick="app.closeCollectForm()">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M18 6L6 18M6 6l12 12"/></svg>
-            </button>
-        </div>
-
-        <div class="collect-form">
-            <!-- Barcode / IBRA Megalab QR -->
-            <div class="form-group">
-                <label class="form-label">Código de bolsa (QR IBRA Megalab)</label>
-                <div class="barcode-display" id="barcodeDisplay">
-                    <span class="barcode-value" id="barcodeValue">Sin escanear</span>
-                    <button class="barcode-btn" onclick="app.scanBarcode()">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 7h3v3H7zM14 7h3v3h-3zM7 14h3v3H7z"/></svg>
-                        Escanear QR
-                    </button>
-                </div>
-                <div class="ibra-details" id="ibraDetails" style="display:none"></div>
-            </div>
-
-            <!-- Depth -->
-            <div class="form-group">
-                <label class="form-label">Profundidad (cm)</label>
-                <div class="depth-selector">
-                    <button class="depth-chip active" data-depth="0-20" onclick="app.selectDepth(this,'0-20')">0-20</button>
-                    <button class="depth-chip" data-depth="20-40" onclick="app.selectDepth(this,'20-40')">20-40</button>
-                    <button class="depth-chip" data-depth="40-60" onclick="app.selectDepth(this,'40-60')">40-60</button>
-                    <button class="depth-chip" data-depth="0-10" onclick="app.selectDepth(this,'0-10')">0-10</button>
-                    <button class="depth-chip" data-depth="10-20" onclick="app.selectDepth(this,'10-20')">10-20</button>
-                </div>
-            </div>
-
-            <!-- Sample type -->
-            <div class="form-group">
-                <label class="form-label">Tipo de análisis</label>
-                <select class="form-input" id="sampleType">
-                    <option value="quimico">Químico completo</option>
-                    <option value="fertilidad">Fertilidad</option>
-                    <option value="fisico">Físico</option>
-                    <option value="microbiologico">Microbiológico</option>
-                    <option value="nematodos">Nematodos</option>
-                    <option value="carbono">Carbono</option>
-                    <option value="completo">Completo (Químico + Físico)</option>
-                </select>
-            </div>
-
-            <!-- Collector -->
-            <div class="form-group">
-                <label class="form-label">Recolector</label>
-                <input type="text" class="form-input" id="collectorField" placeholder="Nombre del recolector">
-            </div>
-
-            <!-- Photo -->
-            <div class="form-group">
-                <label class="form-label">Foto</label>
-                <div class="photo-preview" onclick="app.takePhoto()">
-                    <img id="photoPreviewImg" style="display:none">
-                    <div id="photoPlaceholder" style="display:flex;flex-direction:column;align-items:center;gap:8px">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                        <span>Tocar para tomar foto</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Notes -->
-            <div class="form-group">
-                <label class="form-label">Observaciones</label>
-                <textarea class="form-input" id="sampleNotes" rows="2" placeholder="Notas adicionales..."></textarea>
-            </div>
-
-            <!-- Save button -->
-            <button class="sync-btn" onclick="app.saveSample()" style="margin-top:8px">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
-                Guardar Muestra
-            </button>
-        </div>
-    </div>
-</div>
-
-<!-- ===== ZONE COMPLETE MODAL ===== -->
-<div class="modal-overlay" id="zoneCompleteModal">
-    <div class="modal-sheet">
-        <div class="modal-handle"></div>
-        <div style="text-align:center;padding:8px 0 16px">
-            <div id="zoneCompleteBadge" style="display:inline-block;padding:6px 18px;border-radius:20px;font-weight:700;font-size:14px;margin-bottom:12px;color:#fff"></div>
-            <h3 style="color:#fff;margin:8px 0 4px;font-size:20px" id="zoneCompleteTitle">Zona completa!</h3>
-            <p style="color:var(--text-muted);font-size:13px" id="zoneCompleteSubtitle">Todas las submuestras recolectadas</p>
-        </div>
-
-        <div class="form-group">
-            <label class="form-label">Escanear QR de la bolsa IBRA para esta zona</label>
-            <div class="barcode-display" id="zoneBarcodeDisplay">
-                <span class="barcode-value" id="zoneBarcodeValue">Sin escanear</span>
-                <button class="barcode-btn" onclick="app.scanZoneBarcode()">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 7h3v3H7zM14 7h3v3h-3zM7 14h3v3H7z"/></svg>
-                    Escanear QR IBRA
-                </button>
-            </div>
-            <div class="ibra-details" id="zoneIbraDetails" style="display:none"></div>
-        </div>
-
-        <div style="display:flex;gap:10px;margin-top:16px">
-            <button class="sync-btn" onclick="app.nextZone()" style="flex:1;background:linear-gradient(135deg,#7FD633,#0d9488)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                Siguiente zona
-            </button>
-        </div>
-        <p style="color:var(--text-muted);font-size:11px;text-align:center;margin-top:10px">Podés escanear el QR ahora o despues en Sync</p>
-    </div>
-</div>
-
-<!-- ===== IMPORT MODAL ===== -->
-<div class="modal-overlay" id="importModal">
-    <div class="modal-sheet">
-        <div class="modal-handle"></div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-            <div class="modal-title">Importar desde Drive</div>
-            <button class="fab-btn secondary" style="width:32px;height:32px" onclick="app.closeImportModal()">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M18 6L6 18M6 6l12 12"/></svg>
-            </button>
-        </div>
-        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
-            Archivos en la carpeta <strong>"PIX Muestreo"</strong> de Google Drive
+        <h1 class="hero-title">
+          <span data-lang-es>Tecnología que Transforma<br>Resultados en el Campo</span>
+          <span data-lang-pt>Tecnologia que Transforma<br>Resultados no Campo</span>
+        </h1>
+        <p class="hero-subtitle">
+          <span data-lang-es>Mapeo satelital, muestreo inteligente, IA propia y prescripción variable para maximizar cada hectárea de tu operación agrícola.</span>
+          <span data-lang-pt>Mapeamento satelital, amostragem inteligente, IA própria e prescrição variável para maximizar cada hectare da sua operação agrícola.</span>
         </p>
-        <div id="importFileList"></div>
-    </div>
-</div>
-
-<!-- ===== SCANNER OVERLAY ===== -->
-<div class="scanner-overlay" id="scannerOverlay">
-    <div class="scanner-header">
-        <span class="scanner-title">Escanear código</span>
-        <button class="fab-btn secondary" style="width:36px;height:36px" onclick="app.closeScannerOverlay()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M18 6L6 18M6 6l12 12"/></svg>
-        </button>
-    </div>
-    <div id="scannerViewfinder"></div>
-    <p style="margin-top:16px;font-size:14px;color:var(--text-muted);text-align:center">Apuntá la cámara al código de barras o QR</p>
-</div>
-
-<!-- ===== ORDER MODAL ===== -->
-<div class="modal-overlay" id="orderModal">
-    <div class="modal-sheet">
-        <div class="modal-handle"></div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-            <div class="modal-title" id="orderModalTitle">Nueva Orden de Servicio</div>
-            <button class="fab-btn secondary" style="width:32px;height:32px" onclick="pixOrders.closeOrderModal()">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M18 6L6 18M6 6l12 12"/></svg>
-            </button>
+        <div class="hero-ctas">
+          <a href="https://wa.me/59172149171?text=Hola%20Pixadvisor%2C%20me%20interesa%20una%20demo%20de%20sus%20servicios." class="hero-btn-primary" target="_blank" rel="noopener">
+            <span data-lang-es>Solicitar Demo</span>
+            <span data-lang-pt>Solicitar Demo</span>
+          </a>
+          <a href="#services" class="hero-btn-secondary">
+            <span data-lang-es>Ver Servicios</span>
+            <span data-lang-pt>Ver Serviços</span>
+          </a>
         </div>
-        <div class="collect-form">
-            <div class="form-group">
-                <label class="form-label">Proyecto</label>
-                <select class="form-input" id="orderProject" onchange="pixOrders.onProjectChange(this.value)">
-                    <option value="">Seleccionar proyecto...</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Campo / Lote</label>
-                <select class="form-input" id="orderField">
-                    <option value="">Seleccionar campo...</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Cliente</label>
-                <input type="text" class="form-input" id="orderClient" placeholder="Nombre del cliente">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Tecnico asignado</label>
-                <select class="form-input" id="orderTechnician">
-                    <option value="">Seleccionar tecnico...</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Tipo de servicio</label>
-                <select class="form-input" id="orderType">
-                    <option value="muestreo_suelo">Muestreo de Suelo</option>
-                    <option value="muestreo_foliar">Muestreo Foliar</option>
-                    <option value="mapeo_dron">Mapeo con Dron</option>
-                    <option value="consultoria">Consultoria</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Prioridad</label>
-                <select class="form-input" id="orderPriority">
-                    <option value="alta">Alta</option>
-                    <option value="media" selected>Media</option>
-                    <option value="baja">Baja</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Fecha limite</label>
-                <input type="date" class="form-input" id="orderDueDate">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Notas</label>
-                <textarea class="form-input" id="orderNotes" rows="2" placeholder="Observaciones..."></textarea>
-            </div>
-            <button class="sync-btn" onclick="pixOrders.saveOrder()" style="margin-top:8px">
-                Guardar Orden
-            </button>
+        <div class="hero-stats">
+          <div class="hero-stat">
+            <strong>2</strong>
+            <span data-lang-es>Países</span><span data-lang-pt>Países</span>
+          </div>
+          <div class="hero-stat">
+            <strong>11</strong>
+            <span data-lang-es>Cultivos</span><span data-lang-pt>Culturas</span>
+          </div>
+          <div class="hero-stat">
+            <strong>100%</strong>
+            <span data-lang-es>Datos Reales</span><span data-lang-pt>Dados Reais</span>
+          </div>
+          <div class="hero-stat">
+            <strong>IA</strong>
+            <span data-lang-es>Propia</span><span data-lang-pt>Própria</span>
+          </div>
         </div>
-    </div>
-</div>
+      </div>
+    </section>
 
-<!-- ===== USER MODAL ===== -->
-<div class="modal-overlay" id="userModal">
-    <div class="modal-sheet">
-        <div class="modal-handle"></div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-            <div class="modal-title" id="userModalTitle">Nuevo Usuario</div>
-            <button class="fab-btn secondary" style="width:32px;height:32px" onclick="pixAdmin.closeUserModal()">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M18 6L6 18M6 6l12 12"/></svg>
-            </button>
+    <!-- 2. PROCESS / HOW IT WORKS -->
+    <section class="process" id="process">
+      <div class="container">
+        <div class="process-header">
+          <h2>
+            <span data-lang-es>Cómo Trabajamos</span>
+            <span data-lang-pt>Como Trabalhamos</span>
+          </h2>
+          <div class="section-divider"></div>
+          <p>
+            <span data-lang-es>5 pasos para transformar tu operación agrícola con tecnología de precisión</span>
+            <span data-lang-pt>5 passos para transformar sua operação agrícola com tecnologia de precisão</span>
+          </p>
         </div>
-        <div class="collect-form">
-            <div class="form-group">
-                <label class="form-label">Nombre</label>
-                <input type="text" class="form-input" id="userName" placeholder="Nombre completo">
+        <div class="process-timeline">
+          <!-- Step 1 -->
+          <div class="process-step fade-in">
+            <div class="process-step-number">1</div>
+            <div class="process-step-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
             </div>
-            <div class="form-group">
-                <label class="form-label">Email</label>
-                <input type="email" class="form-input" id="userEmail" placeholder="email@ejemplo.com">
+            <h3 class="process-step-title">
+              <span data-lang-es>Diagnóstico Satelital</span>
+              <span data-lang-pt>Diagnóstico Satelital</span>
+            </h3>
+            <p class="process-step-text">
+              <span data-lang-es>Evaluamos su campo mediante imágenes satelitales multibanda para identificar zonas de manejo y variabilidad.</span>
+              <span data-lang-pt>Avaliamos seu campo por meio de imagens satelitais multibanda para identificar zonas de manejo e variabilidade.</span>
+            </p>
+          </div>
+          <!-- Step 2 -->
+          <div class="process-step fade-in">
+            <div class="process-step-number">2</div>
+            <div class="process-step-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
             </div>
-            <div class="form-group" id="userPasswordGroup">
-                <label class="form-label">Contrasena</label>
-                <input type="password" class="form-input" id="userPassword" placeholder="Contrasena">
+            <h3 class="process-step-title">
+              <span data-lang-es>Muestreo de Campo</span>
+              <span data-lang-pt>Amostragem de Campo</span>
+            </h3>
+            <p class="process-step-text">
+              <span data-lang-es>Colecta georreferenciada con PIX Muestreo, optimizando puntos por zona de manejo.</span>
+              <span data-lang-pt>Coleta georreferenciada com PIX Muestreo, otimizando pontos por zona de manejo.</span>
+            </p>
+          </div>
+          <!-- Step 3 -->
+          <div class="process-step fade-in">
+            <div class="process-step-number">3</div>
+            <div class="process-step-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 1 4 4c0 1.5-.8 2.8-2 3.4V11h3a3 3 0 0 1 3 3v1h1a2 2 0 0 1 2 2v4H1v-4a2 2 0 0 1 2-2h1v-1a3 3 0 0 1 3-3h3V9.4A4 4 0 0 1 8 6a4 4 0 0 1 4-4z"/></svg>
             </div>
-            <div class="form-group">
-                <label class="form-label">Rol</label>
-                <select class="form-input" id="userRole">
-                    <option value="tecnico">Tecnico</option>
-                    <option value="admin">Administrador</option>
-                    <option value="cliente">Cliente</option>
-                </select>
+            <h3 class="process-step-title">
+              <span data-lang-es>Análisis con IA</span>
+              <span data-lang-pt>Análise com IA</span>
+            </h3>
+            <p class="process-step-text">
+              <span data-lang-es>Algoritmos propios procesan datos satelitales y de campo para generar recomendaciones precisas.</span>
+              <span data-lang-pt>Algoritmos próprios processam dados satelitais e de campo para gerar recomendações precisas.</span>
+            </p>
+          </div>
+          <!-- Step 4 -->
+          <div class="process-step fade-in">
+            <div class="process-step-number">4</div>
+            <div class="process-step-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
             </div>
-            <button class="sync-btn" onclick="pixAdmin.saveUser()" style="margin-top:8px">
-                Guardar Usuario
-            </button>
+            <h3 class="process-step-title">
+              <span data-lang-es>Prescripción VRT</span>
+              <span data-lang-pt>Prescrição VRT</span>
+            </h3>
+            <p class="process-step-text">
+              <span data-lang-es>Mapas de aplicación variable listos para su maquinaria, optimizando insumos por zona.</span>
+              <span data-lang-pt>Mapas de aplicação variável prontos para sua maquinaria, otimizando insumos por zona.</span>
+            </p>
+          </div>
+          <!-- Step 5 -->
+          <div class="process-step fade-in">
+            <div class="process-step-number">5</div>
+            <div class="process-step-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </div>
+            <h3 class="process-step-title">
+              <span data-lang-es>Monitoreo Continuo</span>
+              <span data-lang-pt>Monitoramento Contínuo</span>
+            </h3>
+            <p class="process-step-text">
+              <span data-lang-es>Seguimiento satelital mes a mes para evaluar resultados y ajustar estrategias.</span>
+              <span data-lang-pt>Acompanhamento satelital mês a mês para avaliar resultados e ajustar estratégias.</span>
+            </p>
+          </div>
         </div>
-    </div>
-</div>
+      </div>
+    </section>
 
-<!-- Scripts -->
-<script src="lib/leaflet.js"></script>
-<script src="lib/html5-qrcode.min.js"></script>
-<script src="js/db.js"></script>
-<script src="js/auth.js"></script>
-<script src="js/drive.js"></script>
-<script src="js/gps.js"></script>
-<script src="js/scanner.js"></script>
-<script src="js/map.js"></script>
-<script src="js/orders.js"></script>
-<script src="js/sync.js"></script>
-<script src="js/admin.js"></script>
-<script src="js/app.js"></script>
-<script src="js/agent-field.js"></script>
+    <!-- 3. ABOUT -->
+    <section class="about" id="about">
+      <div class="container">
+        <div class="about-grid">
+          <div class="about-content fade-in">
+            <h2>
+              <span data-lang-es>Agricultura de Precisión con Tecnología Propia</span>
+              <span data-lang-pt>Agricultura de Precisão com Tecnologia Própria</span>
+            </h2>
+            <p>
+              <span data-lang-es>En Pixadvisor combinamos imágenes satelitales, inteligencia artificial y conocimiento agronómico para entregar soluciones que realmente impactan la productividad de tu campo. Operamos en Bolivia y Brasil, con experiencia en 11 cultivos diferentes.</span>
+              <span data-lang-pt>Na Pixadvisor combinamos imagens satelitais, inteligência artificial e conhecimento agronômico para entregar soluções que realmente impactam a produtividade do seu campo. Operamos na Bolívia e no Brasil, com experiência em 11 cultivos diferentes.</span>
+            </p>
+            <p>
+              <span data-lang-es>Nuestra plataforma integra desde el diagnóstico satelital hasta la prescripción variable, pasando por muestreo georreferenciado y análisis con IA. Todo en un ecosistema diseñado para el agricultor moderno.</span>
+              <span data-lang-pt>Nossa plataforma integra desde o diagnóstico satelital até a prescrição variável, passando por amostragem georreferenciada e análise com IA. Tudo em um ecossistema projetado para o agricultor moderno.</span>
+            </p>
+            <div class="about-stats">
+              <div class="stat">
+                <div class="stat-number">2</div>
+                <div class="stat-label">
+                  <span data-lang-es>Países</span>
+                  <span data-lang-pt>Países</span>
+                </div>
+              </div>
+              <div class="stat">
+                <div class="stat-number">100%</div>
+                <div class="stat-label">
+                  <span data-lang-es>Datos Reales</span>
+                  <span data-lang-pt>Dados Reais</span>
+                </div>
+              </div>
+              <div class="stat">
+                <div class="stat-number">IA</div>
+                <div class="stat-label">
+                  <span data-lang-es>Propia</span>
+                  <span data-lang-pt>Própria</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="about-image fade-in">
+            <img src="img/agricultura-precision-drone.jpg" alt="Agricultura de precisión con drones" width="600" height="400" loading="lazy">
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. SERVICES -->
+    <section class="services" id="services">
+      <div class="container">
+        <div class="services-header">
+          <h2>
+            <span data-lang-es>Nuestros Servicios</span>
+            <span data-lang-pt>Nossos Serviços</span>
+          </h2>
+          <div class="section-divider"></div>
+          <p>
+            <span data-lang-es>Soluciones integrales de agricultura de precisión adaptadas a tu operación</span>
+            <span data-lang-pt>Soluções integrais de agricultura de precisão adaptadas à sua operação</span>
+          </p>
+        </div>
+        <div class="services-grid">
+          <!-- Service 1: GeoLand Advisor -->
+          <a href="img/servicios/geoland-advisor.html" class="service-card fade-in">
+            <div class="service-card-img">
+              <img src="img/paisaje-agricola-ndvi.jpg" alt="GeoLand Advisor - Mapeo de lotes" width="400" height="250" loading="lazy">
+            </div>
+            <div class="service-card-body">
+              <span class="service-category cat-mapping">
+                <span data-lang-es>Mapeo</span>
+                <span data-lang-pt>Mapeamento</span>
+              </span>
+              <h3>GeoLand Advisor</h3>
+              <p>
+                <span data-lang-es>Delimitación y mapeo de lotes agrícolas con imágenes satelitales de alta resolución y clasificación de zonas productivas.</span>
+                <span data-lang-pt>Delimitação e mapeamento de lotes agrícolas com imagens satelitais de alta resolução e classificação de zonas produtivas.</span>
+              </p>
+              <span class="service-card-link">
+                <span data-lang-es>Ver más</span>
+                <span data-lang-pt>Ver mais</span>
+                &rarr;
+              </span>
+            </div>
+          </a>
+          <!-- Service 2: SmartSoil Advisor -->
+          <a href="img/servicios/smartsoil-advisor.html" class="service-card fade-in">
+            <div class="service-card-img">
+              <img src="img/mapeamiento-fertilidad-suelo.jpg" alt="SmartSoil Advisor - Fertilidad del suelo" width="400" height="250" loading="lazy">
+            </div>
+            <div class="service-card-body">
+              <span class="service-category cat-mapping">
+                <span data-lang-es>Mapeo</span>
+                <span data-lang-pt>Mapeamento</span>
+              </span>
+              <h3>SmartSoil Advisor</h3>
+              <p>
+                <span data-lang-es>Mapeo de fertilidad del suelo con interpolación geoestadística y generación de zonas de manejo para fertilización diferenciada.</span>
+                <span data-lang-pt>Mapeamento de fertilidade do solo com interpolação geoestatística e geração de zonas de manejo para fertilização diferenciada.</span>
+              </p>
+              <span class="service-card-link">
+                <span data-lang-es>Ver más</span>
+                <span data-lang-pt>Ver mais</span>
+                &rarr;
+              </span>
+            </div>
+          </a>
+          <!-- Service 3: CheckSoil Advisor -->
+          <a href="img/servicios/checksoil-advisor.html" class="service-card fade-in">
+            <div class="service-card-img">
+              <img src="img/servicio-01.jpg" alt="CheckSoil Advisor - Diagnóstico de suelos" width="400" height="250" loading="lazy">
+            </div>
+            <div class="service-card-body">
+              <span class="service-category cat-mapping">
+                <span data-lang-es>Mapeo</span>
+                <span data-lang-pt>Mapeamento</span>
+              </span>
+              <h3>CheckSoil Advisor</h3>
+              <p>
+                <span data-lang-es>Diagnóstico integral del suelo con muestreo dirigido por zonas, análisis de laboratorio y recomendaciones de enmiendas.</span>
+                <span data-lang-pt>Diagnóstico integral do solo com amostragem dirigida por zonas, análise de laboratório e recomendações de correção.</span>
+              </p>
+              <span class="service-card-link">
+                <span data-lang-es>Ver más</span>
+                <span data-lang-pt>Ver mais</span>
+                &rarr;
+              </span>
+            </div>
+          </a>
+          <!-- Service 4: NutriBank Advisor -->
+          <a href="img/servicios/nutribank-advisor.html" class="service-card fade-in">
+            <div class="service-card-img">
+              <img src="img/mapa-aplicacion-cal.jpg" alt="NutriBank Advisor - Prescripción nutricional" width="400" height="250" loading="lazy">
+            </div>
+            <div class="service-card-body">
+              <span class="service-category cat-nutrition">
+                <span data-lang-es>Nutrición</span>
+                <span data-lang-pt>Nutrição</span>
+              </span>
+              <h3>NutriBank Advisor</h3>
+              <p>
+                <span data-lang-es>Prescripción nutricional variable con mapas VRT para fertilización, encalado y enmiendas, optimizando costos por hectárea.</span>
+                <span data-lang-pt>Prescrição nutricional variável com mapas VRT para fertilização, calagem e correção, otimizando custos por hectare.</span>
+              </p>
+              <span class="service-card-link">
+                <span data-lang-es>Ver más</span>
+                <span data-lang-pt>Ver mais</span>
+                &rarr;
+              </span>
+            </div>
+          </a>
+          <!-- Service 5: BioIndex Advisor -->
+          <a href="img/servicios/bioindex-advisor.html" class="service-card fade-in">
+            <div class="service-card-img">
+              <img src="img/analisis-salud-vegetacion.jpg" alt="BioIndex Advisor - Índices de vegetación" width="400" height="250" loading="lazy">
+            </div>
+            <div class="service-card-body">
+              <span class="service-category cat-monitoring">
+                <span data-lang-es>Monitoreo</span>
+                <span data-lang-pt>Monitoramento</span>
+              </span>
+              <h3>BioIndex Advisor</h3>
+              <p>
+                <span data-lang-es>Monitoreo de salud vegetal con índices NDVI, NDRE, SAVI y series temporales para detectar estrés antes de que sea visible.</span>
+                <span data-lang-pt>Monitoramento de saúde vegetal com índices NDVI, NDRE, SAVI e séries temporais para detectar estresse antes que seja visível.</span>
+              </p>
+              <span class="service-card-link">
+                <span data-lang-es>Ver más</span>
+                <span data-lang-pt>Ver mais</span>
+                &rarr;
+              </span>
+            </div>
+          </a>
+          <!-- Service 6: WaterSoil Advisor -->
+          <a href="img/servicios/watersoil-advisor.html" class="service-card fade-in">
+            <div class="service-card-img">
+              <img src="img/agricultura-precision-tecnologia.jpg" alt="WaterSoil Advisor - Gestión hídrica" width="400" height="250" loading="lazy">
+            </div>
+            <div class="service-card-body">
+              <span class="service-category cat-monitoring">
+                <span data-lang-es>Monitoreo</span>
+                <span data-lang-pt>Monitoramento</span>
+              </span>
+              <h3>WaterSoil Advisor</h3>
+              <p>
+                <span data-lang-es>Análisis de balance hídrico, mapeo de humedad del suelo y recomendaciones de riego con datos satelitales y de campo.</span>
+                <span data-lang-pt>Análise de balanço hídrico, mapeamento de umidade do solo e recomendações de irrigação com dados satelitais e de campo.</span>
+              </p>
+              <span class="service-card-link">
+                <span data-lang-es>Ver más</span>
+                <span data-lang-pt>Ver mais</span>
+                &rarr;
+              </span>
+            </div>
+          </a>
+          <!-- Service 7: CheckLeaf Advisor -->
+          <a href="img/servicios/checkleaf-advisor.html" class="service-card fade-in">
+            <div class="service-card-img">
+              <img src="img/servicio-03.jpg" alt="CheckLeaf Advisor - Análisis foliar" width="400" height="250" loading="lazy">
+            </div>
+            <div class="service-card-body">
+              <span class="service-category cat-nutrition">
+                <span data-lang-es>Nutrición</span>
+                <span data-lang-pt>Nutrição</span>
+              </span>
+              <h3>CheckLeaf Advisor</h3>
+              <p>
+                <span data-lang-es>Diagnóstico foliar georreferenciado con interpretación nutricional y correlación con índices de vegetación satelitales.</span>
+                <span data-lang-pt>Diagnóstico foliar georreferenciado com interpretação nutricional e correlação com índices de vegetação satelitais.</span>
+              </p>
+              <span class="service-card-link">
+                <span data-lang-es>Ver más</span>
+                <span data-lang-pt>Ver mais</span>
+                &rarr;
+              </span>
+            </div>
+          </a>
+          <!-- Service 8: OnFarm Biofábricas -->
+          <a href="img/servicios/onfarm-biofabricas.html" class="service-card fade-in">
+            <div class="service-card-img">
+              <img src="img/biotanques.jpg" alt="OnFarm Biofábricas - Control biológico" width="400" height="250" loading="lazy">
+            </div>
+            <div class="service-card-body">
+              <span class="service-category cat-bio">
+                <span data-lang-es>Biológico</span>
+                <span data-lang-pt>Biológico</span>
+              </span>
+              <h3>OnFarm Biofábricas</h3>
+              <p>
+                <span data-lang-es>Producción on-farm de biocontroladores y biofertilizantes con monitoreo digital y protocolos de calidad integrados.</span>
+                <span data-lang-pt>Produção on-farm de biocontroladores e biofertilizantes com monitoramento digital e protocolos de qualidade integrados.</span>
+              </p>
+              <span class="service-card-link">
+                <span data-lang-es>Ver más</span>
+                <span data-lang-pt>Ver mais</span>
+                &rarr;
+              </span>
+            </div>
+          </a>
+          <!-- Service 9: FieldPlanning -->
+          <a href="img/servicios/field-planning.html" class="service-card fade-in">
+            <div class="service-card-img">
+              <img src="img/field-planning.png" alt="FieldPlanning - Planificación inteligente de líneas" width="400" height="250" loading="lazy">
+            </div>
+            <div class="service-card-body">
+              <span class="service-category cat-drones">
+                <span data-lang-es>Drones & IA</span>
+                <span data-lang-pt>Drones & IA</span>
+              </span>
+              <h3>FieldPlanning</h3>
+              <p>
+                <span data-lang-es>Generación automática de escenarios de líneas de plantación, terraza y pulverización. Algoritmos que consideran altimetría, declividad, lluvia y maquinaria.</span>
+                <span data-lang-pt>Geração automática de cenários de linhas de plantio, terraço e pulverização. Algoritmos que consideram altimetria, declividade, chuva e maquinário.</span>
+              </p>
+              <span class="service-card-link">
+                <span data-lang-es>Ver más</span>
+                <span data-lang-pt>Ver mais</span>
+                &rarr;
+              </span>
+            </div>
+          </a>
+          <!-- Service 10: FieldControl -->
+          <a href="img/servicios/field-control.html" class="service-card fade-in">
+            <div class="service-card-img">
+              <img src="img/field-control.png" alt="FieldControl - Restitución de líneas y fallas" width="400" height="250" loading="lazy">
+            </div>
+            <div class="service-card-body">
+              <span class="service-category cat-drones">
+                <span data-lang-es>Drones & IA</span>
+                <span data-lang-pt>Drones & IA</span>
+              </span>
+              <h3>FieldControl</h3>
+              <p>
+                <span data-lang-es>Restitución automática de líneas, detección de fallas de plantío, análisis de paralelismo y conteo de plantas. Reduce pisoteo y optimiza cosecha mecanizada.</span>
+                <span data-lang-pt>Restituição automática de linhas, detecção de falhas de plantio, análise de paralelismo e contagem de plantas. Reduz pisoteio e otimiza colheita mecanizada.</span>
+              </p>
+              <span class="service-card-link">
+                <span data-lang-es>Ver más</span>
+                <span data-lang-pt>Ver mais</span>
+                &rarr;
+              </span>
+            </div>
+          </a>
+          <!-- Service 11: FieldMetrics -->
+          <a href="img/servicios/field-metrics.html" class="service-card fade-in">
+            <div class="service-card-img">
+              <img src="img/field-metrics.png" alt="FieldMetrics - Detección de malezas y tasa variable" width="400" height="250" loading="lazy">
+            </div>
+            <div class="service-card-body">
+              <span class="service-category cat-drones">
+                <span data-lang-es>Drones & IA</span>
+                <span data-lang-pt>Drones & IA</span>
+              </span>
+              <h3>FieldMetrics</h3>
+              <p>
+                <span data-lang-es>Detección de malezas con IA, mapeo para aplicación a tasa variable de herbicidas, regulador de crecimiento, defoliante y urea. Ahorro de hasta 80%.</span>
+                <span data-lang-pt>Detecção de plantas daninhas com IA, mapeamento para aplicação a taxa variável de herbicidas, regulador de crescimento, desfolhante e ureia. Economia de até 80%.</span>
+              </p>
+              <span class="service-card-link">
+                <span data-lang-es>Ver más</span>
+                <span data-lang-pt>Ver mais</span>
+                &rarr;
+              </span>
+            </div>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. TESTIMONIALS -->
+    <section class="testimonials" id="results">
+      <div class="container">
+        <div class="services-header">
+          <h2>
+            <span data-lang-es>Resultados Reales</span>
+            <span data-lang-pt>Resultados Reais</span>
+          </h2>
+          <div class="section-divider"></div>
+          <p>
+            <span data-lang-es>Lo que dicen nuestros clientes sobre el impacto en sus operaciones</span>
+            <span data-lang-pt>O que nossos clientes dizem sobre o impacto em suas operações</span>
+          </p>
+        </div>
+        <div class="testimonials-grid">
+          <!-- Testimonial 1 -->
+          <div class="testimonial-card fade-in">
+            <div class="testimonial-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+            <p class="testimonial-quote">
+              <span data-lang-es>"Redujimos 30% el costo de insumos con la prescripción variable. Los mapas VRT de Pixadvisor nos permitieron aplicar cal solo donde realmente se necesitaba."</span>
+              <span data-lang-pt>"Reduzimos 30% o custo de insumos com a prescrição variável. Os mapas VRT da Pixadvisor nos permitiram aplicar calcário somente onde realmente era necessário."</span>
+            </p>
+            <div class="testimonial-crop">
+              <span data-lang-es>Caña de Azúcar</span>
+              <span data-lang-pt>Cana-de-Açúcar</span>
+            </div>
+            <div class="testimonial-location">Bolivia</div>
+          </div>
+          <!-- Testimonial 2 -->
+          <div class="testimonial-card fade-in">
+            <div class="testimonial-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+            <p class="testimonial-quote">
+              <span data-lang-es>"La prescripción VRT optimizó la siembra y fertilización de nuestra soja. Vimos un aumento de 12% en productividad en la primera zafra."</span>
+              <span data-lang-pt>"A prescrição VRT otimizou a semeadura e fertilização da nossa soja. Vimos um aumento de 12% na produtividade na primeira safra."</span>
+            </p>
+            <div class="testimonial-crop">
+              <span data-lang-es>Soja</span>
+              <span data-lang-pt>Soja</span>
+            </div>
+            <div class="testimonial-location">Brasil</div>
+          </div>
+          <!-- Testimonial 3 -->
+          <div class="testimonial-card fade-in">
+            <div class="testimonial-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+            <p class="testimonial-quote">
+              <span data-lang-es>"El muestreo dirigido nos ahorró 40% en costos de laboratorio. Con PIX Muestreo solo tomamos muestras donde la variabilidad lo requiere."</span>
+              <span data-lang-pt>"A amostragem dirigida nos economizou 40% em custos de laboratório. Com PIX Muestreo só coletamos amostras onde a variabilidade exige."</span>
+            </p>
+            <div class="testimonial-crop">
+              <span data-lang-es>Maíz</span>
+              <span data-lang-pt>Milho</span>
+            </div>
+            <div class="testimonial-location">Bolivia</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. PACKAGES -->
+    <section class="packages" id="packages">
+      <div class="container">
+        <div class="services-header">
+          <h2>
+            <span data-lang-es>Paquetes</span>
+            <span data-lang-pt>Pacotes</span>
+          </h2>
+          <div class="section-divider"></div>
+          <p>
+            <span data-lang-es>Planes diseñados para cada etapa de tu operación agrícola</span>
+            <span data-lang-pt>Planos projetados para cada etapa da sua operação agrícola</span>
+          </p>
+        </div>
+        <div class="packages-grid">
+          <!-- Basic -->
+          <div class="package-card fade-in">
+            <div class="package-name">Basic</div>
+            <div class="package-subtitle">
+              <span data-lang-es>Para productores que inician en AP</span>
+              <span data-lang-pt>Para produtores que iniciam em AP</span>
+            </div>
+            <ul class="package-features">
+              <li>
+                <span data-lang-es>Delimitación de lotes satelital</span>
+                <span data-lang-pt>Delimitação de lotes satelital</span>
+              </li>
+              <li>
+                <span data-lang-es>Mapa de zonas de manejo (2-3 zonas)</span>
+                <span data-lang-pt>Mapa de zonas de manejo (2-3 zonas)</span>
+              </li>
+              <li>
+                <span data-lang-es>Muestreo dirigido por zona</span>
+                <span data-lang-pt>Amostragem dirigida por zona</span>
+              </li>
+              <li>
+                <span data-lang-es>Informe de fertilidad básico</span>
+                <span data-lang-pt>Relatório de fertilidade básico</span>
+              </li>
+              <li>
+                <span data-lang-es>1 mapa de prescripción VRT</span>
+                <span data-lang-pt>1 mapa de prescrição VRT</span>
+              </li>
+            </ul>
+            <a href="https://wa.me/59172149171?text=Hola%20Pixadvisor%2C%20me%20interesa%20el%20paquete%20Basic." class="package-cta" target="_blank" rel="noopener">
+              <span data-lang-es>Solicitar</span>
+              <span data-lang-pt>Solicitar</span>
+            </a>
+          </div>
+          <!-- Plus (Featured) -->
+          <div class="package-card package-card--featured fade-in">
+            <div class="package-badge">
+              <span data-lang-es>Más Popular</span>
+              <span data-lang-pt>Mais Popular</span>
+            </div>
+            <div class="package-name">Plus</div>
+            <div class="package-subtitle">
+              <span data-lang-es>Solución integral para optimizar</span>
+              <span data-lang-pt>Solução integral para otimizar</span>
+            </div>
+            <ul class="package-features">
+              <li>
+                <span data-lang-es>Todo del plan Basic</span>
+                <span data-lang-pt>Tudo do plano Basic</span>
+              </li>
+              <li>
+                <span data-lang-es>Zonas de manejo avanzadas (4-5 zonas)</span>
+                <span data-lang-pt>Zonas de manejo avançadas (4-5 zonas)</span>
+              </li>
+              <li>
+                <span data-lang-es>Mapas de fertilidad interpolados</span>
+                <span data-lang-pt>Mapas de fertilidade interpolados</span>
+              </li>
+              <li>
+                <span data-lang-es>Prescripción VRT múltiple (N, P, K, Cal)</span>
+                <span data-lang-pt>Prescrição VRT múltipla (N, P, K, Cal)</span>
+              </li>
+              <li>
+                <span data-lang-es>Monitoreo NDVI mensual</span>
+                <span data-lang-pt>Monitoramento NDVI mensal</span>
+              </li>
+              <li>
+                <span data-lang-es>Informe técnico completo en PDF</span>
+                <span data-lang-pt>Relatório técnico completo em PDF</span>
+              </li>
+            </ul>
+            <a href="https://wa.me/59172149171?text=Hola%20Pixadvisor%2C%20me%20interesa%20el%20paquete%20Plus." class="package-cta" target="_blank" rel="noopener">
+              <span data-lang-es>Solicitar</span>
+              <span data-lang-pt>Solicitar</span>
+            </a>
+          </div>
+          <!-- Premium -->
+          <div class="package-card fade-in">
+            <div class="package-name">Premium</div>
+            <div class="package-subtitle">
+              <span data-lang-es>Máximo control y monitoreo continuo</span>
+              <span data-lang-pt>Máximo controle e monitoramento contínuo</span>
+            </div>
+            <ul class="package-features">
+              <li>
+                <span data-lang-es>Todo del plan Plus</span>
+                <span data-lang-pt>Tudo do plano Plus</span>
+              </li>
+              <li>
+                <span data-lang-es>Análisis multitemporal de productividad</span>
+                <span data-lang-pt>Análise multitemporal de produtividade</span>
+              </li>
+              <li>
+                <span data-lang-es>Series temporales NDVI/NDRE</span>
+                <span data-lang-pt>Séries temporais NDVI/NDRE</span>
+              </li>
+              <li>
+                <span data-lang-es>Alertas de estrés vegetal por IA</span>
+                <span data-lang-pt>Alertas de estresse vegetal por IA</span>
+              </li>
+              <li>
+                <span data-lang-es>Soporte agronómico personalizado</span>
+                <span data-lang-pt>Suporte agronômico personalizado</span>
+              </li>
+              <li>
+                <span data-lang-es>Acceso a PIX Admin y PIX Muestreo</span>
+                <span data-lang-pt>Acesso a PIX Admin e PIX Muestreo</span>
+              </li>
+            </ul>
+            <a href="https://wa.me/59172149171?text=Hola%20Pixadvisor%2C%20me%20interesa%20el%20paquete%20Premium." class="package-cta" target="_blank" rel="noopener">
+              <span data-lang-es>Solicitar</span>
+              <span data-lang-pt>Solicitar</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. TECHNOLOGY -->
+    <section class="tech" id="technology">
+      <div class="container">
+        <div class="tech-header">
+          <h2>
+            <span data-lang-es>Nuestra Tecnología</span>
+            <span data-lang-pt>Nossa Tecnologia</span>
+          </h2>
+          <div class="section-divider"></div>
+          <p>
+            <span data-lang-es>Plataforma integrada diseñada para la agricultura de precisión moderna</span>
+            <span data-lang-pt>Plataforma integrada projetada para a agricultura de precisão moderna</span>
+          </p>
+        </div>
+        <div class="tech-grid">
+          <!-- FieldPlanning -->
+          <div class="tech-card fade-in">
+            <div class="tech-card-img">
+              <img src="img/fazenda-inteligente-tecnologia.jpg" alt="FieldPlanning - Planificación inteligente" width="400" height="250" loading="lazy">
+            </div>
+            <div class="tech-card-body">
+              <h3>FieldPlanning</h3>
+              <ul class="tech-card-features">
+                <li>
+                  <span data-lang-es>Planificación de muestreo por zonas</span>
+                  <span data-lang-pt>Planejamento de amostragem por zonas</span>
+                </li>
+                <li>
+                  <span data-lang-es>Diseño de rutas optimizadas</span>
+                  <span data-lang-pt>Design de rotas otimizadas</span>
+                </li>
+                <li>
+                  <span data-lang-es>Cálculo automático de puntos cLHS</span>
+                  <span data-lang-pt>Cálculo automático de pontos cLHS</span>
+                </li>
+                <li>
+                  <span data-lang-es>Exportación a dispositivos de campo</span>
+                  <span data-lang-pt>Exportação para dispositivos de campo</span>
+                </li>
+              </ul>
+              <a href="#contact" class="tech-card-link">
+                <span data-lang-es>Conocer más</span>
+                <span data-lang-pt>Conhecer mais</span>
+                &rarr;
+              </a>
+            </div>
+          </div>
+          <!-- FieldMetrics -->
+          <div class="tech-card fade-in">
+            <div class="tech-card-img">
+              <img src="img/mapa-agricola-ndvi.jpg" alt="FieldMetrics - Métricas de campo" width="400" height="250" loading="lazy">
+            </div>
+            <div class="tech-card-body">
+              <h3>FieldMetrics</h3>
+              <ul class="tech-card-features">
+                <li>
+                  <span data-lang-es>Índices de vegetación multibanda</span>
+                  <span data-lang-pt>Índices de vegetação multibanda</span>
+                </li>
+                <li>
+                  <span data-lang-es>Series temporales automáticas</span>
+                  <span data-lang-pt>Séries temporais automáticas</span>
+                </li>
+                <li>
+                  <span data-lang-es>Estadísticas zonales por lote</span>
+                  <span data-lang-pt>Estatísticas zonais por lote</span>
+                </li>
+                <li>
+                  <span data-lang-es>Detección de anomalías con IA</span>
+                  <span data-lang-pt>Detecção de anomalias com IA</span>
+                </li>
+              </ul>
+              <a href="#contact" class="tech-card-link">
+                <span data-lang-es>Conocer más</span>
+                <span data-lang-pt>Conhecer mais</span>
+                &rarr;
+              </a>
+            </div>
+          </div>
+          <!-- FieldControl -->
+          <div class="tech-card fade-in">
+            <div class="tech-card-img">
+              <img src="img/analisis-salud-vegetacion.jpg" alt="FieldControl - Control de campo" width="400" height="250" loading="lazy">
+            </div>
+            <div class="tech-card-body">
+              <h3>FieldControl</h3>
+              <ul class="tech-card-features">
+                <li>
+                  <span data-lang-es>Prescripción VRT automática</span>
+                  <span data-lang-pt>Prescrição VRT automática</span>
+                </li>
+                <li>
+                  <span data-lang-es>Mapas de aplicación por insumo</span>
+                  <span data-lang-pt>Mapas de aplicação por insumo</span>
+                </li>
+                <li>
+                  <span data-lang-es>Compatibilidad ISOBUS/Shapefile</span>
+                  <span data-lang-pt>Compatibilidade ISOBUS/Shapefile</span>
+                </li>
+                <li>
+                  <span data-lang-es>Reportes de costos por hectárea</span>
+                  <span data-lang-pt>Relatórios de custos por hectare</span>
+                </li>
+              </ul>
+              <a href="#contact" class="tech-card-link">
+                <span data-lang-es>Conocer más</span>
+                <span data-lang-pt>Conhecer mais</span>
+                &rarr;
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8. GALLERY -->
+    <section class="gallery" id="gallery">
+      <div class="container">
+        <div class="services-header">
+          <h2>
+            <span data-lang-es>Galería</span>
+            <span data-lang-pt>Galeria</span>
+          </h2>
+          <div class="section-divider"></div>
+        </div>
+        <div class="gallery-filters">
+          <button class="gallery-filter-btn active" data-filter="all">
+            <span data-lang-es>Todos</span>
+            <span data-lang-pt>Todos</span>
+          </button>
+          <button class="gallery-filter-btn" data-filter="mapas">
+            <span data-lang-es>Mapas</span>
+            <span data-lang-pt>Mapas</span>
+          </button>
+          <button class="gallery-filter-btn" data-filter="campo">
+            <span data-lang-es>Campo</span>
+            <span data-lang-pt>Campo</span>
+          </button>
+          <button class="gallery-filter-btn" data-filter="prescripcion">
+            <span data-lang-es>Prescripción</span>
+            <span data-lang-pt>Prescrição</span>
+          </button>
+        </div>
+        <div class="gallery-grid">
+          <div class="gallery-item fade-in" data-category="mapas">
+            <img src="img/paisaje-agricola-ndvi.jpg" alt="Paisaje agrícola NDVI" width="400" height="300" loading="lazy">
+            <div class="gallery-overlay">
+              <p class="gallery-caption">
+                <span data-lang-es>Mapa NDVI de paisaje agrícola</span>
+                <span data-lang-pt>Mapa NDVI de paisagem agrícola</span>
+              </p>
+            </div>
+          </div>
+          <div class="gallery-item fade-in" data-category="mapas">
+            <img src="img/mapa-agricola-ndvi.jpg" alt="Mapa agrícola NDVI" width="400" height="300" loading="lazy">
+            <div class="gallery-overlay">
+              <p class="gallery-caption">
+                <span data-lang-es>Mapa agrícola con índice NDVI</span>
+                <span data-lang-pt>Mapa agrícola com índice NDVI</span>
+              </p>
+            </div>
+          </div>
+          <div class="gallery-item fade-in" data-category="campo">
+            <img src="img/agricultura-precision-drone.jpg" alt="Drone en agricultura de precisión" width="400" height="300" loading="lazy">
+            <div class="gallery-overlay">
+              <p class="gallery-caption">
+                <span data-lang-es>Tecnología drone en campo</span>
+                <span data-lang-pt>Tecnologia drone no campo</span>
+              </p>
+            </div>
+          </div>
+          <div class="gallery-item fade-in" data-category="prescripcion">
+            <img src="img/mapa-aplicacion-cal.jpg" alt="Mapa de aplicación de cal" width="400" height="300" loading="lazy">
+            <div class="gallery-overlay">
+              <p class="gallery-caption">
+                <span data-lang-es>Prescripción VRT de encalado</span>
+                <span data-lang-pt>Prescrição VRT de calagem</span>
+              </p>
+            </div>
+          </div>
+          <div class="gallery-item fade-in" data-category="mapas">
+            <img src="img/mapeamiento-fertilidad-suelo.jpg" alt="Mapeo de fertilidad del suelo" width="400" height="300" loading="lazy">
+            <div class="gallery-overlay">
+              <p class="gallery-caption">
+                <span data-lang-es>Mapeo de fertilidad del suelo</span>
+                <span data-lang-pt>Mapeamento de fertilidade do solo</span>
+              </p>
+            </div>
+          </div>
+          <div class="gallery-item fade-in" data-category="campo">
+            <img src="img/tractor-mapas-datos.jpg" alt="Tractor con mapas y datos" width="400" height="300" loading="lazy">
+            <div class="gallery-overlay">
+              <p class="gallery-caption">
+                <span data-lang-es>Tecnología en maquinaria agrícola</span>
+                <span data-lang-pt>Tecnologia em maquinaria agrícola</span>
+              </p>
+            </div>
+          </div>
+          <div class="gallery-item fade-in" data-category="prescripcion">
+            <img src="img/mapa-costos-agricultura.jpg" alt="Mapa de costos agrícolas" width="400" height="300" loading="lazy">
+            <div class="gallery-overlay">
+              <p class="gallery-caption">
+                <span data-lang-es>Análisis de costos por zona</span>
+                <span data-lang-pt>Análise de custos por zona</span>
+              </p>
+            </div>
+          </div>
+          <div class="gallery-item fade-in" data-category="mapas">
+            <img src="img/mapa-productividad-cebada.jpg" alt="Mapa de productividad de cebada" width="400" height="300" loading="lazy">
+            <div class="gallery-overlay">
+              <p class="gallery-caption">
+                <span data-lang-es>Mapa de productividad - Cebada</span>
+                <span data-lang-pt>Mapa de produtividade - Cevada</span>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9. APPS SECTION -->
+    <section class="apps-section" id="apps">
+      <div class="container">
+        <div class="services-header">
+          <h2>
+            <span data-lang-es>Nuestras Aplicaciones</span>
+            <span data-lang-pt>Nossas Aplicações</span>
+          </h2>
+          <div class="section-divider"></div>
+          <p>
+            <span data-lang-es>Herramientas digitales diseñadas para el trabajo de campo y la gestión agronómica</span>
+            <span data-lang-pt>Ferramentas digitais projetadas para o trabalho de campo e a gestão agronômica</span>
+          </p>
+        </div>
+        <div class="apps-grid">
+          <!-- PIX Admin -->
+          <div class="app-card app-card--admin fade-in">
+            <div class="app-card-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+            </div>
+            <h3>PIX Admin</h3>
+            <p>
+              <span data-lang-es>Panel de control para gestión de proyectos agrícolas, generación de informes PDF, visualización de mapas y administración de datos agronómicos.</span>
+              <span data-lang-pt>Painel de controle para gestão de projetos agrícolas, geração de relatórios PDF, visualização de mapas e administração de dados agronômicos.</span>
+            </p>
+            <div class="app-card-tags">
+              <span class="app-card-tag">Dashboard</span>
+              <span class="app-card-tag">PDF Reports</span>
+              <span class="app-card-tag">GIS Maps</span>
+              <span class="app-card-tag">PWA</span>
+            </div>
+            <span class="app-card-note" style="font-size:12px;color:#94A3B8;margin-top:8px;display:block">
+              <span data-lang-es>Acceso interno</span>
+              <span data-lang-pt>Acesso interno</span>
+            </span>
+          </div>
+          <!-- PIX Muestreo -->
+          <div class="app-card app-card--muestreo fade-in">
+            <div class="app-card-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            </div>
+            <h3>PIX Muestreo</h3>
+            <p>
+              <span data-lang-es>Aplicación de campo para colecta georreferenciada de muestras de suelo. Navegación GPS a puntos de muestreo, registro fotográfico y sincronización offline.</span>
+              <span data-lang-pt>Aplicação de campo para coleta georreferenciada de amostras de solo. Navegação GPS a pontos de amostragem, registro fotográfico e sincronização offline.</span>
+            </p>
+            <div class="app-card-tags">
+              <span class="app-card-tag">GPS</span>
+              <span class="app-card-tag">Offline</span>
+              <span class="app-card-tag">
+                <span data-lang-es>Muestreo</span>
+                <span data-lang-pt>Amostragem</span>
+              </span>
+              <span class="app-card-tag">PWA</span>
+            </div>
+            <span class="app-card-note" style="font-size:12px;color:#94A3B8;margin-top:8px;display:block">
+              <span data-lang-es>Acceso interno</span>
+              <span data-lang-pt>Acesso interno</span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10. CTA FINAL -->
+    <section class="cta-final">
+      <div class="container">
+        <p class="cta-motto">
+          <span data-lang-es>"Medir para comprender, controlar para mejorar"</span>
+          <span data-lang-pt>"Medir para compreender, controlar para melhorar"</span>
+        </p>
+        <p class="cta-subtext">
+          <span data-lang-es>Comienza a transformar tu operación agrícola con tecnología de precisión</span>
+          <span data-lang-pt>Comece a transformar sua operação agrícola com tecnologia de precisão</span>
+        </p>
+        <div class="cta-buttons">
+          <a href="https://wa.me/59172149171?text=Hola%20Pixadvisor%2C%20quiero%20agendar%20una%20demo." class="hero-btn-primary" target="_blank" rel="noopener">
+            <span data-lang-es>Solicitar Demo</span>
+            <span data-lang-pt>Solicitar Demo</span>
+          </a>
+          <a href="#contact" class="hero-btn-secondary">
+            <span data-lang-es>Contactar</span>
+            <span data-lang-pt>Contatar</span>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- 11. CONTACT -->
+    <section class="contact" id="contact">
+      <div class="container">
+        <div class="services-header">
+          <h2>
+            <span data-lang-es>Contacto</span>
+            <span data-lang-pt>Contato</span>
+          </h2>
+          <div class="section-divider"></div>
+        </div>
+        <div class="contact-grid">
+          <div class="contact-info">
+            <!-- WhatsApp -->
+            <div class="contact-card fade-in">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+              <div>
+                <strong>WhatsApp</strong>
+                <p><a href="https://wa.me/59172149171" target="_blank" rel="noopener">+591 72149171</a></p>
+              </div>
+            </div>
+            <!-- Email -->
+            <div class="contact-card fade-in">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+              <div>
+                <strong>Email</strong>
+                <p><a href="mailto:contacto@pixadvisor.network">contacto@pixadvisor.network</a></p>
+              </div>
+            </div>
+            <!-- Location -->
+            <div class="contact-card fade-in">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              <div>
+                <strong>
+                  <span data-lang-es>Ubicación</span>
+                  <span data-lang-pt>Localização</span>
+                </strong>
+                <p>Santa Cruz, Bolivia | Brasil</p>
+              </div>
+            </div>
+          </div>
+          <form class="contact-form" id="contactForm">
+            <div class="form-group">
+              <label for="name">
+                <span data-lang-es>Nombre</span>
+                <span data-lang-pt>Nome</span>
+              </label>
+              <input type="text" id="name" name="name" required>
+            </div>
+            <div class="form-group">
+              <label for="email">Email</label>
+              <input type="email" id="email" name="email" required>
+            </div>
+            <div class="form-group">
+              <label for="phone">
+                <span data-lang-es>Teléfono</span>
+                <span data-lang-pt>Telefone</span>
+              </label>
+              <input type="tel" id="phone" name="phone">
+            </div>
+            <div class="form-group">
+              <label for="message">
+                <span data-lang-es>Mensaje</span>
+                <span data-lang-pt>Mensagem</span>
+              </label>
+              <textarea id="message" name="message" rows="4" required></textarea>
+            </div>
+            <button type="submit" class="form-submit">
+              <span data-lang-es>Enviar por WhatsApp</span>
+              <span data-lang-pt>Enviar por WhatsApp</span>
+            </button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <!-- Brand -->
+        <div class="footer-col-brand">
+        <div class="footer-brand">
+          <img src="img/logo.png" alt="Pixadvisor" width="180" height="120">
+        </div>
+          <p class="footer-tagline">
+            <span data-lang-es>Agricultura de Precisión</span>
+            <span data-lang-pt>Agricultura de Precisão</span>
+          </p>
+          <div class="footer-social">
+            <a href="https://www.facebook.com/pixadvisor" target="_blank" rel="noopener" aria-label="Facebook">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+            </a>
+            <a href="https://www.instagram.com/pixadvisor" target="_blank" rel="noopener" aria-label="Instagram">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+            </a>
+            <a href="https://www.linkedin.com/company/pixadvisor" target="_blank" rel="noopener" aria-label="LinkedIn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
+            </a>
+          </div>
+        </div>
+        <!-- Services Links -->
+        <div class="footer-links">
+          <h4>
+            <span data-lang-es>Servicios</span>
+            <span data-lang-pt>Serviços</span>
+          </h4>
+          <a href="#services">GeoLand Advisor</a>
+          <a href="#services">SmartSoil Advisor</a>
+          <a href="#services">NutriBank Advisor</a>
+          <a href="#services">BioIndex Advisor</a>
+          <a href="#services">OnFarm Biofábricas</a>
+        </div>
+        <!-- Platform Links -->
+        <div class="footer-links">
+          <h4>
+            <span data-lang-es>Plataforma</span>
+            <span data-lang-pt>Plataforma</span>
+          </h4>
+          <span>PIX Admin</span>
+          <span>PIX Muestreo</span>
+          <a href="#technology">FieldPlanning</a>
+          <a href="#technology">FieldMetrics</a>
+          <a href="#technology">FieldControl</a>
+        </div>
+        <!-- Contact -->
+        <div class="footer-links">
+          <h4>
+            <span data-lang-es>Contacto</span>
+            <span data-lang-pt>Contato</span>
+          </h4>
+          <a href="https://wa.me/59172149171" target="_blank" rel="noopener">+591 72149171</a>
+          <a href="mailto:contacto@pixadvisor.network">contacto@pixadvisor.network</a>
+          <a href="#contact">Santa Cruz, Bolivia</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; 2026 Pixadvisor.
+          <span data-lang-es>Todos los derechos reservados.</span>
+          <span data-lang-pt>Todos os direitos reservados.</span>
+        </p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- WhatsApp Float -->
+  <a href="https://wa.me/59172149171" target="_blank" rel="noopener" class="whatsapp-float" aria-label="WhatsApp">
+    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="#fff"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
+  </a>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox">
+    <button class="lightbox-close" aria-label="Cerrar / Fechar">&times;</button>
+    <img class="lightbox-img" src="" alt="">
+    <p class="lightbox-caption"></p>
+  </div>
+
+  <script>
+    // ===== LANGUAGE SWITCHER =====
+    function setLanguage(lang) {
+      document.documentElement.lang = lang;
+      document.querySelectorAll('.lang-btn').forEach(function(btn) {
+        btn.classList.toggle('active', btn.dataset.lang === lang);
+      });
+      localStorage.setItem('pixadvisor-lang', lang);
+    }
+    document.querySelectorAll('.lang-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() { setLanguage(btn.dataset.lang); });
+    });
+    var savedLang = localStorage.getItem('pixadvisor-lang');
+    if (savedLang) setLanguage(savedLang);
+
+    // ===== INTERSECTION OBSERVER =====
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) entry.target.classList.add('visible');
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+    document.querySelectorAll('.fade-in').forEach(function(el) { observer.observe(el); });
+
+    // ===== SCROLL NAV =====
+    window.addEventListener('scroll', function() {
+      document.querySelector('.nav').classList.toggle('scrolled', window.scrollY > 50);
+    });
+
+    // ===== HAMBURGER =====
+    var hamburger = document.querySelector('.hamburger');
+    var mobileNav = document.getElementById('mobileNav');
+    hamburger.addEventListener('click', function() {
+      var isOpen = mobileNav.classList.toggle('open');
+      hamburger.classList.toggle('open');
+      hamburger.setAttribute('aria-expanded', isOpen);
+    });
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.nav') && mobileNav.classList.contains('open')) {
+        mobileNav.classList.remove('open');
+        hamburger.classList.remove('open');
+      }
+    });
+
+    // ===== SMOOTH SCROLL =====
+    document.querySelectorAll('a[href^="#"]').forEach(function(a) {
+      a.addEventListener('click', function(e) {
+        var target = document.querySelector(a.getAttribute('href'));
+        if (target) {
+          e.preventDefault();
+          target.scrollIntoView({ behavior: 'smooth' });
+          mobileNav.classList.remove('open');
+          hamburger.classList.remove('open');
+        }
+      });
+    });
+
+    // ===== GALLERY FILTER =====
+    document.querySelectorAll('.gallery-filter-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        document.querySelectorAll('.gallery-filter-btn').forEach(function(b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        var cat = btn.dataset.filter;
+        document.querySelectorAll('.gallery-item').forEach(function(item) {
+          item.style.display = (cat === 'all' || item.dataset.category === cat) ? '' : 'none';
+        });
+      });
+    });
+
+    // ===== LIGHTBOX =====
+    var lightbox = document.getElementById('lightbox');
+    document.querySelectorAll('.gallery-item').forEach(function(item) {
+      item.addEventListener('click', function() {
+        var img = item.querySelector('img');
+        var caption = item.querySelector('.gallery-caption');
+        lightbox.querySelector('.lightbox-img').src = img.src;
+        lightbox.querySelector('.lightbox-img').alt = img.alt;
+        lightbox.querySelector('.lightbox-caption').textContent = caption ? caption.textContent : '';
+        lightbox.classList.add('open');
+      });
+    });
+    lightbox.querySelector('.lightbox-close').addEventListener('click', function() {
+      lightbox.classList.remove('open');
+    });
+    lightbox.addEventListener('click', function(e) {
+      if (e.target === lightbox) lightbox.classList.remove('open');
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && lightbox.classList.contains('open')) {
+        lightbox.classList.remove('open');
+      }
+    });
+
+    // ===== CONTACT FORM → WHATSAPP =====
+    document.getElementById('contactForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      var name = document.getElementById('name').value.trim();
+      var email = document.getElementById('email').value.trim();
+      var phone = document.getElementById('phone').value.trim();
+      var message = document.getElementById('message').value.trim();
+      // Clear previous errors
+      document.querySelectorAll('.form-error').forEach(function(el) { el.remove(); });
+      var showError = function(id, msg) {
+        var el = document.getElementById(id);
+        var err = document.createElement('div');
+        err.className = 'form-error';
+        err.style.cssText = 'color:#e53e3e;font-size:12px;margin-top:4px';
+        err.textContent = msg;
+        el.parentElement.appendChild(err);
+      };
+      var valid = true;
+      var reqMsg = document.documentElement.lang === 'pt' ? 'Campo obrigatório' : 'Campo requerido';
+      if (!name) { showError('name', reqMsg); valid = false; }
+      if (!email) { showError('email', reqMsg); valid = false; }
+      if (!message) { showError('message', reqMsg); valid = false; }
+      if (!valid) return;
+      var lang = document.documentElement.lang;
+      var whatsappMessage = lang === 'pt'
+        ? 'Olá Pixadvisor, sou ' + name + '.\nE-mail: ' + email + '\nTelefone: ' + phone + '\nMensagem: ' + message
+        : 'Hola Pixadvisor, soy ' + name + '.\nCorreo: ' + email + '\nTeléfono: ' + phone + '\nMensaje: ' + message;
+      window.open('https://wa.me/59172149171?text=' + encodeURIComponent(whatsappMessage), '_blank');
+      document.getElementById('contactForm').reset();
+    });
+
+    // ===== PIX ADMIN/MUESTREO: acceso solo por URL directo (sin botones públicos) =====
+  </script>
 </body>
 </html>
