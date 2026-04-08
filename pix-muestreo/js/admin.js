@@ -101,7 +101,20 @@ class PixAdmin {
     container.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <div class="settings-group-title">Usuarios (${users.length})</div>
-        <button class="action-btn primary" onclick="pixAdmin.showUserForm()" style="width:auto;padding:8px 16px;font-size:13px">+ Nuevo</button>
+        <div style="display:flex;gap:6px">
+          <button class="action-btn secondary" onclick="pixAdmin.exportUsersJSON()" style="width:auto;padding:8px 12px;font-size:12px" title="Exportar usuarios para transferir a otra instalacion">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;vertical-align:middle"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+            Exportar
+          </button>
+          <button class="action-btn secondary" onclick="pixAdmin.importUsersJSON()" style="width:auto;padding:8px 12px;font-size:12px" title="Importar usuarios desde archivo JSON">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;vertical-align:middle"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            Importar
+          </button>
+          <button class="action-btn primary" onclick="pixAdmin.showUserForm()" style="width:auto;padding:8px 16px;font-size:13px">+ Nuevo</button>
+        </div>
+      </div>
+      <div style="background:rgba(127,214,51,0.06);border:1px solid rgba(127,214,51,0.12);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#94a3b8">
+        <strong style="color:#7FD633">Tip:</strong> Para usar estos usuarios en la APK, exporta el JSON aqui y luego importalo en la APK desde Admin &gt; Usuarios &gt; Importar.
       </div>
       ${users.map(u => `
         <div class="card user-card" style="margin-bottom:8px;opacity:${u.active ? '1' : '0.5'}">
@@ -170,27 +183,165 @@ class PixAdmin {
       return;
     }
 
-    if (this.editingUserId) {
-      const updates = { name, email, role };
-      if (password) updates.password = password;
-      await pixAuth.updateUser(this.editingUserId, updates);
-      app.toast('Usuario actualizado', 'success');
-    } else {
-      if (!password) {
-        app.toast('La contrasena es requerida', 'warning');
-        return;
-      }
-      await pixAuth.createUser({ name, email, password, role });
-      app.toast('Usuario creado', 'success');
+    // Email format validation
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      app.toast('Email invalido. Ejemplo: nombre@email.com', 'warning');
+      return;
     }
 
-    this.closeUserModal();
-    await this.renderUserList(document.getElementById('adminSectionContent'));
+    try {
+      if (this.editingUserId) {
+        const updates = { name, email, role };
+        if (password) updates.password = password;
+        await pixAuth.updateUser(this.editingUserId, updates);
+        app.toast('Usuario actualizado', 'success');
+      } else {
+        if (!password) {
+          app.toast('La contrasena es requerida', 'warning');
+          return;
+        }
+        if (password.length < 4) {
+          app.toast('La contrasena debe tener al menos 4 caracteres', 'warning');
+          return;
+        }
+        // Check for duplicate email
+        const existing = await pixDB.getByIndex('users', 'email', email.toLowerCase());
+        if (existing) {
+          app.toast('Ya existe un usuario con ese email', 'warning');
+          return;
+        }
+        await pixAuth.createUser({ name, email, password, role });
+        app.toast('Usuario creado exitosamente', 'success');
+      }
+
+      this.closeUserModal();
+      await this.renderUserList(document.getElementById('adminSectionContent'));
+    } catch (err) {
+      console.error('[Admin] Error saving user:', err);
+      if (err.name === 'ConstraintError') {
+        app.toast('Error: Email duplicado. Use otro email.', 'error');
+      } else {
+        app.toast('Error al guardar usuario: ' + (err.message || err), 'error');
+      }
+    }
   }
 
   async toggleUser(userId) {
     await pixAuth.toggleUserActive(userId);
     await this.renderUserList(document.getElementById('adminSectionContent'));
+  }
+
+  // Export users as JSON file (for transferring to APK or another device)
+  async exportUsersJSON() {
+    try {
+      const users = await pixAuth.getAllUsers();
+      if (users.length === 0) {
+        app.toast('No hay usuarios para exportar', 'warning');
+        return;
+      }
+
+      const exportData = {
+        _type: 'pix-muestreo-users',
+        _version: '3.4.1',
+        _exportedAt: new Date().toISOString(),
+        _source: location.hostname || 'local',
+        users: users.map(u => ({
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          passwordHash: u.passwordHash,
+          role: u.role,
+          active: u.active,
+          createdAt: u.createdAt,
+          updatedAt: u.updatedAt
+        }))
+      };
+
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `pix-usuarios-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      app.toast(`${users.length} usuarios exportados`, 'success');
+    } catch (err) {
+      console.error('[Admin] Export users error:', err);
+      app.toast('Error al exportar usuarios', 'error');
+    }
+  }
+
+  // Import users from JSON file
+  async importUsersJSON() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+
+        // Validate format
+        if (!data.users || !Array.isArray(data.users)) {
+          app.toast('Archivo no valido. Debe ser un JSON de usuarios PIX.', 'warning');
+          return;
+        }
+
+        let created = 0, updated = 0, skipped = 0;
+
+        for (const remote of data.users) {
+          if (!remote.id || !remote.email || !remote.passwordHash) {
+            skipped++;
+            continue;
+          }
+
+          const local = await pixDB.get('users', remote.id);
+
+          if (!local) {
+            // New user — create
+            await pixDB.putUser({
+              id: remote.id,
+              name: remote.name,
+              email: remote.email.toLowerCase(),
+              passwordHash: remote.passwordHash,
+              role: remote.role || 'tecnico',
+              active: remote.active !== false,
+              createdAt: remote.createdAt || new Date().toISOString(),
+              updatedAt: remote.updatedAt || new Date().toISOString(),
+              _importedFrom: data._source || 'file'
+            });
+            created++;
+          } else {
+            // Existing — update if remote is newer
+            const remoteTime = new Date(remote.updatedAt || 0).getTime();
+            const localTime = new Date(local.updatedAt || 0).getTime();
+            if (remoteTime > localTime) {
+              local.name = remote.name;
+              local.email = remote.email.toLowerCase();
+              local.passwordHash = remote.passwordHash;
+              local.role = remote.role || local.role;
+              local.active = remote.active !== false;
+              local.updatedAt = remote.updatedAt;
+              await pixDB.putUser(local);
+              updated++;
+            } else {
+              skipped++;
+            }
+          }
+        }
+
+        app.toast(`Importados: ${created} nuevos, ${updated} actualizados, ${skipped} sin cambio`, 'success');
+        await this.renderUserList(document.getElementById('adminSectionContent'));
+      } catch (err) {
+        console.error('[Admin] Import users error:', err);
+        app.toast('Error al importar: ' + (err.message || 'Archivo invalido'), 'error');
+      }
+    };
+    input.click();
   }
 
   // System settings
@@ -268,7 +419,7 @@ class PixAdmin {
 
       <div style="text-align:center;padding:24px 0;color:var(--text-muted);font-size:12px">
         <img src="icons/icon-192.png" alt="PIX" style="width:40px;height:40px;border-radius:12px;margin-bottom:8px;display:block;margin:0 auto 8px">
-        PIX Muestreo v3.3.1<br>
+        PIX Muestreo v3.4.2<br>
         Pixadvisor — Agricultura de Precision
       </div>`;
 

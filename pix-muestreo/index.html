@@ -30,10 +30,22 @@
             onkeydown="if(event.key==='Enter')pixAuthLogin()"
             style="width:100%;padding:14px 16px;border-radius:12px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.06);color:white;font-size:15px;outline:none;box-sizing:border-box;margin-bottom:12px;font-family:Inter,sans-serif;">
         <div id="loginError" style="display:none;color:#ef4444;font-size:13px;margin-bottom:12px;">Credenciales incorrectas</div>
-        <button onclick="pixAuthLogin()" style="width:100%;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#7FD633,#0d9488);color:#0F1B2D;font-size:15px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;">
+        <button onclick="pixAuthLogin()" id="loginBtn" style="width:100%;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#7FD633,#0d9488);color:#0F1B2D;font-size:15px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;">
             Ingresar
         </button>
-        <p style="color:#475569;font-size:0.75rem;margin-top:16px;">Pixadvisor — Agricultura de Precision</p>
+        <div id="loginHelp" style="display:none;margin-top:14px;background:rgba(127,214,51,0.06);border:1px solid rgba(127,214,51,0.12);border-radius:10px;padding:10px;text-align:left">
+            <div style="color:#7FD633;font-size:12px;font-weight:600;margin-bottom:6px">Primer acceso?</div>
+            <div style="color:#94a3b8;font-size:11px;line-height:1.5">
+                <strong style="color:white">Admin default:</strong><br>
+                Email: <code style="background:rgba(255,255,255,0.08);padding:1px 4px;border-radius:4px;color:#7FD633">admin@pixadvisor.local</code><br>
+                Clave: <code style="background:rgba(255,255,255,0.08);padding:1px 4px;border-radius:4px;color:#7FD633">pix2026</code><br>
+                <span style="color:#64748b;font-size:10px">(o use clave maestra: pixmaster2026)</span>
+            </div>
+        </div>
+        <button onclick="document.getElementById('loginHelp').style.display=document.getElementById('loginHelp').style.display==='none'?'block':'none'" style="background:none;border:none;color:#475569;font-size:0.75rem;margin-top:12px;cursor:pointer;text-decoration:underline">
+            Necesita ayuda para ingresar?
+        </button>
+        <p style="color:#475569;font-size:0.75rem;margin-top:8px;">Pixadvisor — Agricultura de Precision</p>
     </div>
 </div>
 

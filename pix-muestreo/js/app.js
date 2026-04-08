@@ -2411,21 +2411,42 @@ async function pixInstall() {
 async function pixAuthLogin() {
   const email = document.getElementById('loginEmail').value;
   const pass = document.getElementById('loginPass').value;
+  const loginBtn = document.getElementById('loginBtn');
+  const loginError = document.getElementById('loginError');
 
   if (!email || !pass) {
-    document.getElementById('loginError').style.display = 'block';
+    loginError.textContent = 'Ingrese email y contrasena';
+    loginError.style.display = 'block';
     return;
   }
 
-  const user = await pixAuth.login(email, pass);
-  if (user) {
-    document.getElementById('loginError').style.display = 'none';
-    if (appIsInstalled) {
-      showApp();
+  // Show loading state
+  if (loginBtn) {
+    loginBtn.disabled = true;
+    loginBtn.textContent = 'Verificando...';
+  }
+
+  try {
+    const user = await pixAuth.login(email, pass);
+    if (user) {
+      loginError.style.display = 'none';
+      if (appIsInstalled) {
+        showApp();
+      } else {
+        showInstallScreen();
+      }
     } else {
-      showInstallScreen();
+      loginError.textContent = 'Credenciales incorrectas. Verifique email y contrasena.';
+      loginError.style.display = 'block';
     }
-  } else {
-    document.getElementById('loginError').style.display = 'block';
+  } catch (err) {
+    console.error('[Login] Error:', err);
+    loginError.textContent = 'Error de conexion. Intente nuevamente.';
+    loginError.style.display = 'block';
+  } finally {
+    if (loginBtn) {
+      loginBtn.disabled = false;
+      loginBtn.textContent = 'Ingresar';
+    }
   }
 }
