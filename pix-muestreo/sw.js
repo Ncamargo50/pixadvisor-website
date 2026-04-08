@@ -24,6 +24,7 @@ const STATIC_ASSETS = [
   BASE + 'js/scanner.js',
   BASE + 'js/drive.js',
   BASE + 'js/auth.js',
+  BASE + 'js/sync.js',
   BASE + 'js/orders.js',
   BASE + 'js/admin.js',
   BASE + 'js/agent-field.js',

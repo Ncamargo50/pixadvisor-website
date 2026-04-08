@@ -274,6 +274,7 @@ class PixApp {
   updateConnectionStatus() {
     const dot = document.getElementById('connectionDot');
     const label = document.getElementById('connectionLabel');
+    if (!dot || !label) return;
     if (this.isOnline) {
       dot.className = 'status-dot online';
       label.textContent = 'Online';
@@ -2862,24 +2863,22 @@ if (window.location.origin.includes('appassets.androidplatform.net') ||
   appIsInstalled = true;
 }
 
-// Register SW with forced update on every load
+// Register SW with update check on every load
 if ('serviceWorker' in navigator) {
   const base = location.pathname.replace(/\/[^/]*$/, '/');
   const swPath = base + 'sw.js';
   const swScope = base;
+  let swReloading = false;
   navigator.serviceWorker.register(swPath, { scope: swScope })
     .then(reg => {
       console.log('SW registered:', reg.scope);
       reg.update();
-      reg.addEventListener('updatefound', () => {
-        const nw = reg.installing;
-        if (nw) nw.addEventListener('statechange', () => {
-          if (nw.state === 'activated') location.reload();
-        });
-      });
     })
     .catch(e => console.log('SW error:', e));
-  navigator.serviceWorker.addEventListener('controllerchange', () => location.reload());
+  // Reload once when a new SW takes control (not twice)
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!swReloading) { swReloading = true; location.reload(); }
+  });
 }
 
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -2902,27 +2901,36 @@ window.addEventListener('appinstalled', () => {
 // Init app
 const app = new PixApp();
 document.addEventListener('DOMContentLoaded', async () => {
-  // Init DB first (needed for auth)
-  await pixDB.init();
-  await pixDB.migrateToV3();
+  try {
+    // Init DB first (needed for auth)
+    await pixDB.init();
+    await pixDB.migrateToV3();
 
-  // Try restore session
-  const restored = await pixAuth.init();
-  if (!restored) {
-    document.getElementById('loginOverlay').style.display = 'flex';
-    return;
-  }
+    // Try restore session
+    const restored = await pixAuth.init();
+    if (!restored) {
+      document.getElementById('loginOverlay').style.display = 'flex';
+      return;
+    }
 
-  // Already authenticated
-  if (appIsInstalled) {
-    showApp();
-  } else {
-    const skippedInstall = sessionStorage.getItem('pix_muestreo_skip_install');
-    if (skippedInstall) {
+    // Already authenticated
+    if (appIsInstalled) {
       showApp();
     } else {
-      showInstallScreen();
+      const skippedInstall = sessionStorage.getItem('pix_muestreo_skip_install');
+      if (skippedInstall) {
+        showApp();
+      } else {
+        showInstallScreen();
+      }
     }
+  } catch (e) {
+    console.error('[Boot] Fatal error during initialization:', e);
+    // Show login overlay as fallback so user can at least see something
+    const overlay = document.getElementById('loginOverlay');
+    if (overlay) overlay.style.display = 'flex';
+    const errEl = document.getElementById('loginError');
+    if (errEl) { errEl.textContent = 'Error de inicio: ' + e.message; errEl.style.display = 'block'; }
   }
 });
 
@@ -2937,10 +2945,16 @@ function showInstallScreen() {
 }
 
 function showApp() {
-  document.getElementById('loginOverlay').style.display = 'none';
-  document.getElementById('installOverlay').style.display = 'none';
-  app.init();
-  app.applyRolePermissions();
+  const loginOv = document.getElementById('loginOverlay');
+  const installOv = document.getElementById('installOverlay');
+  if (loginOv) loginOv.style.display = 'none';
+  if (installOv) installOv.style.display = 'none';
+  try {
+    app.init();
+    app.applyRolePermissions();
+  } catch (e) {
+    console.error('[showApp] Error during init:', e);
+  }
 
   // Background user sync from API (primary) or Drive (fallback) — non-blocking
   setTimeout(async () => {
