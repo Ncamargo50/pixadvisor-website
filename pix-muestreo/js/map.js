@@ -331,20 +331,22 @@ class PixMap {
   }
 
   // Fit map to field content ONLY (never includes GPS userMarker)
+  // Robust: invalidates size first, uses maxZoom, handles WebView timing
   fitBounds() {
     if (!this.map) return;
     try {
-      // Only use field layers + sample points — exclude GPS marker
       const layers = [...this.pointMarkers, ...this.fieldLayers];
       if (layers.length === 0) return;
+
+      // Force Leaflet to recalculate container size (fixes WebView resize issues)
+      this.map.invalidateSize({ animate: false });
 
       const group = L.featureGroup(layers);
       const bounds = group.getBounds();
       if (bounds.isValid()) {
-        // Use maxZoom 19 to prevent zooming too close on small areas
         this.map.fitBounds(bounds.pad(0.12), { maxZoom: 19, animate: false });
-        // Flag: map is focused on field, don't auto-pan to GPS
         this._fieldFocused = true;
+        console.log('[Map] fitBounds: center', bounds.getCenter().lat.toFixed(5), bounds.getCenter().lng.toFixed(5), 'zoom', this.map.getZoom());
       }
     } catch (e) {
       console.warn('fitBounds error:', e.message);

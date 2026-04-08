@@ -116,21 +116,32 @@ class PixApp {
     });
 
     // Init map when showing map view
-    if (viewName === 'map' && !pixMap.map) {
-      setTimeout(() => {
-        pixMap.init('map');
-        // Priority: if a field is loaded, zoom to field (not GPS)
-        if (this.currentField) {
-          this.loadFieldOnMap(this.currentField);
-        } else if (gpsNav.currentPosition) {
-          pixMap.updateUserPosition(
-            gpsNav.currentPosition.lat,
-            gpsNav.currentPosition.lng,
-            gpsNav.currentPosition.accuracy
-          );
-          pixMap.map.setView([gpsNav.currentPosition.lat, gpsNav.currentPosition.lng], 15);
-        }
-      }, 100);
+    if (viewName === 'map') {
+      if (!pixMap.map) {
+        // First time: init map
+        setTimeout(() => {
+          pixMap.init('map');
+          // Priority: field > GPS position
+          if (this.currentField) {
+            this.loadFieldOnMap(this.currentField);
+          } else if (gpsNav.currentPosition) {
+            pixMap.updateUserPosition(
+              gpsNav.currentPosition.lat,
+              gpsNav.currentPosition.lng,
+              gpsNav.currentPosition.accuracy
+            );
+            pixMap.map.setView([gpsNav.currentPosition.lat, gpsNav.currentPosition.lng], 15);
+          }
+        }, 100);
+      } else {
+        // Map already exists: invalidate size (may have resized) and re-center on field
+        setTimeout(() => {
+          pixMap.map.invalidateSize();
+          if (this.currentField && pixMap.fieldLayers.length > 0) {
+            pixMap.fitBounds();
+          }
+        }, 100);
+      }
     }
 
     if (viewName === 'sync') this.updateSyncStats();
@@ -298,8 +309,17 @@ class PixApp {
 
   async openField(fieldId) {
     this.currentField = await pixDB.get('fields', fieldId);
-    this.loadFieldOnMap(this.currentField);
+    // Show map view FIRST so the map container exists
     this.showView('map');
+    // Wait for map to initialize, then load field
+    const waitForMap = () => {
+      if (pixMap.map) {
+        this.loadFieldOnMap(this.currentField);
+      } else {
+        setTimeout(waitForMap, 150);
+      }
+    };
+    setTimeout(waitForMap, 200);
   }
 
   async loadFieldOnMap(field) {
@@ -308,30 +328,59 @@ class PixApp {
 
     // Check if field has zonas metadata (from project JSON import)
     if (field.boundary && field.zonasMetadata && field.zonasMetadata.length > 0) {
-      // Draw each zone polygon with color based on its class
       pixMap.addZonasColored(field.boundary, field.zonasMetadata);
     } else if (field.boundary) {
-      // Standard field boundary
       pixMap.addFieldBoundary(field.boundary, field.name);
     }
 
     // Load points
     const points = await pixDB.getAllByIndex('points', 'fieldId', field.id);
     if (points.length > 0) {
-      // Check if points have tipo info (from project JSON) for color coding
       const hasTypes = points.some(p => p.tipo || (p.properties && p.properties.tipo));
       if (hasTypes) {
         pixMap.addTypedSamplePoints(points, point => this.onPointClick(point));
       } else {
         pixMap.addSamplePoints(points, point => this.onPointClick(point));
       }
-      pixMap.fitBounds();
     }
+
+    // Fit bounds with retry — WebView may need extra time to render
+    pixMap.fitBounds();
+    setTimeout(() => {
+      pixMap.map.invalidateSize();
+      pixMap.fitBounds();
+    }, 500);
+    setTimeout(() => pixMap.fitBounds(), 1500);
 
     // Update header
     const areaStr = field.area ? ` (${field.area.toFixed(1)} ha)` : '';
     document.getElementById('currentFieldName').textContent = field.name + areaStr;
     document.getElementById('navPanel').style.display = 'block';
+
+    // Auto-prefetch tiles for field area (background, non-blocking)
+    this._prefetchFieldTiles(field);
+  }
+
+  // Pre-fetch satellite tiles for field area at useful zoom levels
+  async _prefetchFieldTiles(field) {
+    if (!pixMap.map || !field.boundary) return;
+    try {
+      const layers = pixMap.fieldLayers;
+      if (layers.length === 0) return;
+      const group = L.featureGroup(layers);
+      const bounds = group.getBounds();
+      if (!bounds.isValid()) return;
+
+      const padded = bounds.pad(0.3); // 30% padding around field
+      // Only pre-fetch zoom 15-18 (most useful for field navigation)
+      const estimate = pixMap.estimateTileCount(padded, 15, 18);
+      if (estimate.tileCount > 500) return; // Don't auto-fetch huge areas
+
+      console.log(`[Map] Auto-prefetch: ~${estimate.tileCount} tiles (~${estimate.estimatedSizeMB}MB)`);
+      await pixMap.preloadTiles(padded, 15, 18);
+    } catch (e) {
+      console.warn('[Map] Tile prefetch skipped:', e.message);
+    }
   }
 
   // ===== POINT INTERACTION =====
@@ -935,12 +984,15 @@ class PixApp {
             await this.importProjectJSON(parsed);
             this.loadProjects();
             this.toast(`Proyecto importado: ${parsed.project.name} (${parsed.lotes.length} lotes)`, 'success');
+            // Auto-open first field on map
+            await this._autoOpenFirstField();
             return;
           }
           // Not a project JSON, fall through to GeoJSON processing
           await this.processGeoJSON(parsed, file.name);
           this.loadProjects();
           this.toast('Importado: ' + file.name, 'success');
+          await this._autoOpenFirstField();
           return;
         }
 
@@ -956,11 +1008,29 @@ class PixApp {
         await this.processGeoJSON(geojson, file.name);
         this.loadProjects();
         this.toast('Importado: ' + file.name, 'success');
+        await this._autoOpenFirstField();
       } catch (err) {
         this.toast('Error al importar: ' + err.message, 'error');
       }
     };
     input.click();
+  }
+
+  // After import: auto-open the most recent field on the map
+  async _autoOpenFirstField() {
+    try {
+      const projects = await pixDB.getAll('projects');
+      if (projects.length === 0) return;
+      // Get latest project (highest id)
+      const latest = projects.reduce((a, b) => (a.id > b.id ? a : b));
+      const fields = await pixDB.getAllByIndex('fields', 'projectId', latest.id);
+      if (fields.length > 0) {
+        this.currentProject = latest;
+        await this.openField(fields[0].id);
+      }
+    } catch (e) {
+      console.warn('[App] Auto-open field failed:', e.message);
+    }
   }
 
   // ===== IMPORT PROJECT JSON =====
