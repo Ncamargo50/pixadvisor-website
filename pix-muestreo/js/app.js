@@ -1,4 +1,83 @@
 // PIX Muestreo - Main Application
+
+// XSS protection — escape user-supplied strings before innerHTML insertion
+function escH(str) {
+  if (str == null) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// Field-friendly modal system — large touch targets, readable in sunlight
+const pixModal = {
+  // Promise-based input modal (replaces prompt())
+  input(title, fields = [{ name: 'value', label: '', placeholder: '', type: 'text' }]) {
+    return new Promise(resolve => {
+      const id = 'pixModalInput';
+      let existing = document.getElementById(id);
+      if (existing) existing.remove();
+
+      const fieldsHTML = fields.map(f => `
+        <label style="display:block;margin-bottom:12px;">
+          <span style="font-size:14px;color:var(--text-muted);display:block;margin-bottom:4px">${escH(f.label)}</span>
+          <input name="${escH(f.name)}" type="${f.type || 'text'}" placeholder="${escH(f.placeholder || '')}"
+            style="width:100%;padding:14px 16px;font-size:18px;border-radius:12px;border:2px solid rgba(127,214,51,0.3);background:var(--dark-3);color:var(--text);outline:none;box-sizing:border-box"
+            ${f.required ? 'required' : ''}>
+        </label>`).join('');
+
+      const el = document.createElement('div');
+      el.id = id;
+      el.className = 'modal-overlay active';
+      el.innerHTML = `<div class="modal-sheet" style="padding:24px">
+        <h3 style="margin:0 0 16px;font-size:20px;color:var(--text)">${escH(title)}</h3>
+        <form id="pixModalForm">${fieldsHTML}
+          <div style="display:flex;gap:12px;margin-top:20px">
+            <button type="button" class="action-btn secondary" style="flex:1;padding:16px;font-size:16px;border-radius:12px" id="pixModalCancel">Cancelar</button>
+            <button type="submit" class="action-btn primary" style="flex:1;padding:16px;font-size:16px;border-radius:12px">Aceptar</button>
+          </div>
+        </form>
+      </div>`;
+      document.body.appendChild(el);
+
+      const form = document.getElementById('pixModalForm');
+      const firstInput = form.querySelector('input');
+      if (firstInput) setTimeout(() => firstInput.focus(), 100);
+
+      document.getElementById('pixModalCancel').onclick = () => { el.remove(); resolve(null); };
+      form.onsubmit = (e) => {
+        e.preventDefault();
+        const result = {};
+        fields.forEach(f => { result[f.name] = form.querySelector(`[name="${f.name}"]`).value; });
+        el.remove();
+        resolve(fields.length === 1 ? result[fields[0].name] : result);
+      };
+    });
+  },
+
+  // Promise-based confirm modal (replaces confirm())
+  confirm(title, message, { confirmText = 'Eliminar', confirmColor = 'var(--danger)', cancelText = 'Cancelar' } = {}) {
+    return new Promise(resolve => {
+      const id = 'pixModalConfirm';
+      let existing = document.getElementById(id);
+      if (existing) existing.remove();
+
+      const el = document.createElement('div');
+      el.id = id;
+      el.className = 'modal-overlay active';
+      el.innerHTML = `<div class="modal-sheet" style="padding:24px;text-align:center">
+        <h3 style="margin:0 0 12px;font-size:20px;color:var(--text)">${escH(title)}</h3>
+        <p style="margin:0 0 24px;font-size:16px;color:var(--text-muted)">${escH(message)}</p>
+        <div style="display:flex;gap:12px">
+          <button class="action-btn secondary" style="flex:1;padding:16px;font-size:16px;border-radius:12px" id="pixConfirmNo">${escH(cancelText)}</button>
+          <button class="action-btn" style="flex:1;padding:16px;font-size:16px;border-radius:12px;background:${confirmColor};color:#fff;border:none" id="pixConfirmYes">${escH(confirmText)}</button>
+        </div>
+      </div>`;
+      document.body.appendChild(el);
+
+      document.getElementById('pixConfirmNo').onclick = () => { el.remove(); resolve(false); };
+      document.getElementById('pixConfirmYes').onclick = () => { el.remove(); resolve(true); };
+    });
+  }
+};
+
 class PixApp {
   constructor() {
     this.currentView = 'projects';
@@ -244,8 +323,8 @@ class PixApp {
         <div class="card" onclick="app.openProject(${proj.id})">
           <div class="card-header">
             <div style="flex:1;min-width:0;">
-              <div class="card-title">${proj.name}</div>
-              <div class="card-subtitle">${proj.client || ''}</div>
+              <div class="card-title">${escH(proj.name)}</div>
+              <div class="card-subtitle">${escH(proj.client)}</div>
             </div>
             <span class="card-badge badge-${badge}">${pct}%</span>
             <button class="icon-btn-delete" onclick="event.stopPropagation();app.deleteProject(${proj.id})" title="Eliminar proyecto">
@@ -269,11 +348,13 @@ class PixApp {
   }
 
   // ===== MANUAL CREATE PROJECT / FIELD =====
-  showCreateProjectModal() {
-    const name = prompt('Nombre del proyecto:');
-    if (!name || !name.trim()) return;
-    const client = prompt('Cliente (opcional):') || '';
-    this._doCreateProject(name.trim(), client.trim());
+  async showCreateProjectModal() {
+    const result = await pixModal.input('Nuevo Proyecto', [
+      { name: 'name', label: 'Nombre del proyecto', placeholder: 'Ej: Hacienda San Juan', required: true },
+      { name: 'client', label: 'Cliente (opcional)', placeholder: 'Ej: Juan Perez' }
+    ]);
+    if (!result || !result.name || !result.name.trim()) return;
+    this._doCreateProject(result.name.trim(), (result.client || '').trim());
   }
 
   async _doCreateProject(name, client) {
@@ -294,10 +375,13 @@ class PixApp {
   }
 
   async createField(projectId) {
-    const name = prompt('Nombre del campo:');
-    if (!name || !name.trim()) return;
-    const areaStr = prompt('Area en hectáreas (opcional):');
-    const area = areaStr ? parseFloat(areaStr) : null;
+    const result = await pixModal.input('Nuevo Campo', [
+      { name: 'name', label: 'Nombre del campo', placeholder: 'Ej: Lote 5', required: true },
+      { name: 'area', label: 'Area en hectareas (opcional)', placeholder: 'Ej: 45.2', type: 'number' }
+    ]);
+    if (!result || !result.name || !result.name.trim()) return;
+    const name = result.name;
+    const area = result.area ? parseFloat(result.area) : null;
 
     try {
       const fieldId = await pixDB.add('fields', {
@@ -328,7 +412,7 @@ class PixApp {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
         </button>
         <div style="flex:1;min-width:0;">
-          <div class="card-title">${this.currentProject.name}</div>
+          <div class="card-title">${escH(this.currentProject.name)}</div>
           <div class="card-subtitle">${fields.length} campos</div>
         </div>
         <button class="fab-btn primary" onclick="app.createField(${this.currentProject.id})" style="width:36px;height:36px;" title="Agregar campo">
@@ -348,7 +432,7 @@ class PixApp {
         <div class="card" onclick="app.openField(${field.id})">
           <div class="card-header">
             <div style="flex:1;min-width:0;">
-              <div class="card-title">${field.name}</div>
+              <div class="card-title">${escH(field.name)}</div>
               <div class="card-subtitle">${field.area ? field.area.toFixed(1) + ' ha' : ''}</div>
             </div>
             <span class="card-badge badge-${pct === 100 ? 'complete' : pct > 0 ? 'active' : 'pending'}">${collected}/${points.length}</span>
@@ -894,6 +978,9 @@ class PixApp {
       this.toast('Este punto ya fue recolectado', 'warning');
       return;
     }
+    // Block save button during GPS averaging to prevent duplicates
+    const saveBtn = document.querySelector('#collectModal .sync-btn');
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Guardando...'; }
 
     const isSubmuestra = this._detectPointType(this.currentPoint) === 'submuestra';
     const depth = this.collectForm.depth || document.querySelector('.depth-chip.active')?.dataset.depth || '0-20';
@@ -991,11 +1078,15 @@ class PixApp {
     } catch (e) {
       console.error('Error saving sample:', e);
       this.toast('Error guardando muestra: ' + e.message, 'error');
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Guardar Muestra'; }
       return;
     }
 
+    // Haptic feedback — confirms save in noisy field environments
+    if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+
     this.closeCollectForm();
-    this.toast(`${isSubmuestra ? 'Submuestra' : 'Muestra'} guardada: ${this.currentPoint.name}`, 'success');
+    this.toast(`${isSubmuestra ? 'Submuestra' : 'Muestra'} guardada: ${escH(this.currentPoint.name)}`, 'success');
 
     // Check if current zone is complete → show QR modal
     const currentZone = this._detectZone(this.currentPoint);
@@ -1048,19 +1139,19 @@ class PixApp {
       for (const f of files) {
         const ext = f.name.split('.').pop().toUpperCase();
         html += `
-          <div class="file-list-item" onclick="app.importFile('${f.id}', '${f.name}')">
+          <div class="file-list-item" data-fid="${escH(f.id)}" data-fname="${escH(f.name)}" onclick="app.importFile(this.dataset.fid, this.dataset.fname)">
             <div class="file-icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
             </div>
             <div class="file-info">
-              <div class="file-name">${f.name}</div>
+              <div class="file-name">${escH(f.name)}</div>
               <div class="file-meta">${ext} · ${new Date(f.modifiedTime).toLocaleDateString()}</div>
             </div>
           </div>`;
       }
       document.getElementById('importFileList').innerHTML = html;
     } catch (e) {
-      document.getElementById('importFileList').innerHTML = `<p style="color:var(--danger);text-align:center">${e.message}</p>`;
+      document.getElementById('importFileList').innerHTML = `<p style="color:var(--danger);text-align:center">${escH(e.message)}</p>`;
     }
   }
 
@@ -1328,6 +1419,18 @@ class PixApp {
       geojson = { type: 'FeatureCollection', features: geojson.geometries.map(g => ({ type: 'Feature', geometry: g, properties: {} })) };
     }
 
+    // Duplicate detection — check if project with same name+source already exists
+    const existingProjects = await pixDB.getAll('projects');
+    const duplicate = existingProjects.find(p => p.name === projectName && p.source === sourceName);
+    if (duplicate) {
+      const replace = await pixModal.confirm('Proyecto duplicado',
+        `"${projectName}" ya existe. ¿Desea reemplazarlo?`,
+        { confirmText: 'Reemplazar', confirmColor: '#FF9800' });
+      if (!replace) return;
+      // Delete old project before re-importing
+      await this.deleteProjectSilent(duplicate.id);
+    }
+
     // Create project
     const projectId = await pixDB.add('projects', {
       name: projectName,
@@ -1536,21 +1639,18 @@ class PixApp {
 
   // Export all data as JSON (offline backup)
   async exportLocalBackup() {
-    // B5 FIX: Include serviceOrders in backup
     const data = {
       app: 'PIX Muestreo',
       exportDate: new Date().toISOString(),
       projects: await pixDB.getAll('projects'),
       fields: await pixDB.getAll('fields'),
       points: await pixDB.getAll('points'),
-      samples: await pixDB.getAll('samples'),
+      // Clone samples to avoid mutating live IndexedDB references
+      samples: (await pixDB.getAll('samples')).map(s => ({...s, photo: s.photo ? '(foto omitida)' : null})),
       tracks: await pixDB.getAll('tracks'),
-      serviceOrders: await pixDB.getAll('serviceOrders'),
-      users: await pixDB.getAll('users')
+      serviceOrders: await pixDB.getAll('serviceOrders')
+      // Users excluded from backup for security (emails, credentials)
     };
-
-    // Remove photos from backup (too large)
-    data.samples.forEach(s => { if (s.photo) s.photo = '(foto omitida)'; });
 
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -1636,7 +1736,7 @@ class PixApp {
       // Summary table
       zonesHTML += `
         <tr style="background:#e8f5e9"><td colspan="7" style="font-weight:700;padding:8px">
-          ${field.name} — ${field.area ? field.area.toFixed(1) + ' ha' : ''}
+          ${escH(field.name)} — ${field.area ? field.area.toFixed(1) + ' ha' : ''}
         </td></tr>`;
 
       for (const zk of sortedZones) {
@@ -1664,7 +1764,7 @@ class PixApp {
         detailHTML += `
           <div style="margin-bottom:20px">
             <h3 style="margin:0 0 6px;font-size:14px;color:#333;border-bottom:2px solid ${clase==='Alta'?'#4CAF50':clase==='Media'?'#FFC107':'#F44336'}; padding-bottom:4px">
-              ${field.name} — Zona ${zk} (${clase}) — QR: ${qr}
+              ${escH(field.name)} — Zona ${zk} (${escH(clase)}) — QR: ${escH(qr)}
             </h3>
             <table style="width:100%;border-collapse:collapse;font-size:11px">
               <tr style="background:#f5f5f5">
@@ -1915,7 +2015,9 @@ ${detailHTML}
 
     // If no field selected, auto-create one for boundary tracing
     if (!this.currentField) {
-      const fieldName = prompt('Nombre del campo a georreferenciar:');
+      const fieldName = await pixModal.input('Nombre del campo a georreferenciar', [
+        { name: 'value', label: 'Nombre', placeholder: 'Ej: Lote Norte', required: true }
+      ]);
       if (!fieldName || !fieldName.trim()) return;
       try {
         // Create or reuse project
@@ -1960,12 +2062,28 @@ ${detailHTML}
     gpsNav.startTracking();
 
     // Record positions at regular intervals (every 2 seconds for better resolution)
+    this._boundaryNoSignalTicks = 0;
     this._boundaryInterval = setInterval(() => {
-      if (!gpsNav.currentPosition) return;
+      if (!gpsNav.currentPosition) {
+        this._boundaryNoSignalTicks++;
+        if (this._boundaryNoSignalTicks >= 5) {
+          this.toast('Sin senal GPS — espera o acercate a cielo abierto', 'warning');
+          this._boundaryNoSignalTicks = 0;
+        }
+        return;
+      }
 
       const pos = gpsNav.currentPosition;
-      // Only add if accuracy is reasonable
-      if (pos.accuracy > 20) return;
+      // Warn if accuracy is poor but don't silently skip
+      if (pos.accuracy > 20) {
+        this._boundaryNoSignalTicks++;
+        if (this._boundaryNoSignalTicks >= 5) {
+          this.toast(`GPS impreciso (${pos.accuracy.toFixed(0)}m) — sin grabar puntos`, 'warning');
+          this._boundaryNoSignalTicks = 0;
+        }
+        return;
+      }
+      this._boundaryNoSignalTicks = 0;
 
       const last = this._boundaryPositions[this._boundaryPositions.length - 1];
       if (last) {
@@ -2501,9 +2619,8 @@ ${detailHTML}
 
   // Delete project
   // A11 FIX: Also delete service orders + tracks associated with the project
-  async deleteProject(projectId) {
-    if (!confirm('¿Eliminar este proyecto y todos sus datos?')) return;
-
+  // Silent delete (no confirm) — used by duplicate replacement
+  async deleteProjectSilent(projectId) {
     const fields = await pixDB.getAllByIndex('fields', 'projectId', projectId);
     for (const f of fields) {
       const points = await pixDB.getAllByIndex('points', 'fieldId', f.id);
@@ -2514,11 +2631,16 @@ ${detailHTML}
       for (const t of tracks) await pixDB.delete('tracks', t.id);
       await pixDB.delete('fields', f.id);
     }
-    // Delete service orders for this project
     const orders = await pixDB.getAllByIndex('serviceOrders', 'projectId', projectId);
     for (const o of orders) await pixDB.delete('serviceOrders', o.id);
-
     await pixDB.delete('projects', projectId);
+  }
+
+  async deleteProject(projectId) {
+    const ok = await pixModal.confirm('Eliminar Proyecto', '¿Eliminar este proyecto y todos sus datos? Esta accion no se puede deshacer.');
+    if (!ok) return;
+
+    await this.deleteProjectSilent(projectId);
     this.currentProject = null;
     this.currentField = null;
     pixMap && pixMap.clearAll && pixMap.clearAll();
@@ -2530,7 +2652,8 @@ ${detailHTML}
   async deleteField(fieldId) {
     const field = await pixDB.get('fields', fieldId);
     const fieldName = field ? field.name : 'Campo';
-    if (!confirm(`¿Eliminar "${fieldName}" y todos sus puntos?`)) return;
+    const ok = await pixModal.confirm('Eliminar Campo', `¿Eliminar "${fieldName}" y todos sus puntos?`);
+    if (!ok) return;
 
     try {
       // Delete all points of this field
@@ -2592,20 +2715,30 @@ ${detailHTML}
     }
   }
 
-  toast(message, type = '') {
+  toast(message, type = '', duration = null) {
     const existing = document.querySelector('.toast');
     if (existing) existing.remove();
 
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
     toast.textContent = message;
-    document.body.appendChild(toast);
 
+    // Errors stay longer; success/info auto-dismiss
+    const ms = duration || (type === 'error' ? 8000 : type === 'warning' ? 5000 : 3000);
+
+    // Errors get a close button
+    if (type === 'error' && !duration) {
+      toast.innerHTML = `<span style="flex:1">${escH(message)}</span><button onclick="this.parentElement.remove()" style="background:none;border:none;color:inherit;font-size:18px;padding:0 0 0 12px;cursor:pointer">&times;</button>`;
+      toast.style.display = 'flex';
+      toast.style.alignItems = 'center';
+    }
+
+    document.body.appendChild(toast);
     requestAnimationFrame(() => toast.classList.add('show'));
-    setTimeout(() => {
+    this._toastTimer = setTimeout(() => {
       toast.classList.remove('show');
       setTimeout(() => toast.remove(), 300);
-    }, 3000);
+    }, ms);
   }
 
   showInstallBanner() {

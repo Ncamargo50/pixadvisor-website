@@ -509,7 +509,8 @@ class GPSNavigator {
 
     // Clamp gain: never less than 0.15 (so marker ALWAYS moves at least a bit)
     // and never more than 0.95 (some smoothing always applies)
-    const clampedGain = Math.max(0.15, Math.min(0.95, kalmanGain));
+    // Lower floor (0.05) allows better stationary smoothing; 0.15 caused marker wander
+    const clampedGain = Math.max(0.05, Math.min(0.95, kalmanGain));
 
     // Update estimate
     this.kalman.lat += clampedGain * (measurement.lat - this.kalman.lat);

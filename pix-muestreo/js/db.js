@@ -1,6 +1,6 @@
 // IndexedDB - Offline database for PIX Muestreo
 const DB_NAME = 'PixMuestreo';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 class PixDB {
   constructor() {
@@ -36,6 +36,12 @@ class PixDB {
           const pts = db.createObjectStore('points', { keyPath: 'id', autoIncrement: true });
           pts.createIndex('fieldId', 'fieldId', { unique: false });
           pts.createIndex('status', 'status', { unique: false });
+          pts.createIndex('fieldId_status', ['fieldId', 'status'], { unique: false });
+        } else {
+          const pts = tx.objectStore('points');
+          if (!pts.indexNames.contains('fieldId_status')) {
+            pts.createIndex('fieldId_status', ['fieldId', 'status'], { unique: false });
+          }
         }
 
         // Collected samples (muestras colectadas)
@@ -45,9 +51,13 @@ class PixDB {
           ss.createIndex('synced', 'synced', { unique: false });
           ss.createIndex('fieldId', 'fieldId', { unique: false });
           ss.createIndex('userId', 'userId', { unique: false });
+          ss.createIndex('fieldId_synced', ['fieldId', 'synced'], { unique: false });
         } else {
           const ss = tx.objectStore('samples');
           if (!ss.indexNames.contains('userId')) ss.createIndex('userId', 'userId', { unique: false });
+          if (!ss.indexNames.contains('fieldId_synced')) {
+            ss.createIndex('fieldId_synced', ['fieldId', 'synced'], { unique: false });
+          }
         }
 
         // Track/route (recorrido GPS)
@@ -261,6 +271,33 @@ class PixDB {
   // Set setting
   async setSetting(key, value) {
     return this.put('settings', { key, value });
+  }
+
+  // Bulk add multiple records in a single transaction
+  async bulkAdd(store, items) {
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction(store, 'readwrite');
+      const os = tx.objectStore(store);
+      const now = new Date().toISOString();
+      for (const item of items) {
+        os.add({ ...item, createdAt: item.createdAt || now });
+      }
+      tx.oncomplete = () => resolve(items.length);
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  // Check storage quota — returns { usage, quota, percentUsed }
+  async storageEstimate() {
+    if (navigator.storage && navigator.storage.estimate) {
+      const est = await navigator.storage.estimate();
+      return {
+        usage: est.usage || 0,
+        quota: est.quota || 0,
+        percentUsed: est.quota ? Math.round((est.usage / est.quota) * 100) : 0
+      };
+    }
+    return { usage: 0, quota: 0, percentUsed: 0 };
   }
 }
 

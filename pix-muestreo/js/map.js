@@ -94,9 +94,24 @@ class PixMap {
       this.map.setView([lat, lng], targetZoom, { animate: true, duration: 0.5 });
     }
 
-    // Update live track line
-    if (this.liveTrackLine && gpsNav.isTracking) {
-      this.liveTrackLine.addLatLng([lat, lng]);
+    // Update live track line with decimation (min 3m between points to prevent memory leak)
+    if (this.liveTrackLine && this._liveTrackActive) {
+      const pts = this.liveTrackLine.getLatLngs();
+      if (pts.length === 0) {
+        this.liveTrackLine.addLatLng([lat, lng]);
+      } else {
+        const last = pts[pts.length - 1];
+        const dx = (lat - last.lat) * 111320;
+        const dy = (lng - last.lng) * 111320 * Math.cos(lat * Math.PI / 180);
+        if (Math.sqrt(dx * dx + dy * dy) >= 3) {
+          this.liveTrackLine.addLatLng([lat, lng]);
+          // Simplify every 500 points to prevent memory bloat on long sessions
+          if (pts.length > 500 && pts.length % 100 === 0) {
+            const simplified = pts.filter((p, i) => i === 0 || i === pts.length - 1 || i % 3 === 0);
+            this.liveTrackLine.setLatLngs(simplified);
+          }
+        }
+      }
     }
   }
 
@@ -117,6 +132,7 @@ class PixMap {
     if (this.liveTrackLine) {
       this.map.removeLayer(this.liveTrackLine);
     }
+    this._liveTrackActive = true;
     this.liveTrackLine = L.polyline([], {
       color: '#FF9800',
       weight: 3,
@@ -124,16 +140,14 @@ class PixMap {
       dashArray: '8, 6'
     }).addTo(this.map);
 
-    // Add current position as first point
     if (gpsNav.currentPosition) {
       this.liveTrackLine.addLatLng([gpsNav.currentPosition.lat, gpsNav.currentPosition.lng]);
     }
   }
 
-  // Stop live track drawing
+  // Stop live track drawing — keep line visible but stop appending
   stopLiveTrack() {
-    // Keep the line visible but stop adding points
-    // (liveTrackLine stays on map as reference)
+    this._liveTrackActive = false;
   }
 
   // Clear live track
@@ -427,6 +441,7 @@ class PixMap {
     this.fieldLayers.forEach(l => this.map.removeLayer(l));
     this.fieldLayers = [];
     if (this.trackLine) { this.map.removeLayer(this.trackLine); this.trackLine = null; }
+    this.clearLiveTrack();
     this.clearNavigationLine();
   }
 
