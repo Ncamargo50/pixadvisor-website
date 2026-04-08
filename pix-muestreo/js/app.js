@@ -2062,7 +2062,7 @@ ${detailHTML}
   // ===== CONTORNAR TALHÃO (DataFarm feature: field perimeter mapping via GPS) =====
 
   // Start GPS boundary tracing: walk around field perimeter recording positions
-  startBoundaryTrace() {
+  async startBoundaryTrace() {
     if (this._boundaryTracing) {
       this.stopBoundaryTrace();
       return;
