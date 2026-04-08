@@ -90,8 +90,8 @@ class PixMap {
     // Auto-follow: pan map to keep user centered in real-time
     if (this.followUser) {
       const currentZoom = this.map.getZoom();
-      const targetZoom = currentZoom < 16 ? 17 : currentZoom;
-      this.map.setView([lat, lng], targetZoom, { animate: true, duration: 0.25 });
+      const targetZoom = currentZoom < 16 ? 18 : currentZoom; // zoom 18 for max detail
+      this.map.setView([lat, lng], targetZoom, { animate: true, duration: 0.15 });
     }
 
     // Update live track line with decimation (min 3m between points to prevent memory leak)

@@ -694,12 +694,12 @@ class PixApp {
     if (kalman !== null && kalman !== undefined) document.getElementById('gpsKalmanEnabled').value = kalman;
     const detRadius = await pixDB.getSetting('gps_detectionRadius');
 
-    // Store settings for quick access
+    // Store settings for quick access — optimized defaults for precision agriculture
     this._gpsSettings = {
-      minAccuracy: parseFloat(minAcc) || 5,
-      avgSamples: parseInt(avgSamples) || 10,
+      minAccuracy: parseFloat(minAcc) || 3,       // 3m required (was 5m)
+      avgSamples: parseInt(avgSamples) || 15,      // 15 samples for averaging (was 10)
       kalmanEnabled: kalman !== '0',
-      detectionRadius: parseFloat(detRadius) || 15
+      detectionRadius: parseFloat(detRadius) || 8  // 8m auto-detect radius (was 15m)
     };
   }
 
@@ -796,21 +796,27 @@ class PixApp {
       return;
     }
 
-    // PROXIMITY LOCK: only allow collection within 2m of target point
+    // PROXIMITY CHECK: smart lock accounting for GPS accuracy
     if (gpsNav.currentPosition && this.currentPoint) {
       const distToPoint = gpsNav.distanceTo(
         gpsNav.currentPosition.lat, gpsNav.currentPosition.lng,
         this.currentPoint.lat, this.currentPoint.lng
       );
-      if (distToPoint > 2) {
-        this.toast(`Acercate al punto (${Math.round(distToPoint)}m) — máximo 2m para recolectar`, 'warning');
+      const acc = gpsNav.currentPosition.accuracy || 5;
+      // Effective distance = measured distance minus GPS error margin
+      const effectiveDist = Math.max(0, distToPoint - acc);
+      if (effectiveDist > 5) {
+        // Hard block: definitely too far (>5m even after accounting for GPS error)
+        this.toast(`Muy lejos del punto (${Math.round(distToPoint)}m ±${Math.round(acc)}m) — acercate`, 'warning');
         return;
       }
+      if (distToPoint > 3) {
+        // Soft warning: close but not ideal — still allow collection
+        this.toast(`Distancia: ${Math.round(distToPoint)}m (±${Math.round(acc)}m GPS)`, 'warning');
+      }
     }
-    // Warn if GPS is not active
     if (!gpsNav.currentPosition) {
-      this.toast('Sin señal GPS. Acercate al punto para recolectar.', 'warning');
-      return;
+      this.toast('Esperando señal GPS...', 'warning');
     }
 
     // Detect if this is a principal or submuestra
@@ -996,10 +1002,12 @@ class PixApp {
     if (!isSubmuestra) {
       if (!sampleType || sampleType === '' || sampleType === 'none') {
         this.toast('Seleccioná el tipo de análisis', 'warning');
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Guardar Muestra'; }
         return;
       }
       if (!collector || collector.trim() === '') {
         this.toast('Ingresá el nombre del colector', 'warning');
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Guardar Muestra'; }
         document.getElementById('collectorField').focus();
         return;
       }

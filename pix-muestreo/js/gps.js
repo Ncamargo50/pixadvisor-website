@@ -26,7 +26,7 @@ class GPSNavigator {
     // GPS warm-up detection
     this.warmupReadings = [];
     this.isWarmedUp = false;
-    this.warmupThreshold = 3; // need 3 readings under 15m accuracy (faster warm-up)
+    this.warmupThreshold = 2; // need 2 readings under 15m accuracy (fastest warm-up)
     this._warmupStartTime = null; // 2.3: timeout tracking
     this._warmupDegraded = false; // true if warm-up forced by timeout
 
@@ -118,8 +118,8 @@ class GPSNavigator {
       },
       {
         enableHighAccuracy: true,
-        maximumAge: 500,      // Sub-second freshness for real-time tracking
-        timeout: 8000         // 8 sec timeout
+        maximumAge: 0,        // ALWAYS fresh readings — no cache, maximum precision
+        timeout: 10000        // 10 sec timeout
       }
     );
   }
@@ -216,13 +216,13 @@ class GPSNavigator {
 
         // Low-pass filter on speed to avoid GPS jitter spikes
         // When standing still, GPS jitter causes ~0.5-2 m/s phantom speed
-        if (rawSpeed < 0.3) {
-          this.speed = 0; // noise threshold
+        if (rawSpeed < 0.2) {
+          this.speed = 0; // noise threshold (lower = more sensitive)
         } else {
-          this.speed = this.speed * 0.6 + rawSpeed * 0.4; // smoothed
+          this.speed = this.speed * 0.4 + rawSpeed * 0.6; // faster response to speed changes
         }
 
-        this.isMoving = this.speed > 0.5; // walking threshold ~0.5 m/s = 1.8 km/h
+        this.isMoving = this.speed > 0.3; // walking threshold ~0.3 m/s = 1 km/h (very sensitive)
       }
     }
     this._lastPos = { lat, lng };
@@ -473,10 +473,10 @@ class GPSNavigator {
     const measurementVariance = accuracy * accuracy;
     const kalmanGain = this.kalman.variance / (this.kalman.variance + measurementVariance);
 
-    // Clamp gain: ADAPTIVE floor based on movement state
-    // Moving: high floor (0.5) → marker follows GPS closely in real-time
-    // Still: low floor (0.05) → aggressive smoothing, no jitter
-    const gainFloor = this.isMoving ? 0.5 : 0.05;
+    // Clamp gain: ADAPTIVE based on movement state
+    // Moving: near-raw GPS (0.7) → marker tracks position instantly
+    // Still: moderate smoothing (0.15) → reduces jitter but stays responsive
+    const gainFloor = this.isMoving ? 0.7 : 0.15;
     const clampedGain = Math.max(gainFloor, Math.min(0.95, kalmanGain));
 
     // Update estimate
@@ -533,7 +533,7 @@ class GPSNavigator {
     // Prevents technician from being stuck indefinitely under tree cover/valleys
     if (!this.isWarmedUp && this._warmupStartTime) {
       const elapsed = (Date.now() - this._warmupStartTime) / 1000;
-      if (elapsed > 90 && accuracy < 50) {
+      if (elapsed > 45 && accuracy < 50) {
         this.isWarmedUp = true;
         this._warmupDegraded = true;
         console.warn(`[GPS] Warm-up forced after ${Math.round(elapsed)}s (accuracy ${accuracy.toFixed(1)}m)`);
