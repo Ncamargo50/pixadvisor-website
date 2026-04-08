@@ -20,6 +20,12 @@ class DriveSync {
   async init(clientId) {
     if (clientId) DRIVE_CONFIG.CLIENT_ID = clientId;
 
+    // In APK WebView: no need for GIS library, auth goes through native bridge
+    if (typeof AndroidBridge !== 'undefined') {
+      console.log('[Drive] APK WebView detected, using native bridge for auth');
+      return;
+    }
+
     return new Promise((resolve, reject) => {
       // Load GIS script
       if (typeof google !== 'undefined' && google.accounts) {
@@ -65,10 +71,32 @@ class DriveSync {
 
   // Request authentication
   async authenticate() {
+    // In APK WebView: use native bridge → Chrome Custom Tabs
+    if (typeof AndroidBridge !== 'undefined' && AndroidBridge.startGoogleAuth) {
+      console.log('[Drive] Launching native OAuth via Chrome Custom Tabs');
+      AndroidBridge.startGoogleAuth(DRIVE_CONFIG.CLIENT_ID);
+      return; // Token will arrive via setTokenFromNative()
+    }
+    // In regular browser: use GIS popup (existing flow)
     if (!this.tokenClient) {
       throw new Error('Drive not initialized. Set Client ID in settings.');
     }
     this.tokenClient.requestAccessToken({ prompt: 'consent' });
+  }
+
+  // Receive token from native Android bridge (APK WebView OAuth flow)
+  setTokenFromNative(token, expiresIn) {
+    if (!token) return;
+    this.accessToken = token;
+    this.isInitialized = true;
+    const expiresAt = Date.now() + ((expiresIn || 3600) * 1000);
+    this._tokenExpiresAt = expiresAt;
+    try {
+      sessionStorage.setItem('pix_drive_token', token);
+      sessionStorage.setItem('pix_drive_token_exp', String(expiresAt));
+    } catch (_) {}
+    console.log('[Drive] Token received from native bridge, expires in', expiresIn, 's');
+    document.dispatchEvent(new Event('drive-authenticated'));
   }
 
   // Check if authenticated — restore from sessionStorage if available

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PIX Muestreo - OAuth</title>
+<style>
+  body { font-family: -apple-system, sans-serif; background: #0F1B2D; color: #E8ECF0; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; text-align: center; }
+  .card { background: rgba(26,42,64,0.9); border-radius: 16px; padding: 32px; max-width: 360px; border: 1px solid rgba(127,214,51,0.2); }
+  h2 { color: #7FD633; margin-bottom: 8px; }
+  p { color: #8899AA; font-size: 14px; line-height: 1.5; }
+  .spinner { width: 40px; height: 40px; border: 3px solid rgba(127,214,51,0.2); border-top: 3px solid #7FD633; border-radius: 50%; animation: spin 1s linear infinite; margin: 16px auto; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  a { color: #7FD633; text-decoration: none; }
+  .error { color: #E74C3C; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h2>PIX Muestreo</h2>
+  <div class="spinner" id="spinner"></div>
+  <p id="status">Conectando con Google Drive...</p>
+  <p id="manual" style="display:none"><a id="manualLink" href="#">Tocar aqui si no se redirige automaticamente</a></p>
+</div>
+<script>
+(function() {
+  // Extract token from URL fragment (#access_token=...&expires_in=...)
+  var hash = window.location.hash.substring(1);
+  if (!hash) {
+    document.getElementById('status').innerHTML = '<span class="error">Error: no se recibio token de Google.</span>';
+    document.getElementById('spinner').style.display = 'none';
+    return;
+  }
+
+  var params = {};
+  hash.split('&').forEach(function(part) {
+    var kv = part.split('=');
+    params[decodeURIComponent(kv[0])] = decodeURIComponent(kv[1] || '');
+  });
+
+  var token = params['access_token'];
+  var expiresIn = params['expires_in'] || '3600';
+
+  if (!token) {
+    document.getElementById('status').innerHTML = '<span class="error">Error: token no encontrado.</span>';
+    document.getElementById('spinner').style.display = 'none';
+    return;
+  }
+
+  // Build deep link to return to PIX Muestreo APK
+  var deepLink = 'pixmuestreo://oauth-callback?token=' + encodeURIComponent(token) + '&expires_in=' + expiresIn;
+
+  document.getElementById('status').textContent = 'Volviendo a PIX Muestreo...';
+
+  // Show manual link as fallback
+  document.getElementById('manualLink').href = deepLink;
+  setTimeout(function() {
+    document.getElementById('manual').style.display = 'block';
+  }, 2000);
+
+  // Redirect to APK via deep link
+  window.location.href = deepLink;
+})();
+</script>
+</body>
+</html>
