@@ -1075,6 +1075,95 @@ class PixApp {
     input.click();
   }
 
+  // ===== RECEIVE FILE FROM ANDROID INTENT (WhatsApp, file manager, etc.) =====
+  // Called by native Android via evaluateJavascript when user opens a .json/.geojson
+  // from WhatsApp, email, file manager, or any app that shares files.
+  async receiveFileFromIntent(filename, content) {
+    console.log('[App] receiveFileFromIntent:', filename, '(' + content.length + ' chars)');
+    this.toast('Abriendo mapa: ' + filename + '...', '');
+
+    try {
+      const parsed = JSON.parse(content);
+
+      // Check if this is a PIX project JSON (has project + lotes structure)
+      if (parsed.project && parsed.lotes && Array.isArray(parsed.lotes)) {
+        await this.importProjectJSON(parsed);
+        this.loadProjects();
+        this.toast(`Proyecto importado: ${parsed.project.name} (${parsed.lotes.length} lotes)`, 'success');
+        this.showView('map');
+        await this._autoOpenFirstField();
+        return;
+      }
+
+      // Check if it's a PIX backup JSON (has app + projects + fields + points)
+      if (parsed.app === 'PIX Muestreo' && parsed.projects) {
+        await this._restoreBackup(parsed);
+        this.loadProjects();
+        this.toast('Backup restaurado: ' + (parsed.projects.length || 0) + ' proyectos', 'success');
+        this.showView('map');
+        await this._autoOpenFirstField();
+        return;
+      }
+
+      // Standard GeoJSON (FeatureCollection, Feature, or geometry)
+      if (parsed.type === 'FeatureCollection' || parsed.type === 'Feature'
+          || parsed.type === 'Polygon' || parsed.type === 'MultiPolygon' || parsed.type === 'Point') {
+        await this.processGeoJSON(parsed, filename);
+        this.loadProjects();
+        this.toast('Mapa importado: ' + filename, 'success');
+        this.showView('map');
+        await this._autoOpenFirstField();
+        return;
+      }
+
+      // Unknown JSON structure
+      this.toast('Archivo JSON no reconocido. Use GeoJSON o proyecto PIX.', 'error');
+
+    } catch (err) {
+      console.error('[App] receiveFileFromIntent error:', err);
+      this.toast('Error al abrir archivo: ' + err.message, 'error');
+    }
+  }
+
+  // Restore a full PIX Muestreo backup (from exportLocalBackup)
+  async _restoreBackup(data) {
+    // Import projects
+    if (data.projects) {
+      for (const p of data.projects) {
+        const existing = await pixDB.get('projects', p.id);
+        if (!existing) await pixDB.add('projects', p);
+      }
+    }
+    // Import fields
+    if (data.fields) {
+      for (const f of data.fields) {
+        const existing = await pixDB.get('fields', f.id);
+        if (!existing) await pixDB.add('fields', f);
+      }
+    }
+    // Import points
+    if (data.points) {
+      for (const pt of data.points) {
+        const existing = await pixDB.get('points', pt.id);
+        if (!existing) await pixDB.add('points', pt);
+      }
+    }
+    // Import samples
+    if (data.samples) {
+      for (const s of data.samples) {
+        const existing = await pixDB.get('samples', s.id);
+        if (!existing) await pixDB.add('samples', s);
+      }
+    }
+    // Import tracks
+    if (data.tracks) {
+      for (const t of data.tracks) {
+        const existing = await pixDB.get('tracks', t.id);
+        if (!existing) await pixDB.add('tracks', t);
+      }
+    }
+  }
+
   // After import: auto-open the most recent field on the map
   async _autoOpenFirstField() {
     try {
