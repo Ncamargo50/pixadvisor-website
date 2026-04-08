@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PIX Muestreo - Globe Design Options</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #080e19;
+            color: white;
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        h1 {
+            text-align: center;
+            font-size: 28px;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #7FD633, #00A4CC);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle {
+            text-align: center;
+            color: #64748b;
+            margin-bottom: 48px;
+            font-size: 14px;
+        }
+        .options {
+            display: flex;
+            flex-direction: column;
+            gap: 60px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .option {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(127,214,51,0.1);
+            border-radius: 24px;
+            padding: 40px 24px;
+            text-align: center;
+        }
+        .option h2 {
+            font-size: 20px;
+            margin-bottom: 4px;
+            color: #7FD633;
+        }
+        .option .desc {
+            color: #94a3b8;
+            font-size: 13px;
+            margin-bottom: 32px;
+        }
+        .globe-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+        .sizes {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-top: 24px;
+        }
+        .size-demo {
+            text-align: center;
+        }
+        .size-demo .label {
+            font-size: 11px;
+            color: #475569;
+            margin-top: 8px;
+        }
+
+        /* ============================================ */
+        /* OPTION 1: GLASSMORPHISM 3D GLOBE             */
+        /* ============================================ */
+        .globe-1 {
+            width: 200px;
+            height: 200px;
+            position: relative;
+        }
+        .globe-1 .sphere {
+            width: 160px;
+            height: 160px;
+            border-radius: 50%;
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: radial-gradient(circle at 35% 30%,
+                #a8f050 0%,
+                #7FD633 20%,
+                #3da828 40%,
+                #00A4CC 70%,
+                #0070a0 90%,
+                #004060 100%
+            );
+            box-shadow:
+                inset -8px -8px 20px rgba(0,0,0,0.4),
+                inset 6px 6px 15px rgba(255,255,255,0.15),
+                0 0 60px rgba(127,214,51,0.3),
+                0 0 120px rgba(0,164,204,0.15);
+            overflow: hidden;
+        }
+        .globe-1 .sphere::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background:
+                repeating-linear-gradient(0deg,
+                    transparent 0px, transparent 18px,
+                    rgba(0,0,0,0.12) 18px, rgba(0,0,0,0.12) 20px
+                ),
+                repeating-linear-gradient(90deg,
+                    transparent 0px, transparent 22px,
+                    rgba(0,0,0,0.1) 22px, rgba(0,0,0,0.1) 24px
+                );
+            mask-image: radial-gradient(circle, black 60%, transparent 100%);
+            -webkit-mask-image: radial-gradient(circle, black 60%, transparent 100%);
+        }
+        .globe-1 .sphere::after {
+            content: '';
+            position: absolute;
+            top: 8%;
+            left: 15%;
+            width: 45%;
+            height: 25%;
+            background: radial-gradient(ellipse, rgba(255,255,255,0.35) 0%, transparent 70%);
+            border-radius: 50%;
+            transform: rotate(-20deg);
+        }
+        .globe-1 .ring {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 190px;
+            height: 50px;
+            border: 2.5px solid rgba(0,164,204,0.5);
+            border-radius: 50%;
+            transform: translate(-50%, -50%) rotateX(75deg) rotateZ(-20deg);
+            box-shadow: 0 0 15px rgba(0,164,204,0.3);
+        }
+        .globe-1 .ring2 {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 210px;
+            height: 55px;
+            border: 1.5px solid rgba(127,214,51,0.3);
+            border-radius: 50%;
+            transform: translate(-50%, -50%) rotateX(75deg) rotateZ(-40deg);
+            box-shadow: 0 0 10px rgba(127,214,51,0.2);
+        }
+
+        /* ============================================ */
+        /* OPTION 2: HOLOGRAPHIC WIREFRAME GLOBE        */
+        /* ============================================ */
+        .globe-2-wrap {
+            width: 200px;
+            height: 200px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .globe-2-canvas {
+            width: 200px;
+            height: 200px;
+        }
+
+        /* ============================================ */
+        /* OPTION 3: FUTURISTIC NEON GLOBE              */
+        /* ============================================ */
+        .globe-3 {
+            width: 200px;
+            height: 200px;
+            position: relative;
+        }
+        .globe-3 .core {
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            position: absolute;
+            top: 30px;
+            left: 30px;
+            background: radial-gradient(circle at 40% 35%,
+                rgba(127,214,51,0.9) 0%,
+                rgba(60,160,30,0.7) 30%,
+                rgba(0,100,160,0.6) 60%,
+                rgba(0,60,100,0.8) 100%
+            );
+            box-shadow:
+                inset -6px -6px 16px rgba(0,0,0,0.5),
+                inset 4px 4px 12px rgba(255,255,255,0.1),
+                0 0 40px rgba(127,214,51,0.4),
+                0 0 80px rgba(0,164,204,0.2);
+            overflow: hidden;
+        }
+        .globe-3 .core::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cellipse cx='100' cy='100' rx='80' ry='80' fill='none' stroke='rgba(255,255,255,0.08)' stroke-width='0.8'/%3E%3Cellipse cx='100' cy='100' rx='60' ry='80' fill='none' stroke='rgba(255,255,255,0.1)' stroke-width='0.8'/%3E%3Cellipse cx='100' cy='100' rx='35' ry='80' fill='none' stroke='rgba(255,255,255,0.1)' stroke-width='0.8'/%3E%3Cellipse cx='100' cy='100' rx='10' ry='80' fill='none' stroke='rgba(255,255,255,0.08)' stroke-width='0.8'/%3E%3Cline x1='20' y1='45' x2='180' y2='45' stroke='rgba(255,255,255,0.06)' stroke-width='0.6'/%3E%3Cline x1='20' y1='75' x2='180' y2='75' stroke='rgba(255,255,255,0.08)' stroke-width='0.6'/%3E%3Cline x1='20' y1='100' x2='180' y2='100' stroke='rgba(255,255,255,0.1)' stroke-width='0.8'/%3E%3Cline x1='20' y1='125' x2='180' y2='125' stroke='rgba(255,255,255,0.08)' stroke-width='0.6'/%3E%3Cline x1='20' y1='155' x2='180' y2='155' stroke='rgba(255,255,255,0.06)' stroke-width='0.6'/%3E%3C/svg%3E") center/contain;
+        }
+        .globe-3 .core::after {
+            content: '';
+            position: absolute;
+            top: 6%;
+            left: 12%;
+            width: 50%;
+            height: 28%;
+            background: radial-gradient(ellipse, rgba(255,255,255,0.3) 0%, transparent 70%);
+            border-radius: 50%;
+            transform: rotate(-15deg);
+        }
+        /* Animated orbit dots */
+        .globe-3 .orbit {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 180px;
+            height: 180px;
+            border: 1.5px solid rgba(0,164,204,0.25);
+            border-radius: 50%;
+            transform: translate(-50%, -50%) rotateX(70deg) rotateZ(-25deg);
+        }
+        .globe-3 .orbit-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #00A4CC;
+            position: absolute;
+            box-shadow: 0 0 12px #00A4CC, 0 0 24px rgba(0,164,204,0.5);
+            animation: orbit-move 4s linear infinite;
+        }
+        .globe-3 .orbit-dot:nth-child(2) { animation-delay: -2s; background: #7FD633; box-shadow: 0 0 12px #7FD633; }
+        @keyframes orbit-move {
+            0% { top: 0; left: 50%; }
+            25% { top: 50%; left: 100%; }
+            50% { top: 100%; left: 50%; }
+            75% { top: 50%; left: 0; }
+            100% { top: 0; left: 50%; }
+        }
+        .globe-3 .scan-line {
+            position: absolute;
+            top: 30px;
+            left: 30px;
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            overflow: hidden;
+        }
+        .globe-3 .scan-line::before {
+            content: '';
+            position: absolute;
+            top: -100%;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, rgba(127,214,51,0.6), transparent);
+            box-shadow: 0 0 20px rgba(127,214,51,0.3);
+            animation: scan 3s linear infinite;
+        }
+        @keyframes scan {
+            0% { top: -5%; }
+            100% { top: 105%; }
+        }
+
+        /* ============================================ */
+        /* MOCKUP APP PREVIEW                           */
+        /* ============================================ */
+        .mockup-frame {
+            width: 280px;
+            margin: 0 auto;
+            background: #0F1B2D;
+            border-radius: 24px;
+            border: 2px solid rgba(255,255,255,0.08);
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+        .mockup-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            background: #1a2a40;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        .mockup-header h3 {
+            font-size: 16px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #7FD633, #00A4CC);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .mockup-header small {
+            display: block;
+            font-size: 9px;
+            color: #64748b;
+            -webkit-text-fill-color: #64748b;
+        }
+        .mockup-body {
+            height: 160px;
+            background: #1a2a40;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #334155;
+            font-size: 12px;
+        }
+        .mockup-nav {
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 8px;
+            background: #1a2a40;
+            border-top: 1px solid rgba(255,255,255,0.06);
+        }
+        .mockup-nav span {
+            font-size: 9px;
+            color: #475569;
+            text-align: center;
+        }
+        .mockup-nav span.active { color: #7FD633; }
+
+        /* Login mockup */
+        .mockup-login {
+            width: 280px;
+            margin: 0 auto;
+            background: #0F1B2D;
+            border-radius: 24px;
+            border: 2px solid rgba(255,255,255,0.08);
+            padding: 32px 24px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+        .mockup-login h4 {
+            color: white;
+            font-size: 18px;
+            margin-top: 12px;
+        }
+        .mockup-login p {
+            color: #64748b;
+            font-size: 12px;
+            margin: 4px 0 16px;
+        }
+        .mockup-login .fake-input {
+            width: 100%;
+            height: 40px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+        .mockup-login .fake-btn {
+            width: 100%;
+            height: 40px;
+            background: linear-gradient(135deg, #7FD633, #0d9488);
+            border-radius: 10px;
+        }
+
+        .preview-row {
+            display: flex;
+            gap: 24px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 32px;
+        }
+
+        .tag {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            margin: 2px;
+        }
+        .tag-green { background: rgba(127,214,51,0.15); color: #7FD633; }
+        .tag-blue { background: rgba(0,164,204,0.15); color: #00A4CC; }
+        .tags { margin-top: 16px; }
+    </style>
+</head>
+<body>
+    <h1>🌐 PIX Muestreo — Globe Design Options</h1>
+    <p class="subtitle">Elegí el estilo de globo 3D para tu app. Colores exactos: #7FD633 (verde) · #00A4CC (azul)</p>
+
+    <div class="options">
+
+        <!-- ======================== OPTION 1 ======================== -->
+        <div class="option">
+            <h2>Opción 1 — Cristal 3D</h2>
+            <p class="desc">Globo con efecto cristal/vidrio, gradiente verde→azul, anillos orbitales y brillo especular</p>
+
+            <div class="globe-container">
+                <div class="globe-1">
+                    <div class="ring2"></div>
+                    <div class="ring"></div>
+                    <div class="sphere"></div>
+                </div>
+            </div>
+
+            <div class="tags">
+                <span class="tag tag-green">Elegante</span>
+                <span class="tag tag-blue">Profesional</span>
+                <span class="tag tag-green">Efecto Vidrio</span>
+            </div>
+
+            <div class="preview-row">
+                <div>
+                    <p style="font-size:11px;color:#475569;margin-bottom:8px">Header de la App</p>
+                    <div class="mockup-frame">
+                        <div class="mockup-header">
+                            <div class="globe-1" style="width:44px;height:44px;flex-shrink:0">
+                                <div class="sphere" style="width:36px;height:36px;top:4px;left:4px"></div>
+                                <div class="ring" style="width:42px;height:12px;border-width:1px"></div>
+                            </div>
+                            <div>
+                                <h3>PIX Muestreo</h3>
+                                <small>Agricultura de Precisión</small>
+                            </div>
+                        </div>
+                        <div class="mockup-body">[ Vista del mapa ]</div>
+                        <div class="mockup-nav">
+                            <span class="active">Mapa</span>
+                            <span>Proyectos</span>
+                            <span>Sync</span>
+                            <span>Ajustes</span>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <p style="font-size:11px;color:#475569;margin-bottom:8px">Pantalla Login</p>
+                    <div class="mockup-login">
+                        <div class="globe-1" style="width:80px;height:80px;margin:0 auto">
+                            <div class="sphere" style="width:64px;height:64px;top:8px;left:8px"></div>
+                            <div class="ring" style="width:76px;height:20px;border-width:1.5px"></div>
+                        </div>
+                        <h4>PIX Muestreo</h4>
+                        <p>Ingresá la contraseña</p>
+                        <div class="fake-input"></div>
+                        <div class="fake-btn"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======================== OPTION 2 ======================== -->
+        <div class="option">
+            <h2>Opción 2 — Wireframe Holográfico</h2>
+            <p class="desc">Globo wireframe animado con efecto holográfico, líneas de latitud/longitud brillantes</p>
+
+            <div class="globe-container">
+                <canvas class="globe-2-canvas" id="globe2" width="400" height="400"></canvas>
+            </div>
+
+            <div class="tags">
+                <span class="tag tag-blue">Futurista</span>
+                <span class="tag tag-green">Animado</span>
+                <span class="tag tag-blue">Tech</span>
+            </div>
+
+            <div class="preview-row">
+                <div>
+                    <p style="font-size:11px;color:#475569;margin-bottom:8px">Header de la App</p>
+                    <div class="mockup-frame">
+                        <div class="mockup-header">
+                            <canvas id="globe2-small" width="88" height="88" style="width:44px;height:44px;flex-shrink:0;border-radius:10px"></canvas>
+                            <div>
+                                <h3>PIX Muestreo</h3>
+                                <small>Agricultura de Precisión</small>
+                            </div>
+                        </div>
+                        <div class="mockup-body">[ Vista del mapa ]</div>
+                        <div class="mockup-nav">
+                            <span class="active">Mapa</span>
+                            <span>Proyectos</span>
+                            <span>Sync</span>
+                            <span>Ajustes</span>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <p style="font-size:11px;color:#475569;margin-bottom:8px">Pantalla Login</p>
+                    <div class="mockup-login">
+                        <canvas id="globe2-login" width="160" height="160" style="width:80px;height:80px;margin:0 auto;display:block;border-radius:16px"></canvas>
+                        <h4>PIX Muestreo</h4>
+                        <p>Ingresá la contraseña</p>
+                        <div class="fake-input"></div>
+                        <div class="fake-btn"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======================== OPTION 3 ======================== -->
+        <div class="option">
+            <h2>Opción 3 — Neon Sci-Fi</h2>
+            <p class="desc">Globo sólido con grid de coordenadas, línea de escaneo animada, y partículas orbitales neon</p>
+
+            <div class="globe-container">
+                <div class="globe-3">
+                    <div class="orbit">
+                        <div class="orbit-dot"></div>
+                        <div class="orbit-dot"></div>
+                    </div>
+                    <div class="core"></div>
+                    <div class="scan-line"></div>
+                </div>
+            </div>
+
+            <div class="tags">
+                <span class="tag tag-green">Sci-Fi</span>
+                <span class="tag tag-blue">Animaciones</span>
+                <span class="tag tag-green">Impactante</span>
+            </div>
+
+            <div class="preview-row">
+                <div>
+                    <p style="font-size:11px;color:#475569;margin-bottom:8px">Header de la App</p>
+                    <div class="mockup-frame">
+                        <div class="mockup-header">
+                            <div class="globe-3" style="width:44px;height:44px;flex-shrink:0">
+                                <div class="core" style="width:36px;height:36px;top:4px;left:4px"></div>
+                            </div>
+                            <div>
+                                <h3>PIX Muestreo</h3>
+                                <small>Agricultura de Precisión</small>
+                            </div>
+                        </div>
+                        <div class="mockup-body">[ Vista del mapa ]</div>
+                        <div class="mockup-nav">
+                            <span class="active">Mapa</span>
+                            <span>Proyectos</span>
+                            <span>Sync</span>
+                            <span>Ajustes</span>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <p style="font-size:11px;color:#475569;margin-bottom:8px">Pantalla Login</p>
+                    <div class="mockup-login">
+                        <div class="globe-3" style="width:80px;height:80px;margin:0 auto">
+                            <div class="core" style="width:64px;height:64px;top:8px;left:8px"></div>
+                            <div class="scan-line" style="width:64px;height:64px;top:8px;left:8px"></div>
+                        </div>
+                        <h4>PIX Muestreo</h4>
+                        <p>Ingresá la contraseña</p>
+                        <div class="fake-input"></div>
+                        <div class="fake-btn"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+    // ===== OPTION 2: Animated Wireframe Globe =====
+    function drawWireframeGlobe(canvasId, radius, lineWidth) {
+        const canvas = document.getElementById(canvasId);
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width;
+        const h = canvas.height;
+        const cx = w / 2;
+        const cy = h / 2;
+        let rotation = 0;
+
+        function draw() {
+            ctx.clearRect(0, 0, w, h);
+
+            // Outer glow
+            const glow = ctx.createRadialGradient(cx, cy, radius * 0.8, cx, cy, radius * 1.3);
+            glow.addColorStop(0, 'rgba(0, 164, 204, 0.08)');
+            glow.addColorStop(1, 'transparent');
+            ctx.fillStyle = glow;
+            ctx.fillRect(0, 0, w, h);
+
+            // Latitude lines
+            for (let lat = -60; lat <= 60; lat += 30) {
+                const latRad = lat * Math.PI / 180;
+                const y = cy + radius * Math.sin(latRad);
+                const r = radius * Math.cos(latRad);
+
+                ctx.beginPath();
+                ctx.ellipse(cx, y, r, r * 0.15, 0, 0, Math.PI * 2);
+                const alpha = 0.15 + 0.15 * Math.cos(latRad);
+                ctx.strokeStyle = `rgba(0, 164, 204, ${alpha})`;
+                ctx.lineWidth = lineWidth * 0.7;
+                ctx.stroke();
+            }
+
+            // Equator (brighter)
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, radius, radius * 0.15, 0, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(0, 164, 204, 0.4)';
+            ctx.lineWidth = lineWidth;
+            ctx.stroke();
+
+            // Longitude lines (rotating)
+            for (let lon = 0; lon < 180; lon += 30) {
+                const lonRad = (lon + rotation) * Math.PI / 180;
+                const rx = radius * Math.cos(lonRad);
+
+                ctx.beginPath();
+                ctx.ellipse(cx, cy, Math.abs(rx), radius, 0, 0, Math.PI * 2);
+                const alpha = 0.1 + 0.2 * Math.abs(Math.cos(lonRad));
+                ctx.strokeStyle = `rgba(127, 214, 51, ${alpha})`;
+                ctx.lineWidth = lineWidth * 0.7;
+                ctx.stroke();
+            }
+
+            // Circle outline
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            const grad = ctx.createLinearGradient(cx - radius, cy - radius, cx + radius, cy + radius);
+            grad.addColorStop(0, 'rgba(127, 214, 51, 0.6)');
+            grad.addColorStop(0.5, 'rgba(0, 164, 204, 0.6)');
+            grad.addColorStop(1, 'rgba(127, 214, 51, 0.4)');
+            ctx.strokeStyle = grad;
+            ctx.lineWidth = lineWidth * 1.5;
+            ctx.stroke();
+
+            // Highlight reflection
+            ctx.beginPath();
+            ctx.ellipse(cx - radius * 0.25, cy - radius * 0.3, radius * 0.35, radius * 0.15, -0.4, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
+            ctx.fill();
+
+            // Data dots (simulated points on globe)
+            const dots = [
+                { lat: 20, lon: 40 + rotation },
+                { lat: -15, lon: 100 + rotation },
+                { lat: 35, lon: 160 + rotation },
+                { lat: -30, lon: 220 + rotation },
+                { lat: 10, lon: 280 + rotation },
+                { lat: -5, lon: 340 + rotation },
+                { lat: 45, lon: 70 + rotation },
+                { lat: -40, lon: 150 + rotation },
+            ];
+
+            dots.forEach(d => {
+                const latR = d.lat * Math.PI / 180;
+                const lonR = d.lon * Math.PI / 180;
+                const x3d = Math.cos(latR) * Math.sin(lonR);
+                const y3d = Math.sin(latR);
+                const z3d = Math.cos(latR) * Math.cos(lonR);
+
+                if (z3d > -0.2) {  // Only show front-facing dots
+                    const px = cx + x3d * radius;
+                    const py = cy - y3d * radius;
+                    const alpha = 0.3 + 0.7 * Math.max(0, z3d);
+                    const dotR = (lineWidth * 1.5) * (0.5 + 0.5 * Math.max(0, z3d));
+
+                    ctx.beginPath();
+                    ctx.arc(px, py, dotR, 0, Math.PI * 2);
+                    ctx.fillStyle = z3d > 0.3
+                        ? `rgba(127, 214, 51, ${alpha})`
+                        : `rgba(0, 164, 204, ${alpha})`;
+                    ctx.fill();
+
+                    // Glow around dots
+                    ctx.beginPath();
+                    ctx.arc(px, py, dotR * 3, 0, Math.PI * 2);
+                    ctx.fillStyle = z3d > 0.3
+                        ? `rgba(127, 214, 51, ${alpha * 0.15})`
+                        : `rgba(0, 164, 204, ${alpha * 0.15})`;
+                    ctx.fill();
+                }
+            });
+
+            rotation += 0.3;
+            requestAnimationFrame(draw);
+        }
+
+        draw();
+    }
+
+    // Main globe
+    drawWireframeGlobe('globe2', 160, 2);
+    // Small header globe
+    drawWireframeGlobe('globe2-small', 34, 1);
+    // Login globe
+    drawWireframeGlobe('globe2-login', 60, 1.5);
+    </script>
+</body>
+</html>

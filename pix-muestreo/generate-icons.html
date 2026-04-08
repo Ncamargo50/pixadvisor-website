@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PIX Muestreo - Generador de Íconos del Globo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #080e19;
+            color: white;
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        h1 {
+            text-align: center;
+            font-size: 24px;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #7FD633, #00A4CC);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle { text-align: center; color: #64748b; margin-bottom: 40px; font-size: 13px; }
+
+        .section { max-width: 800px; margin: 0 auto 48px; }
+        .section h2 { font-size: 18px; color: #7FD633; margin-bottom: 16px; text-align: center; }
+
+        .preview-grid {
+            display: flex;
+            gap: 32px;
+            justify-content: center;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+        .preview-item {
+            text-align: center;
+        }
+        .preview-item .label {
+            font-size: 11px;
+            color: #475569;
+            margin-top: 8px;
+        }
+        .preview-item canvas {
+            border-radius: 20%;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-top: 24px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+        .btn:active { transform: scale(0.96); }
+        .btn-primary {
+            background: linear-gradient(135deg, #7FD633, #00A4CC);
+            color: #0F1B2D;
+        }
+        .btn-secondary {
+            background: rgba(255,255,255,0.06);
+            color: #94a3b8;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        /* App mockup */
+        .mockup-frame {
+            width: 320px;
+            margin: 0 auto;
+            background: #0F1B2D;
+            border-radius: 24px;
+            border: 2px solid rgba(255,255,255,0.08);
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+        .mockup-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            background: #1a2a40;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        .mockup-header canvas { border-radius: 10px; flex-shrink: 0; }
+        .mockup-header h3 {
+            font-size: 17px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #7FD633, #00A4CC);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .mockup-header small {
+            display: block;
+            font-size: 10px;
+            color: #64748b;
+            -webkit-text-fill-color: #64748b;
+        }
+        .mockup-body {
+            height: 200px;
+            background: #1e3045;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #334155;
+            font-size: 13px;
+        }
+        .mockup-nav {
+            display: flex;
+            justify-content: space-around;
+            padding: 12px 8px;
+            background: #1a2a40;
+            border-top: 1px solid rgba(255,255,255,0.06);
+        }
+        .mockup-nav span { font-size: 10px; color: #475569; }
+        .mockup-nav span.active { color: #7FD633; }
+
+        .mockup-login {
+            width: 320px;
+            margin: 0 auto;
+            background: #0F1B2D;
+            border-radius: 24px;
+            border: 2px solid rgba(255,255,255,0.08);
+            padding: 40px 28px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+        .mockup-login canvas {
+            border-radius: 16px;
+            filter: drop-shadow(0 0 20px rgba(127,214,51,0.3));
+        }
+        .mockup-login h4 { color: white; font-size: 20px; margin-top: 16px; }
+        .mockup-login p { color: #64748b; font-size: 13px; margin: 6px 0 24px; }
+        .fake-input {
+            width: 100%;
+            height: 44px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            margin-bottom: 12px;
+        }
+        .fake-btn {
+            width: 100%;
+            height: 44px;
+            background: linear-gradient(135deg, #7FD633, #0d9488);
+            border-radius: 12px;
+        }
+        .mockup-about {
+            text-align: center;
+            padding: 24px;
+        }
+        .mockup-about canvas { filter: drop-shadow(0 0 16px rgba(127,214,51,0.3)); border-radius: 16px; }
+        .mockup-about .name {
+            font-size: 24px;
+            font-weight: 700;
+            margin-top: 12px;
+            background: linear-gradient(135deg, #7FD633, #00A4CC);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .mockup-about .ver { font-size: 13px; color: #64748b; margin-top: 4px; }
+
+        .mockup-row {
+            display: flex;
+            gap: 32px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 32px;
+        }
+        .mockup-col { text-align: center; }
+        .mockup-col .label { font-size: 11px; color: #475569; margin-bottom: 12px; }
+
+        .status { text-align: center; margin-top: 16px; color: #7FD633; font-size: 13px; display: none; }
+    </style>
+</head>
+<body>
+
+<h1>🌐 Globo Pixadvisor — Tu Logo Exacto</h1>
+<p class="subtitle">Globo vectorial recreado con los colores exactos de tu marca. Descargá los íconos en alta resolución.</p>
+
+<div class="section">
+    <h2>Íconos Generados</h2>
+    <div class="preview-grid">
+        <div class="preview-item">
+            <canvas id="icon512" width="512" height="512" style="width:128px;height:128px"></canvas>
+            <div class="label">512×512</div>
+        </div>
+        <div class="preview-item">
+            <canvas id="icon192" width="192" height="192" style="width:96px;height:96px"></canvas>
+            <div class="label">192×192</div>
+        </div>
+        <div class="preview-item">
+            <canvas id="icon96" width="192" height="192" style="width:48px;height:48px"></canvas>
+            <div class="label">96×96 (header)</div>
+        </div>
+        <div class="preview-item">
+            <canvas id="icon48" width="192" height="192" style="width:24px;height:24px"></canvas>
+            <div class="label">48×48 (favicon)</div>
+        </div>
+    </div>
+    <div class="btn-row">
+        <button class="btn btn-primary" onclick="downloadIcon(512)">⬇ Descargar 512px</button>
+        <button class="btn btn-primary" onclick="downloadIcon(192)">⬇ Descargar 192px</button>
+        <button class="btn btn-secondary" onclick="downloadAll()">⬇ Descargar Todos</button>
+    </div>
+    <div class="status" id="status">✓ Ícono descargado</div>
+</div>
+
+<div class="section">
+    <h2>Preview en la App</h2>
+    <div class="mockup-row">
+        <div class="mockup-col">
+            <div class="label">Header de la App</div>
+            <div class="mockup-frame">
+                <div class="mockup-header">
+                    <canvas id="mockHeader" width="88" height="88" style="width:44px;height:44px"></canvas>
+                    <div>
+                        <h3>PIX Muestreo</h3>
+                        <small>Agricultura de Precisión</small>
+                    </div>
+                </div>
+                <div class="mockup-body">[ Vista del mapa ]</div>
+                <div class="mockup-nav">
+                    <span class="active">🗺 Mapa</span>
+                    <span>📁 Proyectos</span>
+                    <span>🔄 Sync</span>
+                    <span>⚙ Ajustes</span>
+                </div>
+            </div>
+        </div>
+        <div class="mockup-col">
+            <div class="label">Pantalla de Login</div>
+            <div class="mockup-login">
+                <canvas id="mockLogin" width="160" height="160" style="width:80px;height:80px"></canvas>
+                <h4>PIX Muestreo</h4>
+                <p>Ingresá la contraseña para acceder</p>
+                <div class="fake-input"></div>
+                <div class="fake-btn"></div>
+            </div>
+        </div>
+        <div class="mockup-col">
+            <div class="label">Sección "Acerca de"</div>
+            <div class="mockup-about" style="background:#0F1B2D;border-radius:16px;border:2px solid rgba(255,255,255,0.08);padding:32px;width:200px;box-shadow:0 20px 60px rgba(0,0,0,0.5)">
+                <canvas id="mockAbout" width="160" height="160" style="width:80px;height:80px"></canvas>
+                <div class="name">PIX Muestreo</div>
+                <div class="ver">v1.0.0 · Pixadvisor AP</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ================================================
+// PIXADVISOR GLOBE - Exact logo recreation
+// ================================================
+function drawPixadvisorGlobe(canvas, padding = 0.08) {
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width;
+    const h = canvas.height;
+    const size = Math.min(w, h);
+    const pad = size * padding;
+    const cx = w / 2;
+    const cy = h / 2;
+
+    // Globe radius (sphere only)
+    const globeR = (size - pad * 2) * 0.34;
+    // Globe center (slightly right to leave room for rings on left)
+    const gx = cx + globeR * 0.08;
+    const gy = cy;
+
+    ctx.clearRect(0, 0, w, h);
+
+    // Optional: dark background for icon
+    // Rounded rect background
+    const bgR = size * 0.12;
+    ctx.beginPath();
+    ctx.roundRect(0, 0, w, h, bgR);
+    ctx.fillStyle = '#0F1B2D';
+    ctx.fill();
+
+    // ---- ORBITAL RINGS (behind globe) ----
+    function drawRing(offsetX, offsetY, rx, ry, rotation, color, lineW, alpha) {
+        ctx.save();
+        ctx.translate(gx + offsetX, gy + offsetY);
+        ctx.rotate(rotation * Math.PI / 180);
+        ctx.beginPath();
+        ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = lineW;
+        ctx.globalAlpha = alpha;
+        ctx.stroke();
+        ctx.restore();
+        ctx.globalAlpha = 1;
+    }
+
+    // Back portions of rings (behind the globe)
+    ctx.save();
+
+    // Outermost ring - green
+    drawRing(-globeR * 0.12, 0, globeR * 1.52, globeR * 1.42, -15, '#7FD633', size * 0.008, 0.85);
+
+    // Middle ring - green-cyan
+    drawRing(-globeR * 0.08, 0, globeR * 1.36, globeR * 1.28, -10, '#4DC82E', size * 0.007, 0.7);
+
+    // Inner ring - cyan
+    drawRing(-globeR * 0.04, 0, globeR * 1.22, globeR * 1.16, -6, '#00A4CC', size * 0.006, 0.6);
+
+    ctx.restore();
+
+    // ---- MAIN GLOBE SPHERE ----
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(gx, gy, globeR, 0, Math.PI * 2);
+
+    // Main gradient: green top-left to blue bottom-right
+    const grad = ctx.createLinearGradient(
+        gx - globeR * 0.8, gy - globeR * 0.8,
+        gx + globeR * 0.8, gy + globeR * 0.8
+    );
+    grad.addColorStop(0, '#8DE03A');
+    grad.addColorStop(0.3, '#7FD633');
+    grad.addColorStop(0.55, '#40B848');
+    grad.addColorStop(0.75, '#1AADA8');
+    grad.addColorStop(1, '#00A4CC');
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Clip to globe for internal details
+    ctx.clip();
+
+    // ---- GRID LINES ----
+    // Latitude lines (horizontal ellipses)
+    const latPositions = [-0.45, -0.28, -0.12, 0.04, 0.20, 0.36, 0.52];
+    latPositions.forEach((pos, i) => {
+        const y = gy + globeR * pos;
+        const rx = globeR * Math.cos(Math.asin(Math.abs(pos))) * 0.95;
+        const ry = globeR * 0.06;
+
+        ctx.beginPath();
+        ctx.ellipse(gx, y, rx, ry, 0, 0, Math.PI * 2);
+        const isUpper = pos < 0.1;
+        ctx.strokeStyle = isUpper ? 'rgba(20, 80, 30, 0.55)' : 'rgba(10, 60, 80, 0.55)';
+        ctx.lineWidth = size * 0.004;
+        ctx.stroke();
+    });
+
+    // Longitude lines (vertical ellipses)
+    const lonAngles = [0, -5, -10, 5, 10, -15, 15];
+    const lonWidths = [0.04, 0.28, 0.55, 0.28, 0.55, 0.78, 0.78];
+    lonAngles.forEach((angle, i) => {
+        const rxFrac = lonWidths[i];
+        ctx.save();
+        ctx.translate(gx, gy);
+        ctx.rotate(angle * Math.PI / 180);
+
+        ctx.beginPath();
+        ctx.ellipse(0, 0, globeR * rxFrac, globeR * 0.98, 0, 0, Math.PI * 2);
+        const alpha = 0.5 - Math.abs(angle) * 0.015;
+        ctx.strokeStyle = angle < 0
+            ? `rgba(20, 80, 30, ${alpha})`
+            : `rgba(10, 60, 80, ${alpha})`;
+        ctx.lineWidth = size * 0.0035;
+        ctx.stroke();
+
+        ctx.restore();
+    });
+
+    // ---- DATA DASHES (binary-like marks) ----
+    const dashes = [
+        // [x_offset, y_offset, width, height] relative to globe center
+        // Upper rows (green zone)
+        [-0.42, -0.50, 0.12, 0.03], [-0.25, -0.52, 0.08, 0.03], [0.10, -0.50, 0.10, 0.03], [0.30, -0.48, 0.06, 0.03],
+        [-0.50, -0.32, 0.10, 0.03], [-0.35, -0.34, 0.14, 0.03], [-0.05, -0.32, 0.08, 0.03], [0.15, -0.34, 0.10, 0.03], [0.38, -0.32, 0.06, 0.03],
+        [-0.55, -0.15, 0.10, 0.03], [-0.38, -0.17, 0.08, 0.03], [-0.15, -0.15, 0.14, 0.03], [0.12, -0.17, 0.10, 0.03], [0.32, -0.15, 0.12, 0.03], [0.50, -0.17, 0.06, 0.03],
+        // Middle rows
+        [-0.58, 0.02, 0.12, 0.03], [-0.40, 0.00, 0.10, 0.03], [-0.18, 0.02, 0.08, 0.03], [0.05, 0.00, 0.14, 0.03], [0.25, 0.02, 0.06, 0.03], [0.42, 0.00, 0.10, 0.03],
+        // Lower rows (blue zone)
+        [-0.52, 0.20, 0.10, 0.03], [-0.32, 0.18, 0.12, 0.03], [-0.08, 0.20, 0.08, 0.03], [0.10, 0.18, 0.10, 0.03], [0.32, 0.20, 0.06, 0.03],
+        [-0.42, 0.38, 0.10, 0.03], [-0.22, 0.36, 0.08, 0.03], [0.00, 0.38, 0.12, 0.03], [0.18, 0.36, 0.06, 0.03],
+        [-0.30, 0.52, 0.10, 0.03], [-0.12, 0.50, 0.14, 0.03], [0.08, 0.52, 0.08, 0.03],
+    ];
+
+    dashes.forEach(([dx, dy, dw, dh]) => {
+        const x = gx + globeR * dx;
+        const y = gy + globeR * dy;
+        const w2 = globeR * dw;
+        const h2 = globeR * dh;
+        const isUpper = dy < 0.05;
+
+        ctx.beginPath();
+        ctx.roundRect(x, y, w2, h2, h2 * 0.5);
+        ctx.fillStyle = isUpper ? 'rgba(20, 70, 25, 0.6)' : 'rgba(8, 55, 70, 0.55)';
+        ctx.fill();
+    });
+
+    ctx.restore();
+
+    // ---- FRONT PORTIONS OF RINGS ----
+    // We need to draw the parts of the rings that pass in front of the globe
+    // Left side arcs
+    ctx.save();
+
+    // Calculate front arc: the part that's on the left side, roughly from 150° to 210°
+    function drawFrontRingArc(offsetX, offsetY, rx, ry, rotation, color, lineW, alpha, startAngle, endAngle) {
+        ctx.save();
+        ctx.translate(gx + offsetX, gy + offsetY);
+        ctx.rotate(rotation * Math.PI / 180);
+        ctx.beginPath();
+        ctx.ellipse(0, 0, rx, ry, 0, startAngle * Math.PI / 180, endAngle * Math.PI / 180);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = lineW;
+        ctx.globalAlpha = alpha;
+        ctx.stroke();
+        ctx.restore();
+        ctx.globalAlpha = 1;
+    }
+
+    // Front arcs of the rings (left portion that passes in front of the globe)
+    drawFrontRingArc(-globeR * 0.12, 0, globeR * 1.52, globeR * 1.42, -15, '#7FD633', size * 0.008, 0.85, 120, 240);
+    drawFrontRingArc(-globeR * 0.08, 0, globeR * 1.36, globeR * 1.28, -10, '#4DC82E', size * 0.007, 0.7, 125, 235);
+    drawFrontRingArc(-globeR * 0.04, 0, globeR * 1.22, globeR * 1.16, -6, '#00A4CC', size * 0.006, 0.6, 130, 230);
+
+    ctx.restore();
+}
+
+// ---- Draw all canvases ----
+const canvasIds = ['icon512', 'icon192', 'icon96', 'icon48', 'mockHeader', 'mockLogin', 'mockAbout'];
+canvasIds.forEach(id => {
+    const c = document.getElementById(id);
+    if (c) drawPixadvisorGlobe(c, id.includes('mock') ? 0.06 : 0.08);
+});
+
+// ---- Download functions ----
+function downloadIcon(size) {
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    drawPixadvisorGlobe(canvas, 0.06);
+
+    const link = document.createElement('a');
+    link.download = `icon-${size}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+
+    const s = document.getElementById('status');
+    s.textContent = `✓ icon-${size}.png descargado`;
+    s.style.display = 'block';
+    setTimeout(() => s.style.display = 'none', 3000);
+}
+
+function downloadAll() {
+    [512, 192].forEach((size, i) => {
+        setTimeout(() => downloadIcon(size), i * 500);
+    });
+}
+</script>
+
+</body>
+</html>

@@ -1,14 +1,13 @@
 // PIX Muestreo - Service Worker for Offline Support
-const CACHE_NAME = 'pix-muestreo-v6';
+const CACHE_NAME = 'pix-muestreo-v13';
 const TILE_CACHE = 'pix-tiles-v1';
 const DATA_CACHE = 'pix-data-v1';
 
-const LOCAL_ASSETS = [
+const STATIC_ASSETS = [
   '/pix-muestreo/',
   '/pix-muestreo/index.html',
   '/pix-muestreo/manifest.json',
   '/pix-muestreo/css/app.css',
-  '/pix-muestreo/js/utils.js',
   '/pix-muestreo/js/app.js',
   '/pix-muestreo/js/db.js',
   '/pix-muestreo/js/map.js',
@@ -16,27 +15,24 @@ const LOCAL_ASSETS = [
   '/pix-muestreo/js/scanner.js',
   '/pix-muestreo/js/sync.js',
   '/pix-muestreo/js/drive.js',
+  '/pix-muestreo/js/auth.js',
+  '/pix-muestreo/js/orders.js',
+  '/pix-muestreo/js/admin.js',
   '/pix-muestreo/js/agent-field.js',
   '/pix-muestreo/icons/icon-192.png',
-  '/pix-muestreo/icons/icon-512.png'
-];
-
-const CDN_ASSETS = [
+  '/pix-muestreo/icons/icon-512.png',
+  '/pix-muestreo/icons/globe-only-192.png',
+  '/pix-muestreo/icons/globe-only-512.png',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
   'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js',
   'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'
 ];
 
-// Install - cache local assets (required), CDN assets (best-effort)
+// Install - cache static assets
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(async cache => {
-      await cache.addAll(LOCAL_ASSETS);
-      for (const url of CDN_ASSETS) {
-        try { await cache.add(url); } catch (e) { console.warn('[SW] CDN cache miss:', url); }
-      }
-    })
+    caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
   );
   self.skipWaiting();
 });
@@ -77,17 +73,19 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Static assets - cache first
+  // App files - network first (ensures updates are loaded immediately)
+  // Falls back to cache only when offline
   event.respondWith(
-    caches.match(event.request).then(cached => {
-      if (cached) return cached;
-      return fetch(event.request).then(response => {
-        if (response.ok) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-        }
-        return response;
-      }).catch(() => caches.match('/pix-muestreo/index.html'));
+    fetch(event.request).then(response => {
+      if (response.ok) {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+      }
+      return response;
+    }).catch(() => {
+      return caches.match(event.request).then(cached => {
+        return cached || caches.match('/pix-muestreo/index.html');
+      });
     })
   );
 });

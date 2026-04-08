@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PIX Muestreo - Globe 3D Options</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #060c16;
+            color: white;
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        h1 {
+            text-align: center;
+            font-size: 28px;
+            font-weight: 900;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #7FD633, #00A4CC);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle { text-align: center; color: #64748b; margin-bottom: 48px; font-size: 14px; }
+        .options { display: flex; flex-direction: column; gap: 80px; max-width: 900px; margin: 0 auto; }
+        .option {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(127,214,51,0.08);
+            border-radius: 28px;
+            padding: 48px 32px;
+            text-align: center;
+        }
+        .option h2 {
+            font-size: 22px; font-weight: 800; margin-bottom: 6px;
+            background: linear-gradient(135deg, #7FD633, #00A4CC);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .option .desc { color: #94a3b8; font-size: 13px; margin-bottom: 36px; max-width: 500px; margin-left: auto; margin-right: auto; }
+        .globe-showcase { display: flex; justify-content: center; align-items: center; margin-bottom: 32px; }
+        .tags { margin-top: 20px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+        .tag { padding: 5px 14px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+        .tag-green { background: rgba(127,214,51,0.12); color: #7FD633; }
+        .tag-blue { background: rgba(0,164,204,0.12); color: #00A4CC; }
+
+        .preview-row { display: flex; gap: 32px; justify-content: center; flex-wrap: wrap; margin-top: 40px; }
+        .preview-label { font-size: 11px; color: #475569; margin-bottom: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* Phone mockup */
+        .phone-mockup {
+            width: 280px; background: #0F1B2D; border-radius: 28px;
+            border: 2px solid rgba(255,255,255,0.06); overflow: hidden;
+            box-shadow: 0 25px 80px rgba(0,0,0,0.6);
+        }
+        .phone-header {
+            display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+            background: #1a2a40; border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        .phone-header .globe-wrap { flex-shrink: 0; }
+        .phone-header h3 {
+            font-size: 16px; font-weight: 700;
+            background: linear-gradient(135deg, #7FD633, #00A4CC);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; line-height: 1.2;
+        }
+        .phone-header small { display: block; font-size: 9px; color: #64748b; -webkit-text-fill-color: #64748b; }
+        .phone-body {
+            height: 160px; background: linear-gradient(180deg, #1a2a40, #0F1B2D);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .phone-body::after { content: '[ Mapa Leaflet ]'; color: #334155; font-size: 11px; }
+        .phone-nav {
+            display: flex; justify-content: space-around; padding: 12px 8px;
+            background: #1a2a40; border-top: 1px solid rgba(255,255,255,0.06);
+        }
+        .phone-nav span { font-size: 10px; color: #475569; font-weight: 500; }
+        .phone-nav span.active { color: #7FD633; }
+
+        /* Login mockup */
+        .login-mockup {
+            width: 280px; background: #0F1B2D; border-radius: 28px;
+            border: 2px solid rgba(255,255,255,0.06); padding: 36px 24px;
+            text-align: center; box-shadow: 0 25px 80px rgba(0,0,0,0.6);
+        }
+        .login-mockup h4 { color: white; font-size: 20px; font-weight: 800; margin-top: 14px; }
+        .login-mockup p { color: #64748b; font-size: 12px; margin: 6px 0 20px; }
+        .login-mockup .fake-input {
+            width: 100%; height: 44px; background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; margin-bottom: 10px;
+        }
+        .login-mockup .fake-btn {
+            width: 100%; height: 44px; background: linear-gradient(135deg, #7FD633, #0d9488); border-radius: 12px;
+        }
+
+        /* ====== GLOBE STYLES ====== */
+
+        /* --- Option A: Faithful with subtle glow --- */
+        .globe-a {
+            filter: drop-shadow(0 0 12px rgba(127,214,51,0.25)) drop-shadow(0 0 30px rgba(0,164,204,0.15));
+        }
+
+        /* --- Option B: 3D with strong depth --- */
+        .globe-b {
+            filter:
+                drop-shadow(0 0 8px rgba(127,214,51,0.35))
+                drop-shadow(0 0 25px rgba(0,164,204,0.25))
+                drop-shadow(0 8px 20px rgba(0,0,0,0.5));
+            transform: perspective(800px) rotateY(-5deg) rotateX(3deg);
+        }
+
+        /* --- Option C: Neon animated --- */
+        .globe-c {
+            animation: neonPulse 3s ease-in-out infinite;
+        }
+        @keyframes neonPulse {
+            0%, 100% {
+                filter:
+                    drop-shadow(0 0 10px rgba(127,214,51,0.3))
+                    drop-shadow(0 0 30px rgba(0,164,204,0.2))
+                    drop-shadow(0 0 60px rgba(127,214,51,0.1));
+            }
+            50% {
+                filter:
+                    drop-shadow(0 0 15px rgba(127,214,51,0.5))
+                    drop-shadow(0 0 40px rgba(0,164,204,0.35))
+                    drop-shadow(0 0 80px rgba(127,214,51,0.2));
+            }
+        }
+
+        /* Small header globe animation for C */
+        .globe-c-small {
+            animation: neonPulseSmall 3s ease-in-out infinite;
+        }
+        @keyframes neonPulseSmall {
+            0%, 100% {
+                filter: drop-shadow(0 0 4px rgba(127,214,51,0.3)) drop-shadow(0 0 10px rgba(0,164,204,0.15));
+            }
+            50% {
+                filter: drop-shadow(0 0 6px rgba(127,214,51,0.5)) drop-shadow(0 0 15px rgba(0,164,204,0.3));
+            }
+        }
+
+        /* Slow rotate for option C */
+        .globe-c-rotate {
+            animation: slowRotate 20s linear infinite, neonPulse 3s ease-in-out infinite;
+        }
+        @keyframes slowRotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* Scan line overlay for option C */
+        .scan-overlay {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            overflow: hidden;
+            pointer-events: none;
+        }
+        .scan-overlay::before {
+            content: '';
+            position: absolute;
+            left: 0; width: 100%; height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(127,214,51,0.5), transparent);
+            box-shadow: 0 0 15px rgba(127,214,51,0.3);
+            animation: scanLine 3s linear infinite;
+        }
+        @keyframes scanLine {
+            0% { top: 10%; }
+            100% { top: 90%; }
+        }
+
+        .globe-c-container {
+            position: relative;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <h1>PIX Muestreo — Tu Globo, 3 Estilos</h1>
+    <p class="subtitle">Tu globo SVG original fiel, con 3 niveles de efecto 3D</p>
+
+    <div class="options">
+
+        <!-- ===================== OPTION A ===================== -->
+        <div class="option">
+            <h2>Opcion A — Fiel + Glow Sutil</h2>
+            <p class="desc">Tu globo exacto con un glow verde/azul suave alrededor. Limpio y profesional.</p>
+
+            <div class="globe-showcase">
+                <div class="globe-a" style="width:280px;height:280px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="280" height="280">
+                        <defs>
+                            <linearGradient id="gA" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#8DE03A"/>
+                                <stop offset="35%" stop-color="#7FD633"/>
+                                <stop offset="65%" stop-color="#3BB8A8"/>
+                                <stop offset="100%" stop-color="#00A4CC"/>
+                            </linearGradient>
+                            <linearGradient id="rGA" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#8DE03A"/><stop offset="100%" stop-color="#5BC425"/>
+                            </linearGradient>
+                            <linearGradient id="rCA" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#00BCD4"/><stop offset="100%" stop-color="#00A4CC"/>
+                            </linearGradient>
+                            <linearGradient id="rMA" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#4DC82E"/><stop offset="100%" stop-color="#00B0C0"/>
+                            </linearGradient>
+                            <clipPath id="cA"><circle cx="256" cy="256" r="140"/></clipPath>
+                        </defs>
+                        <ellipse cx="240" cy="256" rx="210" ry="195" fill="none" stroke="url(#rGA)" stroke-width="4.5" transform="rotate(-15,240,256)" opacity="0.9"/>
+                        <ellipse cx="245" cy="256" rx="188" ry="178" fill="none" stroke="url(#rMA)" stroke-width="4" transform="rotate(-12,245,256)" opacity="0.8"/>
+                        <ellipse cx="250" cy="256" rx="168" ry="162" fill="none" stroke="url(#rCA)" stroke-width="3.5" transform="rotate(-8,250,256)" opacity="0.7"/>
+                        <circle cx="256" cy="256" r="140" fill="url(#gA)"/>
+                        <g clip-path="url(#cA)" opacity="0.85">
+                            <ellipse cx="256" cy="146" rx="130" ry="12" fill="none" stroke="#1a6030" stroke-width="2.2" opacity="0.5"/>
+                            <ellipse cx="256" cy="186" rx="138" ry="14" fill="none" stroke="#1a6030" stroke-width="2.2" opacity="0.55"/>
+                            <ellipse cx="256" cy="221" rx="140" ry="14" fill="none" stroke="#1a6030" stroke-width="2.2" opacity="0.6"/>
+                            <ellipse cx="256" cy="256" rx="140" ry="14" fill="none" stroke="#1a6030" stroke-width="2.5" opacity="0.65"/>
+                            <ellipse cx="256" cy="291" rx="138" ry="14" fill="none" stroke="#0a5060" stroke-width="2.2" opacity="0.6"/>
+                            <ellipse cx="256" cy="326" rx="130" ry="12" fill="none" stroke="#0a5060" stroke-width="2.2" opacity="0.55"/>
+                            <ellipse cx="256" cy="361" rx="115" ry="10" fill="none" stroke="#0a5060" stroke-width="2.2" opacity="0.5"/>
+                            <ellipse cx="256" cy="256" rx="6" ry="140" fill="none" stroke="#1a6030" stroke-width="2.2" opacity="0.6"/>
+                            <ellipse cx="256" cy="256" rx="45" ry="140" fill="none" stroke="#1a6030" stroke-width="2" opacity="0.55" transform="rotate(-5,256,256)"/>
+                            <ellipse cx="256" cy="256" rx="85" ry="140" fill="none" stroke="#1a6030" stroke-width="2" opacity="0.5" transform="rotate(-8,256,256)"/>
+                            <ellipse cx="256" cy="256" rx="120" ry="140" fill="none" stroke="#1a6030" stroke-width="1.8" opacity="0.4" transform="rotate(-10,256,256)"/>
+                            <ellipse cx="256" cy="256" rx="45" ry="140" fill="none" stroke="#0a5060" stroke-width="2" opacity="0.55" transform="rotate(5,256,256)"/>
+                            <ellipse cx="256" cy="256" rx="85" ry="140" fill="none" stroke="#0a5060" stroke-width="2" opacity="0.5" transform="rotate(8,256,256)"/>
+                            <rect x="195" y="172" width="16" height="4" rx="2" fill="#1a5020" opacity="0.7"/>
+                            <rect x="220" y="172" width="10" height="4" rx="2" fill="#1a5020" opacity="0.6"/>
+                            <rect x="270" y="168" width="14" height="4" rx="2" fill="#1a5020" opacity="0.65"/>
+                            <rect x="295" y="172" width="8" height="4" rx="2" fill="#1a5020" opacity="0.5"/>
+                            <rect x="180" y="200" width="12" height="4" rx="2" fill="#1a5020" opacity="0.7"/>
+                            <rect x="200" y="200" width="18" height="4" rx="2" fill="#1a5020" opacity="0.65"/>
+                            <rect x="245" y="198" width="10" height="4" rx="2" fill="#1a5020" opacity="0.6"/>
+                            <rect x="268" y="200" width="14" height="4" rx="2" fill="#1a5020" opacity="0.55"/>
+                            <rect x="310" y="198" width="8" height="4" rx="2" fill="#1a5020" opacity="0.5"/>
+                            <rect x="170" y="230" width="14" height="4" rx="2" fill="#1a5020" opacity="0.7"/>
+                            <rect x="195" y="228" width="10" height="4" rx="2" fill="#1a5020" opacity="0.65"/>
+                            <rect x="230" y="230" width="18" height="4" rx="2" fill="#1a5020" opacity="0.6"/>
+                            <rect x="275" y="228" width="12" height="4" rx="2" fill="#1a5020" opacity="0.55"/>
+                            <rect x="300" y="230" width="16" height="4" rx="2" fill="#0a5060" opacity="0.5"/>
+                            <rect x="330" y="228" width="8" height="4" rx="2" fill="#0a5060" opacity="0.45"/>
+                            <rect x="165" y="258" width="16" height="4" rx="2" fill="#1a5525" opacity="0.65"/>
+                            <rect x="190" y="256" width="12" height="4" rx="2" fill="#1a5525" opacity="0.6"/>
+                            <rect x="220" y="258" width="10" height="4" rx="2" fill="#0a5060" opacity="0.55"/>
+                            <rect x="260" y="256" width="18" height="4" rx="2" fill="#0a5060" opacity="0.6"/>
+                            <rect x="290" y="258" width="8" height="4" rx="2" fill="#0a5060" opacity="0.5"/>
+                            <rect x="315" y="256" width="14" height="4" rx="2" fill="#0a5060" opacity="0.5"/>
+                            <rect x="175" y="288" width="12" height="4" rx="2" fill="#0a5060" opacity="0.6"/>
+                            <rect x="200" y="286" width="16" height="4" rx="2" fill="#0a5060" opacity="0.55"/>
+                            <rect x="240" y="288" width="10" height="4" rx="2" fill="#0a5060" opacity="0.5"/>
+                            <rect x="270" y="286" width="14" height="4" rx="2" fill="#0a5060" opacity="0.55"/>
+                            <rect x="300" y="288" width="8" height="4" rx="2" fill="#0a5060" opacity="0.45"/>
+                            <rect x="185" y="318" width="14" height="4" rx="2" fill="#0a5060" opacity="0.55"/>
+                            <rect x="210" y="316" width="10" height="4" rx="2" fill="#0a5060" opacity="0.5"/>
+                            <rect x="250" y="318" width="16" height="4" rx="2" fill="#0a5060" opacity="0.5"/>
+                            <rect x="280" y="316" width="8" height="4" rx="2" fill="#0a5060" opacity="0.45"/>
+                            <rect x="200" y="345" width="12" height="4" rx="2" fill="#0a5060" opacity="0.45"/>
+                            <rect x="225" y="343" width="18" height="4" rx="2" fill="#0a5060" opacity="0.4"/>
+                            <rect x="260" y="345" width="10" height="4" rx="2" fill="#0a5060" opacity="0.4"/>
+                        </g>
+                        <path d="M 140,380 A 210,195 -15 0 0 85,200" fill="none" stroke="url(#rGA)" stroke-width="4.5" opacity="0.9"/>
+                        <path d="M 150,370 A 188,178 -12 0 0 100,210" fill="none" stroke="url(#rMA)" stroke-width="4" opacity="0.8"/>
+                        <path d="M 158,360 A 168,162 -8 0 0 112,218" fill="none" stroke="url(#rCA)" stroke-width="3.5" opacity="0.7"/>
+                    </svg>
+                </div>
+            </div>
+
+            <div class="tags">
+                <span class="tag tag-green">Fiel al Logo</span>
+                <span class="tag tag-blue">Glow Sutil</span>
+                <span class="tag tag-green">Profesional</span>
+            </div>
+
+            <div class="preview-row">
+                <div>
+                    <p class="preview-label">Header App</p>
+                    <div class="phone-mockup">
+                        <div class="phone-header">
+                            <div class="globe-wrap globe-a" style="width:40px;height:40px;">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="40" height="40">
+                                    <defs>
+                                        <linearGradient id="gAs" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#8DE03A"/><stop offset="35%" stop-color="#7FD633"/><stop offset="65%" stop-color="#3BB8A8"/><stop offset="100%" stop-color="#00A4CC"/></linearGradient>
+                                        <linearGradient id="rGAs" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#8DE03A"/><stop offset="100%" stop-color="#5BC425"/></linearGradient>
+                                        <linearGradient id="rCAs" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#00BCD4"/><stop offset="100%" stop-color="#00A4CC"/></linearGradient>
+                                        <linearGradient id="rMAs" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#4DC82E"/><stop offset="100%" stop-color="#00B0C0"/></linearGradient>
+                                        <clipPath id="cAs"><circle cx="256" cy="256" r="140"/></clipPath>
+                                    </defs>
+                                    <ellipse cx="240" cy="256" rx="210" ry="195" fill="none" stroke="url(#rGAs)" stroke-width="6" transform="rotate(-15,240,256)" opacity="0.9"/>
+                                    <ellipse cx="245" cy="256" rx="188" ry="178" fill="none" stroke="url(#rMAs)" stroke-width="5" transform="rotate(-12,245,256)" opacity="0.8"/>
+                                    <ellipse cx="250" cy="256" rx="168" ry="162" fill="none" stroke="url(#rCAs)" stroke-width="5" transform="rotate(-8,250,256)" opacity="0.7"/>
+                                    <circle cx="256" cy="256" r="140" fill="url(#gAs)"/>
+                                    <g clip-path="url(#cAs)" opacity="0.8">
+                                        <ellipse cx="256" cy="186" rx="138" ry="14" fill="none" stroke="#1a6030" stroke-width="3" opacity="0.5"/>
+                                        <ellipse cx="256" cy="256" rx="140" ry="14" fill="none" stroke="#1a6030" stroke-width="3" opacity="0.6"/>
+                                        <ellipse cx="256" cy="326" rx="130" ry="12" fill="none" stroke="#0a5060" stroke-width="3" opacity="0.5"/>
+                                        <ellipse cx="256" cy="256" rx="6" ry="140" fill="none" stroke="#1a6030" stroke-width="3" opacity="0.5"/>
+                                        <ellipse cx="256" cy="256" rx="60" ry="140" fill="none" stroke="#1a6030" stroke-width="2.5" opacity="0.4" transform="rotate(-6,256,256)"/>
+                                        <ellipse cx="256" cy="256" rx="110" ry="140" fill="none" stroke="#0a5060" stroke-width="2.5" opacity="0.35" transform="rotate(6,256,256)"/>
+                                    </g>
+                                    <path d="M 140,380 A 210,195 -15 0 0 85,200" fill="none" stroke="url(#rGAs)" stroke-width="6" opacity="0.9"/>
+                                    <path d="M 150,370 A 188,178 -12 0 0 100,210" fill="none" stroke="url(#rMAs)" stroke-width="5" opacity="0.8"/>
+                                    <path d="M 158,360 A 168,162 -8 0 0 112,218" fill="none" stroke="url(#rCAs)" stroke-width="5" opacity="0.7"/>
+                                </svg>
+                            </div>
+                            <div><h3>PIX Muestreo<small>Agricultura de Precision</small></h3></div>
+                        </div>
+                        <div class="phone-body"></div>
+                        <div class="phone-nav"><span class="active">Mapa</span><span>Proyectos</span><span>Sync</span><span>Config</span></div>
+                    </div>
+                </div>
+                <div>
+                    <p class="preview-label">Login</p>
+                    <div class="login-mockup">
+                        <div class="globe-a" style="width:90px;height:90px;margin:0 auto;">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="90" height="90">
+                                <defs>
+                                    <linearGradient id="gAl" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#8DE03A"/><stop offset="35%" stop-color="#7FD633"/><stop offset="65%" stop-color="#3BB8A8"/><stop offset="100%" stop-color="#00A4CC"/></linearGradient>
+                                    <linearGradient id="rGAl" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#8DE03A"/><stop offset="100%" stop-color="#5BC425"/></linearGradient>
+                                    <linearGradient id="rCAl" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#00BCD4"/><stop offset="100%" stop-color="#00A4CC"/></linearGradient>
+                                    <linearGradient id="rMAl" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#4DC82E"/><stop offset="100%" stop-color="#00B0C0"/></linearGradient>
+                                    <clipPath id="cAl"><circle cx="256" cy="256" r="140"/></clipPath>
+                                </defs>
+                                <ellipse cx="240" cy="256" rx="210" ry="195" fill="none" stroke="url(#rGAl)" stroke-width="5" transform="rotate(-15,240,256)" opacity="0.9"/>
+                                <ellipse cx="245" cy="256" rx="188" ry="178" fill="none" stroke="url(#rMAl)" stroke-width="4.5" transform="rotate(-12,245,256)" opacity="0.8"/>
+                                <ellipse cx="250" cy="256" rx="168" ry="162" fill="none" stroke="url(#rCAl)" stroke-width="4" transform="rotate(-8,250,256)" opacity="0.7"/>
+                                <circle cx="256" cy="256" r="140" fill="url(#gAl)"/>
+                                <g clip-path="url(#cAl)" opacity="0.85">
+                                    <ellipse cx="256" cy="146" rx="130" ry="12" fill="none" stroke="#1a6030" stroke-width="2.5" opacity="0.5"/>
+                                    <ellipse cx="256" cy="186" rx="138" ry="14" fill="none" stroke="#1a6030" stroke-width="2.5" opacity="0.55"/>
+                                    <ellipse cx="256" cy="221" rx="140" ry="14" fill="none" stroke="#1a6030" stroke-width="2.5" opacity="0.6"/>
+                                    <ellipse cx="256" cy="256" rx="140" ry="14" fill="none" stroke="#1a6030" stroke-width="2.8" opacity="0.65"/>
+                                    <ellipse cx="256" cy="291" rx="138" ry="14" fill="none" stroke="#0a5060" stroke-width="2.5" opacity="0.6"/>
+                                    <ellipse cx="256" cy="326" rx="130" ry="12" fill="none" stroke="#0a5060" stroke-width="2.5" opacity="0.55"/>
+                                    <ellipse cx="256" cy="361" rx="115" ry="10" fill="none" stroke="#0a5060" stroke-width="2.5" opacity="0.5"/>
+                                    <ellipse cx="256" cy="256" rx="6" ry="140" fill="none" stroke="#1a6030" stroke-width="2.5" opacity="0.6"/>
+                                    <ellipse cx="256" cy="256" rx="45" ry="140" fill="none" stroke="#1a6030" stroke-width="2.2" opacity="0.55" transform="rotate(-5,256,256)"/>
+                                    <ellipse cx="256" cy="256" rx="85" ry="140" fill="none" stroke="#1a6030" stroke-width="2.2" opacity="0.5" transform="rotate(-8,256,256)"/>
+                                    <ellipse cx="256" cy="256" rx="120" ry="140" fill="none" stroke="#1a6030" stroke-width="2" opacity="0.4" transform="rotate(-10,256,256)"/>
+                                    <ellipse cx="256" cy="256" rx="45" ry="140" fill="none" stroke="#0a5060" stroke-width="2.2" opacity="0.55" transform="rotate(5,256,256)"/>
+                                    <ellipse cx="256" cy="256" rx="85" ry="140" fill="none" stroke="#0a5060" stroke-width="2.2" opacity="0.5" transform="rotate(8,256,256)"/>
+                                    <rect x="195" y="172" width="16" height="4" rx="2" fill="#1a5020" opacity="0.7"/>
+                                    <rect x="220" y="172" width="10" height="4" rx="2" fill="#1a5020" opacity="0.6"/>
+                                    <rect x="270" y="168" width="14" height="4" rx="2" fill="#1a5020" opacity="0.65"/>
+                                    <rect x="180" y="200" width="12" height="4" rx="2" fill="#1a5020" opacity="0.7"/>
+                                    <rect x="200" y="200" width="18" height="4" rx="2" fill="#1a5020" opacity="0.65"/>
+                                    <rect x="245" y="198" width="10" height="4" rx="2" fill="#1a5020" opacity="0.6"/>
+                                    <rect x="268" y="200" width="14" height="4" rx="2" fill="#1a5020" opacity="0.55"/>
+                                    <rect x="170" y="230" width="14" height="4" rx="2" fill="#1a5020" opacity="0.7"/>
+                                    <rect x="230" y="230" width="18" height="4" rx="2" fill="#1a5020" opacity="0.6"/>
+                                    <rect x="275" y="228" width="12" height="4" rx="2" fill="#1a5020" opacity="0.55"/>
+                                    <rect x="165" y="258" width="16" height="4" rx="2" fill="#1a5525" opacity="0.65"/>
+                                    <rect x="190" y="256" width="12" height="4" rx="2" fill="#1a5525" opacity="0.6"/>
+                                    <rect x="260" y="256" width="18" height="4" rx="2" fill="#0a5060" opacity="0.6"/>
+                                    <rect x="175" y="288" width="12" height="4" rx="2" fill="#0a5060" opacity="0.6"/>
+                                    <rect x="200" y="286" width="16" height="4" rx="2" fill="#0a5060" opacity="0.55"/>
+                                    <rect x="270" y="286" width="14" height="4" rx="2" fill="#0a5060" opacity="0.55"/>
+                                    <rect x="185" y="318" width="14" height="4" rx="2" fill="#0a5060" opacity="0.55"/>
+                                    <rect x="250" y="318" width="16" height="4" rx="2" fill="#0a5060" opacity="0.5"/>
+                                    <rect x="200" y="345" width="12" height="4" rx="2" fill="#0a5060" opacity="0.45"/>
+                                    <rect x="225" y="343" width="18" height="4" rx="2" fill="#0a5060" opacity="0.4"/>
+                                </g>
+                                <path d="M 140,380 A 210,195 -15 0 0 85,200" fill="none" stroke="url(#rGAl)" stroke-width="5" opacity="0.9"/>
+                                <path d="M 150,370 A 188,178 -12 0 0 100,210" fill="none" stroke="url(#rMAl)" stroke-width="4.5" opacity="0.8"/>
+                                <path d="M 158,360 A 168,162 -8 0 0 112,218" fill="none" stroke="url(#rCAl)" stroke-width="4" opacity="0.7"/>
+                            </svg>
+                        </div>
+                        <h4>PIX Muestreo</h4>
+                        <p>Ingresa la contrasena</p>
+                        <div class="fake-input"></div>
+                        <div class="fake-btn"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- ===================== OPTION B ===================== -->
+        <div class="option">
+            <h2>Opcion B — 3D Perspectiva + Sombra</h2>
+            <p class="desc">Tu globo exacto con perspectiva 3D, sombra profunda y efecto flotante.</p>
+
+            <div class="globe-showcase">
+                <div class="globe-b" style="width:280px;height:280px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="280" height="280">
+                        <defs>
+                            <linearGradient id="gB" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#8DE03A"/><stop offset="35%" stop-color="#7FD633"/><stop offset="65%" stop-color="#3BB8A8"/><stop offset="100%" stop-color="#00A4CC"/></linearGradient>
+                            <linearGradient id="rGB" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#8DE03A"/><stop offset="100%" stop-color="#5BC425"/></linearGradient>
+                            <linearGradient id="rCB" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#00BCD4"/><stop offset="100%" stop-color="#00A4CC"/></linearGradient>
+                            <linearGradient id="rMB" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#4DC82E"/><stop offset="100%" stop-color="#00B0C0"/></linearGradient>
+                            <clipPath id="cB"><circle cx="256" cy="256" r="140"/></clipPath>
+                        </defs>
+                        <ellipse cx="240" cy="256" rx="210" ry="195" fill="none" stroke="url(#rGB)" stroke-width="4.5" transform="rotate(-15,240,256)" opacity="0.9"/>
+                        <ellipse cx="245" cy="256" rx="188" ry="178" fill="none" stroke="url(#rMB)" stroke-width="4" transform="rotate(-12,245,256)" opacity="0.8"/>
+                        <ellipse cx="250" cy="256" rx="168" ry="162" fill="none" stroke="url(#rCB)" stroke-width="3.5" transform="rotate(-8,250,256)" opacity="0.7"/>
+                        <circle cx="256" cy="256" r="140" fill="url(#gB)"/>
+                        <g clip-path="url(#cB)" opacity="0.85">
+                            <ellipse cx="256" cy="146" rx="130" ry="12" fill="none" stroke="#1a6030" stroke-width="2.2" opacity="0.5"/>
+                            <ellipse cx="256" cy="186" rx="138" ry="14" fill="none" stroke="#1a6030" stroke-width="2.2" opacity="0.55"/>
+                            <ellipse cx="256" cy="221" rx="140" ry="14" fill="none" stroke="#1a6030" stroke-width="2.2" opacity="0.6"/>
+                            <ellipse cx="256" cy="256" rx="140" ry="14" fill="none" stroke="#1a6030" stroke-width="2.5" opacity="0.65"/>
+                            <ellipse cx="256" cy="291" rx="138" ry="14" fill="none" stroke="#0a5060" stroke-width="2.2" opacity="0.6"/>
+                            <ellipse cx="256" cy="326" rx="130" ry="12" fill="none" stroke="#0a5060" stroke-width="2.2" opacity="0.55"/>
+                            <ellipse cx="256" cy="361" rx="115" ry="10" fill="none" stroke="#0a5060" stroke-width="2.2" opacity="0.5"/>
+                            <ellipse cx="256" cy="256" rx="6" ry="140" fill="none" stroke="#1a6030" stroke-width="2.2" opacity="0.6"/>
+                            <ellipse cx="256" cy="256" rx="45" ry="140" fill="none" stroke="#1a6030" stroke-width="2" opacity="0.55" transform="rotate(-5,256,256)"/>
+                            <ellipse cx="256" cy="256" rx="85" ry="140" fill="none" stroke="#1a6030" stroke-width="2" opacity="0.5" transform="rotate(-8,256,256)"/>
+                            <ellipse cx="256" cy="256" rx="120" ry="140" fill="none" stroke="#1a6030" stroke-width="1.8" opacity="0.4" transform="rotate(-10,256,256)"/>
+                            <ellipse cx="256" cy="256" rx="45" ry="140" fill="none" stroke="#0a5060" stroke-width="2" opacity="0.55" transform="rotate(5,256,256)"/>
+                            <ellipse cx="256" cy="256" rx="85" ry="140" fill="none" stroke="#0a5060" stroke-width="2" opacity="0.5" transform="rotate(8,256,256)"/>
+                            <rect x="195" y="172" width="16" height="4" rx="2" fill="#1a5020" opacity="0.7"/>
+                            <rect x="220" y="172" width="10" height="4" rx="2" fill="#1a5020" opacity="0.6"/>
+                            <rect x="270" y="168" width="14" height="4" rx="2" fill="#1a5020" opacity="0.65"/>
+                            <rect x="295" y="172" width="8" height="4" rx="2" fill="#1a5020" opacity="0.5"/>
+                            <rect x="180" y="200" width="12" height="4" rx="2" fill="#1a5020" opacity="0.7"/>
+                            <rect x="200" y="200" width="18" height="4" rx="2" fill="#1a5020" opacity="0.65"/>
+                            <rect x="245" y="198" width="10" height="4" rx="2" fill="#1a5020" opacity="0.6"/>
+                            <rect x="268" y="200" width="14" height="4" rx="2" fill="#1a5020" opacity="0.55"/>
+                            <rect x="310" y="198" width="8" height="4" rx="2" fill="#1a5020" opacity="0.5"/>
+                            <rect x="170" y="230" width="14" height="4" rx="2" fill="#1a5020" opacity="0.7"/>
+                            <rect x="195" y="228" width="10" height="4" rx="2" fill="#1a5020" opacity="0.65"/>
+                            <rect x="230" y="230" width="18" height="4" rx="2" fill="#1a5020" opacity="0.6"/>
+                            <rect x="275" y="228" width="12" height="4" rx="2" fill="#1a5020" opacity="0.55"/>
+                            <rect x="300" y="230" width="16" height="4" rx="2" fill="#0a5060" opacity="0.5"/>
+                            <rect x="330" y="228" width="8" height="4" rx="2" fill="#0a5060" opacity="0.45"/>
+                            <rect x="165" y="258" width="16" height="4" rx="2" fill="#1a5525" opacity="0.65"/>
+                            <rect x="190" y="256" width="12" height="4" rx="2" fill="#1a5525" opacity="0.6"/>
+                            <rect x="220" y="258" width="10" height="4" rx="2" fill="#0a5060" opacity="0.55"/>
+                            <rect x="260" y="256" width="18" height="4" rx="2" fill="#0a5060" opacity="0.6"/>
+                            <rect x="290" y="258" width="8" height="4" rx="2" fill="#0a5060" opacity="0.5"/>
+                            <rect x="315" y="256" width="14" height="4" rx="2" fill="#0a5060" opacity="0.5"/>
+                            <rect x="175" y="288" width="12" height="4" rx="2" fill="#0a5060" opacity="0.6"/>
+                            <rect x="200" y="286" width="16" height="4" rx="2" fill="#0a5060" opacity="0.55"/>
+                            <rect x="240" y="288" width="10" height="4" rx="2" fill="#0a5060" opacity="0.5"/>
+                            <rect x="270" y="286" width="14" height="4" rx="2" fill="#0a5060" opacity="0.55"/>
+                            <rect x="300" y="288" width="8" height="4" rx="2" fill="#0a5060" opacity="0.45"/>
+                            <rect x="185" y="318" width="14" height="4" rx="2" fill="#0a5060" opacity="0.55"/>
+                            <rect x="210" y="316" width="10" height="4" rx="2" fill="#0a5060" opacity="0.5"/>
+                            <rect x="250" y="318" width="16" height="4" rx="2" fill="#0a5060" opacity="0.5"/>
+                            <rect x="280" y="316" width="8" height="4" rx="2" fill="#0a5060" opacity="0.45"/>
+                            <rect x="200" y="345" width="12" height="4" rx="2" fill="#0a5060" opacity="0.45"/>
+                            <rect x="225" y="343" width="18" height="4" rx="2" fill="#0a5060" opacity="0.4"/>
+                            <rect x="260" y="345" width="10" height="4" rx="2" fill="#0a5060" opacity="0.4"/>
+                        </g>
+                        <path d="M 140,380 A 210,195 -15 0 0 85,200" fill="none" stroke="url(#rGB)" stroke-width="4.5" opacity="0.9"/>
+                        <path d="M 150,370 A 188,178 -12 0 0 100,210" fill="none" stroke="url(#rMB)" stroke-width="4" opacity="0.8"/>
+                        <path d="M 158,360 A 168,162 -8 0 0 112,218" fill="none" stroke="url(#rCB)" stroke-width="3.5" opacity="0.7"/>
+                    </svg>
+                </div>
+            </div>
+
+            <div class="tags">
+                <span class="tag tag-green">Perspectiva 3D</span>
+                <span class="tag tag-blue">Sombra Profunda</span>
+                <span class="tag tag-green">Flotante</span>
+            </div>
+
+            <div class="preview-row">
+                <div>
+                    <p class="preview-label">Header App</p>
+                    <div class="phone-mockup">
+                        <div class="phone-header">
+                            <div class="globe-wrap" style="width:40px;height:40px;filter:drop-shadow(0 0 6px rgba(127,214,51,0.3)) drop-shadow(0 4px 8px rgba(0,0,0,0.4));">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="40" height="40">
+                                    <defs>
+                                        <linearGradient id="gBs" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#8DE03A"/><stop offset="35%" stop-color="#7FD633"/><stop offset="65%" stop-color="#3BB8A8"/><stop offset="100%" stop-color="#00A4CC"/></linearGradient>
+                                        <linearGradient id="rGBs" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#8DE03A"/><stop offset="100%" stop-color="#5BC425"/></linearGradient>
+                                        <linearGradient id="rCBs" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#00BCD4"/><stop offset="100%" stop-color="#00A4CC"/></linearGradient>
+                                        <linearGradient id="rMBs" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#4DC82E"/><stop offset="100%" stop-color="#00B0C0"/></linearGradient>
+                                        <clipPath id="cBs"><circle cx="256" cy="256" r="140"/></clipPath>
+                                    </defs>
+                                    <ellipse cx="240" cy="256" rx="210" ry="195" fill="none" stroke="url(#rGBs)" stroke-width="6" transform="rotate(-15,240,256)" opacity="0.9"/>
+                                    <ellipse cx="245" cy="256" rx="188" ry="178" fill="none" stroke="url(#rMBs)" stroke-width="5" transform="rotate(-12,245,256)" opacity="0.8"/>
+                                    <ellipse cx="250" cy="256" rx="168" ry="162" fill="none" stroke="url(#rCBs)" stroke-width="5" transform="rotate(-8,250,256)" opacity="0.7"/>
+                                    <circle cx="256" cy="256" r="140" fill="url(#gBs)"/>
+                                    <g clip-path="url(#cBs)" opacity="0.8">
+                                        <ellipse cx="256" cy="186" rx="138" ry="14" fill="none" stroke="#1a6030" stroke-width="3" opacity="0.5"/>
+                                        <ellipse cx="256" cy="256" rx="140" ry="14" fill="none" stroke="#1a6030" stroke-width="3" opacity="0.6"/>
+                                        <ellipse cx="256" cy="326" rx="130" ry="12" fill="none" stroke="#0a5060" stroke-width="3" opacity="0.5"/>
+                                        <ellipse cx="256" cy="256" rx="6" ry="140" fill="none" stroke="#1a6030" stroke-width="3" opacity="0.5"/>
+                                        <ellipse cx="256" cy="256" rx="60" ry="140" fill="none" stroke="#1a6030" stroke-width="2.5" opacity="0.4" transform="rotate(-6,256,256)"/>
+                                        <ellipse cx="256" cy="256" rx="110" ry="140" fill="none" stroke="#0a5060" stroke-width="2.5" opacity="0.35" transform="rotate(6,256,256)"/>
+                                    </g>
+                                    <path d="M 140,380 A 210,195 -15 0 0 85,200" fill="none" stroke="url(#rGBs)" stroke-width="6" opacity="0.9"/>
+                                    <path d="M 150,370 A 188,178 -12 0 0 100,210" fill="none" stroke="url(#rMBs)" stroke-width="5" opacity="0.8"/>
+                                    <path d="M 158,360 A 168,162 -8 0 0 112,218" fill="none" stroke="url(#rCBs)" stroke-width="5" opacity="0.7"/>
+                                </svg>
+                            </div>
+                            <div><h3>PIX Muestreo<small>Agricultura de Precision</small></h3></div>
+                        </div>
+                        <div class="phone-body"></div>
+                        <div class="phone-nav"><span class="active">Mapa</span><span>Proyectos</span><span>Sync</span><span>Config</span></div>
+                    </div>
+                </div>
+                <div>
+                    <p class="preview-label">Login</p>
+                    <div class="login-mockup">
+                        <div class="globe-b" style="width:90px;height:90px;margin:0 auto;">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="90" height="90">
+                                <defs>
+                                    <linearGradient id="gBl" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#8DE03A"/><stop offset="35%" stop-color="#7FD633"/><stop offset="65%" stop-color="#3BB8A8"/><stop offset="100%" stop-color="#00A4CC"/></linearGradient>
+                                    <linearGradient id="rGBl" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#8DE03A"/><stop offset="100%" stop-color="#5BC425"/></linearGradient>
+                                    <linearGradient id="rCBl" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#00BCD4"/><stop offset="100%" stop-color="#00A4CC"/></linearGradient>
+                                    <linearGradient id="rMBl" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#4DC82E"/><stop offset="100%" stop-color="#00B0C0"/></linearGradient>
+                                    <clipPath id="cBl"><circle cx="256" cy="256" r="140"/></clipPath>
+                                </defs>
+                                <ellipse cx="240" cy="256" rx="210" ry="195" fill="none" stroke="url(#rGBl)" stroke-width="5" transform="rotate(-15,240,256)" opacity="0.9"/>
+                                <ellipse cx="245" cy="256" rx="188" ry="178" fill="none" stroke="url(#rMBl)" stroke-width="4.5" transform="rotate(-12,245,256)" opacity="0.8"/>
+                                <ellipse cx="250" cy="256" rx="168" ry="162" fill="none" stroke="url(#rCBl)" stroke-width="4" transform="rotate(-8,250,256)" opacity="0.7"/>
+                                <circle cx="256" cy="256" r="140" fill="url(#gBl)"/>
+                                <g clip-path="url(#cBl)" opacity="0.85">
+                                    <ellipse cx="256" cy="186" rx="138" ry="14" fill="none" stroke="#1a6030" stroke-width="2.5" opacity="0.55"/>
+                                    <ellipse cx="256" cy="256" rx="140" ry="14" fill="none" stroke="#1a6030" stroke-width="2.8" opacity="0.65"/>
+                                    <ellipse cx="256" cy="326" rx="130" ry="12" fill="none" stroke="#0a5060" stroke-width="2.5" opacity="0.55"/>
+                                    <ellipse cx="256" cy="256" rx="6" ry="140" fill="none" stroke="#1a6030" stroke-width="2.5" opacity="0.6"/>
+                                    <ellipse cx="256" cy="256" rx="55" ry="140" fill="none" stroke="#1a6030" stroke-width="2.2" opacity="0.5" transform="rotate(-6,256,256)"/>
+                                    <ellipse cx="256" cy="256" rx="100" ry="140" fill="none" stroke="#0a5060" stroke-width="2" opacity="0.4" transform="rotate(7,256,256)"/>
+                                </g>
+                                <path d="M 140,380 A 210,195 -15 0 0 85,200" fill="none" stroke="url(#rGBl)" stroke-width="5" opacity="0.9"/>
+                                <path d="M 150,370 A 188,178 -12 0 0 100,210" fill="none" stroke="url(#rMBl)" stroke-width="4.5" opacity="0.8"/>
+                                <path d="M 158,360 A 168,162 -8 0 0 112,218" fill="none" stroke="url(#rCBl)" stroke-width="4" opacity="0.7"/>
+                            </svg>
+                        </div>
+                        <h4>PIX Muestreo</h4>
+                        <p>Ingresa la contrasena</p>
+                        <div class="fake-input"></div>
+                        <div class="fake-btn"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- ===================== OPTION C ===================== -->
+        <div class="option">
+            <h2>Opcion C — Neon Pulse Animado</h2>
+            <p class="desc">Tu globo exacto con glow neon pulsante, linea de escaneo y efecto holografico animado.</p>
+
+            <div class="globe-showcase">
+                <div class="globe-c-container" style="width:280px;height:280px;">
+                    <div class="globe-c" style="width:280px;height:280px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="280" height="280">
+                            <defs>
+                                <linearGradient id="gC" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#8DE03A"/><stop offset="35%" stop-color="#7FD633"/><stop offset="65%" stop-color="#3BB8A8"/><stop offset="100%" stop-color="#00A4CC"/></linearGradient>
+                                <linearGradient id="rGC" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#8DE03A"/><stop offset="100%" stop-color="#5BC425"/></linearGradient>
+                                <linearGradient id="rCC" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#00BCD4"/><stop offset="100%" stop-color="#00A4CC"/></linearGradient>
+                                <linearGradient id="rMC" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#4DC82E"/><stop offset="100%" stop-color="#00B0C0"/></linearGradient>
+                                <clipPath id="cC"><circle cx="256" cy="256" r="140"/></clipPath>
+                            </defs>
+                            <ellipse cx="240" cy="256" rx="210" ry="195" fill="none" stroke="url(#rGC)" stroke-width="4.5" transform="rotate(-15,240,256)" opacity="0.9"/>
+                            <ellipse cx="245" cy="256" rx="188" ry="178" fill="none" stroke="url(#rMC)" stroke-width="4" transform="rotate(-12,245,256)" opacity="0.8"/>
+                            <ellipse cx="250" cy="256" rx="168" ry="162" fill="none" stroke="url(#rCC)" stroke-width="3.5" transform="rotate(-8,250,256)" opacity="0.7"/>
+                            <circle cx="256" cy="256" r="140" fill="url(#gC)"/>
+                            <g clip-path="url(#cC)" opacity="0.85">
+                                <ellipse cx="256" cy="146" rx="130" ry="12" fill="none" stroke="#1a6030" stroke-width="2.2" opacity="0.5"/>
+                                <ellipse cx="256" cy="186" rx="138" ry="14" fill="none" stroke="#1a6030" stroke-width="2.2" opacity="0.55"/>
+                                <ellipse cx="256" cy="221" rx="140" ry="14" fill="none" stroke="#1a6030" stroke-width="2.2" opacity="0.6"/>
+                                <ellipse cx="256" cy="256" rx="140" ry="14" fill="none" stroke="#1a6030" stroke-width="2.5" opacity="0.65"/>
+                                <ellipse cx="256" cy="291" rx="138" ry="14" fill="none" stroke="#0a5060" stroke-width="2.2" opacity="0.6"/>
+                                <ellipse cx="256" cy="326" rx="130" ry="12" fill="none" stroke="#0a5060" stroke-width="2.2" opacity="0.55"/>
+                                <ellipse cx="256" cy="361" rx="115" ry="10" fill="none" stroke="#0a5060" stroke-width="2.2" opacity="0.5"/>
+                                <ellipse cx="256" cy="256" rx="6" ry="140" fill="none" stroke="#1a6030" stroke-width="2.2" opacity="0.6"/>
+                                <ellipse cx="256" cy="256" rx="45" ry="140" fill="none" stroke="#1a6030" stroke-width="2" opacity="0.55" transform="rotate(-5,256,256)"/>
+                                <ellipse cx="256" cy="256" rx="85" ry="140" fill="none" stroke="#1a6030" stroke-width="2" opacity="0.5" transform="rotate(-8,256,256)"/>
+                                <ellipse cx="256" cy="256" rx="120" ry="140" fill="none" stroke="#1a6030" stroke-width="1.8" opacity="0.4" transform="rotate(-10,256,256)"/>
+                                <ellipse cx="256" cy="256" rx="45" ry="140" fill="none" stroke="#0a5060" stroke-width="2" opacity="0.55" transform="rotate(5,256,256)"/>
+                                <ellipse cx="256" cy="256" rx="85" ry="140" fill="none" stroke="#0a5060" stroke-width="2" opacity="0.5" transform="rotate(8,256,256)"/>
+                                <rect x="195" y="172" width="16" height="4" rx="2" fill="#1a5020" opacity="0.7"/>
+                                <rect x="220" y="172" width="10" height="4" rx="2" fill="#1a5020" opacity="0.6"/>
+                                <rect x="270" y="168" width="14" height="4" rx="2" fill="#1a5020" opacity="0.65"/>
+                                <rect x="295" y="172" width="8" height="4" rx="2" fill="#1a5020" opacity="0.5"/>
+                                <rect x="180" y="200" width="12" height="4" rx="2" fill="#1a5020" opacity="0.7"/>
+                                <rect x="200" y="200" width="18" height="4" rx="2" fill="#1a5020" opacity="0.65"/>
+                                <rect x="245" y="198" width="10" height="4" rx="2" fill="#1a5020" opacity="0.6"/>
+                                <rect x="268" y="200" width="14" height="4" rx="2" fill="#1a5020" opacity="0.55"/>
+                                <rect x="310" y="198" width="8" height="4" rx="2" fill="#1a5020" opacity="0.5"/>
+                                <rect x="170" y="230" width="14" height="4" rx="2" fill="#1a5020" opacity="0.7"/>
+                                <rect x="195" y="228" width="10" height="4" rx="2" fill="#1a5020" opacity="0.65"/>
+                                <rect x="230" y="230" width="18" height="4" rx="2" fill="#1a5020" opacity="0.6"/>
+                                <rect x="275" y="228" width="12" height="4" rx="2" fill="#1a5020" opacity="0.55"/>
+                                <rect x="300" y="230" width="16" height="4" rx="2" fill="#0a5060" opacity="0.5"/>
+                                <rect x="330" y="228" width="8" height="4" rx="2" fill="#0a5060" opacity="0.45"/>
+                                <rect x="165" y="258" width="16" height="4" rx="2" fill="#1a5525" opacity="0.65"/>
+                                <rect x="190" y="256" width="12" height="4" rx="2" fill="#1a5525" opacity="0.6"/>
+                                <rect x="220" y="258" width="10" height="4" rx="2" fill="#0a5060" opacity="0.55"/>
+                                <rect x="260" y="256" width="18" height="4" rx="2" fill="#0a5060" opacity="0.6"/>
+                                <rect x="290" y="258" width="8" height="4" rx="2" fill="#0a5060" opacity="0.5"/>
+                                <rect x="315" y="256" width="14" height="4" rx="2" fill="#0a5060" opacity="0.5"/>
+                                <rect x="175" y="288" width="12" height="4" rx="2" fill="#0a5060" opacity="0.6"/>
+                                <rect x="200" y="286" width="16" height="4" rx="2" fill="#0a5060" opacity="0.55"/>
+                                <rect x="240" y="288" width="10" height="4" rx="2" fill="#0a5060" opacity="0.5"/>
+                                <rect x="270" y="286" width="14" height="4" rx="2" fill="#0a5060" opacity="0.55"/>
+                                <rect x="300" y="288" width="8" height="4" rx="2" fill="#0a5060" opacity="0.45"/>
+                                <rect x="185" y="318" width="14" height="4" rx="2" fill="#0a5060" opacity="0.55"/>
+                                <rect x="210" y="316" width="10" height="4" rx="2" fill="#0a5060" opacity="0.5"/>
+                                <rect x="250" y="318" width="16" height="4" rx="2" fill="#0a5060" opacity="0.5"/>
+                                <rect x="280" y="316" width="8" height="4" rx="2" fill="#0a5060" opacity="0.45"/>
+                                <rect x="200" y="345" width="12" height="4" rx="2" fill="#0a5060" opacity="0.45"/>
+                                <rect x="225" y="343" width="18" height="4" rx="2" fill="#0a5060" opacity="0.4"/>
+                                <rect x="260" y="345" width="10" height="4" rx="2" fill="#0a5060" opacity="0.4"/>
+                            </g>
+                            <path d="M 140,380 A 210,195 -15 0 0 85,200" fill="none" stroke="url(#rGC)" stroke-width="4.5" opacity="0.9"/>
+                            <path d="M 150,370 A 188,178 -12 0 0 100,210" fill="none" stroke="url(#rMC)" stroke-width="4" opacity="0.8"/>
+                            <path d="M 158,360 A 168,162 -8 0 0 112,218" fill="none" stroke="url(#rCC)" stroke-width="3.5" opacity="0.7"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tags">
+                <span class="tag tag-blue">Animado</span>
+                <span class="tag tag-green">Neon Pulse</span>
+                <span class="tag tag-blue">Impactante</span>
+            </div>
+
+            <div class="preview-row">
+                <div>
+                    <p class="preview-label">Header App</p>
+                    <div class="phone-mockup">
+                        <div class="phone-header">
+                            <div class="globe-wrap globe-c-small" style="width:40px;height:40px;">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="40" height="40">
+                                    <defs>
+                                        <linearGradient id="gCs" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#8DE03A"/><stop offset="35%" stop-color="#7FD633"/><stop offset="65%" stop-color="#3BB8A8"/><stop offset="100%" stop-color="#00A4CC"/></linearGradient>
+                                        <linearGradient id="rGCs" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#8DE03A"/><stop offset="100%" stop-color="#5BC425"/></linearGradient>
+                                        <linearGradient id="rCCs" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#00BCD4"/><stop offset="100%" stop-color="#00A4CC"/></linearGradient>
+                                        <linearGradient id="rMCs" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#4DC82E"/><stop offset="100%" stop-color="#00B0C0"/></linearGradient>
+                                        <clipPath id="cCs"><circle cx="256" cy="256" r="140"/></clipPath>
+                                    </defs>
+                                    <ellipse cx="240" cy="256" rx="210" ry="195" fill="none" stroke="url(#rGCs)" stroke-width="6" transform="rotate(-15,240,256)" opacity="0.9"/>
+                                    <ellipse cx="245" cy="256" rx="188" ry="178" fill="none" stroke="url(#rMCs)" stroke-width="5" transform="rotate(-12,245,256)" opacity="0.8"/>
+                                    <ellipse cx="250" cy="256" rx="168" ry="162" fill="none" stroke="url(#rCCs)" stroke-width="5" transform="rotate(-8,250,256)" opacity="0.7"/>
+                                    <circle cx="256" cy="256" r="140" fill="url(#gCs)"/>
+                                    <g clip-path="url(#cCs)" opacity="0.8">
+                                        <ellipse cx="256" cy="186" rx="138" ry="14" fill="none" stroke="#1a6030" stroke-width="3" opacity="0.5"/>
+                                        <ellipse cx="256" cy="256" rx="140" ry="14" fill="none" stroke="#1a6030" stroke-width="3" opacity="0.6"/>
+                                        <ellipse cx="256" cy="326" rx="130" ry="12" fill="none" stroke="#0a5060" stroke-width="3" opacity="0.5"/>
+                                        <ellipse cx="256" cy="256" rx="6" ry="140" fill="none" stroke="#1a6030" stroke-width="3" opacity="0.5"/>
+                                        <ellipse cx="256" cy="256" rx="60" ry="140" fill="none" stroke="#1a6030" stroke-width="2.5" opacity="0.4" transform="rotate(-6,256,256)"/>
+                                        <ellipse cx="256" cy="256" rx="110" ry="140" fill="none" stroke="#0a5060" stroke-width="2.5" opacity="0.35" transform="rotate(6,256,256)"/>
+                                    </g>
+                                    <path d="M 140,380 A 210,195 -15 0 0 85,200" fill="none" stroke="url(#rGCs)" stroke-width="6" opacity="0.9"/>
+                                    <path d="M 150,370 A 188,178 -12 0 0 100,210" fill="none" stroke="url(#rMCs)" stroke-width="5" opacity="0.8"/>
+                                    <path d="M 158,360 A 168,162 -8 0 0 112,218" fill="none" stroke="url(#rCCs)" stroke-width="5" opacity="0.7"/>
+                                </svg>
+                            </div>
+                            <div><h3>PIX Muestreo<small>Agricultura de Precision</small></h3></div>
+                        </div>
+                        <div class="phone-body"></div>
+                        <div class="phone-nav"><span class="active">Mapa</span><span>Proyectos</span><span>Sync</span><span>Config</span></div>
+                    </div>
+                </div>
+                <div>
+                    <p class="preview-label">Login</p>
+                    <div class="login-mockup">
+                        <div class="globe-c" style="width:90px;height:90px;margin:0 auto;">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="90" height="90">
+                                <defs>
+                                    <linearGradient id="gCl" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#8DE03A"/><stop offset="35%" stop-color="#7FD633"/><stop offset="65%" stop-color="#3BB8A8"/><stop offset="100%" stop-color="#00A4CC"/></linearGradient>
+                                    <linearGradient id="rGCl" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#8DE03A"/><stop offset="100%" stop-color="#5BC425"/></linearGradient>
+                                    <linearGradient id="rCCl" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#00BCD4"/><stop offset="100%" stop-color="#00A4CC"/></linearGradient>
+                                    <linearGradient id="rMCl" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#4DC82E"/><stop offset="100%" stop-color="#00B0C0"/></linearGradient>
+                                    <clipPath id="cCl"><circle cx="256" cy="256" r="140"/></clipPath>
+                                </defs>
+                                <ellipse cx="240" cy="256" rx="210" ry="195" fill="none" stroke="url(#rGCl)" stroke-width="5" transform="rotate(-15,240,256)" opacity="0.9"/>
+                                <ellipse cx="245" cy="256" rx="188" ry="178" fill="none" stroke="url(#rMCl)" stroke-width="4.5" transform="rotate(-12,245,256)" opacity="0.8"/>
+                                <ellipse cx="250" cy="256" rx="168" ry="162" fill="none" stroke="url(#rCCl)" stroke-width="4" transform="rotate(-8,250,256)" opacity="0.7"/>
+                                <circle cx="256" cy="256" r="140" fill="url(#gCl)"/>
+                                <g clip-path="url(#cCl)" opacity="0.85">
+                                    <ellipse cx="256" cy="186" rx="138" ry="14" fill="none" stroke="#1a6030" stroke-width="2.5" opacity="0.55"/>
+                                    <ellipse cx="256" cy="256" rx="140" ry="14" fill="none" stroke="#1a6030" stroke-width="2.8" opacity="0.65"/>
+                                    <ellipse cx="256" cy="326" rx="130" ry="12" fill="none" stroke="#0a5060" stroke-width="2.5" opacity="0.55"/>
+                                    <ellipse cx="256" cy="256" rx="6" ry="140" fill="none" stroke="#1a6030" stroke-width="2.5" opacity="0.6"/>
+                                    <ellipse cx="256" cy="256" rx="55" ry="140" fill="none" stroke="#1a6030" stroke-width="2.2" opacity="0.5" transform="rotate(-6,256,256)"/>
+                                    <ellipse cx="256" cy="256" rx="100" ry="140" fill="none" stroke="#0a5060" stroke-width="2" opacity="0.4" transform="rotate(7,256,256)"/>
+                                </g>
+                                <path d="M 140,380 A 210,195 -15 0 0 85,200" fill="none" stroke="url(#rGCl)" stroke-width="5" opacity="0.9"/>
+                                <path d="M 150,370 A 188,178 -12 0 0 100,210" fill="none" stroke="url(#rMCl)" stroke-width="4.5" opacity="0.8"/>
+                                <path d="M 158,360 A 168,162 -8 0 0 112,218" fill="none" stroke="url(#rCCl)" stroke-width="4" opacity="0.7"/>
+                            </svg>
+                        </div>
+                        <h4>PIX Muestreo</h4>
+                        <p>Ingresa la contrasena</p>
+                        <div class="fake-input"></div>
+                        <div class="fake-btn"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</body>
+</html>

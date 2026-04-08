@@ -313,20 +313,31 @@ class PixMap {
     }
   }
 
-  // Fit map to all content
+  // Fit map to all content — with error guard
   fitBounds() {
-    const group = L.featureGroup([
-      ...this.pointMarkers,
-      ...this.fieldLayers
-    ]);
-    if (group.getLayers().length > 0) {
-      this.map.fitBounds(group.getBounds().pad(0.1));
+    if (!this.map) return;
+    try {
+      const group = L.featureGroup([
+        ...this.pointMarkers,
+        ...this.fieldLayers
+      ]);
+      if (group.getLayers().length > 0) {
+        const bounds = group.getBounds();
+        if (bounds.isValid()) this.map.fitBounds(bounds.pad(0.1));
+      }
+    } catch (e) {
+      console.warn('fitBounds error:', e.message);
     }
   }
 
-  // Clear all points
+  // Clear all points — with popup/reference cleanup
   clearPoints() {
-    this.pointMarkers.forEach(m => this.map.removeLayer(m));
+    this.pointMarkers.forEach(m => {
+      if (m.closePopup) m.closePopup();
+      if (m.unbindPopup) m.unbindPopup();
+      if (m.unbindTooltip) m.unbindTooltip();
+      this.map.removeLayer(m);
+    });
     this.pointMarkers = [];
   }
 

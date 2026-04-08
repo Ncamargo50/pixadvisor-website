@@ -152,8 +152,7 @@ class PixFieldAgent {
   }
 
   _formatText(text) {
-    const safe = escapeHtml(text);
-    return safe
+    return text
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/`(.*?)`/g, '<code>$1</code>')
       .replace(/\n/g, '<br>');

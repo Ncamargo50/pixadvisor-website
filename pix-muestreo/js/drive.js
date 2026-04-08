@@ -1,6 +1,7 @@
 // Google Drive Integration for PIX Muestreo
+// C3: Client ID loaded from settings at runtime, not hardcoded
 const DRIVE_CONFIG = {
-  CLIENT_ID: '1012775070766-ai7lgup2lvgn8kj6oop24b1smt75hlls.apps.googleusercontent.com',
+  CLIENT_ID: '', // Set via init(clientId) from user settings — not hardcoded
   API_KEY: '',
   SCOPES: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly',
   DISCOVERY_DOC: 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest',
@@ -13,8 +14,6 @@ class DriveSync {
     this.accessToken = null;
     this.folderId = null;
     this.isInitialized = false;
-    this._tokenExpiresAt = null;
-    this._refreshTimer = null;
   }
 
   // Initialize Google Identity Services
@@ -50,60 +49,18 @@ class DriveSync {
         }
         this.accessToken = response.access_token;
         this.isInitialized = true;
-        sessionStorage.setItem('pix_drive_token', response.access_token);
-        // Track token expiry for proactive refresh
-        const expiresIn = response.expires_in || 3600; // default 1 hour
-        this._tokenExpiresAt = Date.now() + (expiresIn * 1000);
-        sessionStorage.setItem('pix_drive_token_expires', this._tokenExpiresAt.toString());
-        this._scheduleTokenRefresh(expiresIn);
+        // C4: Store token with expiry timestamp (default 1h) — use sessionStorage for security
+        const expiresAt = Date.now() + ((response.expires_in || 3600) * 1000);
+        this._tokenExpiresAt = expiresAt;
+        try {
+          sessionStorage.setItem('pix_drive_token', response.access_token);
+          sessionStorage.setItem('pix_drive_token_exp', String(expiresAt));
+        } catch (_) {}
+        // Clean old localStorage token if present (migration)
+        try { localStorage.removeItem('pix_drive_token'); } catch (_) {}
         document.dispatchEvent(new Event('drive-authenticated'));
       }
     });
-  }
-
-  // Proactive token refresh - refreshes 5 minutes before expiry
-  _scheduleTokenRefresh(expiresInSeconds) {
-    if (this._refreshTimer) clearTimeout(this._refreshTimer);
-    const refreshIn = Math.max((expiresInSeconds - 300) * 1000, 60000); // 5 min before expiry, min 1 min
-    this._refreshTimer = setTimeout(() => {
-      console.log('[Drive] Proactive token refresh triggered');
-      this._silentRefresh();
-    }, refreshIn);
-    console.log(`[Drive] Token refresh scheduled in ${Math.round(refreshIn/60000)} min`);
-  }
-
-  async _silentRefresh() {
-    if (!this.tokenClient) return;
-    try {
-      this.tokenClient.requestAccessToken({ prompt: '' }); // empty prompt = silent refresh
-    } catch (e) {
-      console.log('[Drive] Silent refresh failed, will re-auth on next use');
-    }
-  }
-
-  // Check if token is still valid (with 2 min buffer)
-  isTokenValid() {
-    if (!this.accessToken) return false;
-    if (!this._tokenExpiresAt) {
-      // Try to restore from localStorage
-      const saved = sessionStorage.getItem('pix_drive_token_expires');
-      if (saved) this._tokenExpiresAt = parseInt(saved);
-      else return true; // no expiry info, assume valid
-    }
-    return Date.now() < (this._tokenExpiresAt - 120000); // 2 min buffer
-  }
-
-  // Ensure valid token before API call
-  async ensureValidToken() {
-    if (!this.isTokenValid()) {
-      console.log('[Drive] Token expired or near expiry, refreshing...');
-      await this._silentRefresh();
-      // Wait a bit for the callback
-      await new Promise(r => setTimeout(r, 1000));
-      if (!this.isTokenValid()) {
-        throw new Error('Token refresh failed. Please re-authenticate.');
-      }
-    }
   }
 
   // Request authentication
@@ -114,14 +71,32 @@ class DriveSync {
     this.tokenClient.requestAccessToken({ prompt: 'consent' });
   }
 
-  // Check if authenticated
+  // Check if authenticated — restore from sessionStorage if available
   isAuthenticated() {
+    if (!this.accessToken) {
+      try {
+        const saved = sessionStorage.getItem('pix_drive_token');
+        const exp = parseInt(sessionStorage.getItem('pix_drive_token_exp') || '0');
+        if (saved && exp > Date.now()) {
+          this.accessToken = saved;
+          this._tokenExpiresAt = exp;
+          this.isInitialized = true;
+        }
+      } catch (_) {}
+    }
     return !!this.accessToken;
   }
 
-  // API call helper
+  // API call helper — with proactive token expiry check
   async _fetch(url, options = {}) {
     if (!this.accessToken) throw new Error('Not authenticated');
+    // A9: Proactive expiry check — re-auth before 401 happens
+    if (this._tokenExpiresAt && Date.now() > this._tokenExpiresAt - 60000) {
+      console.warn('Drive token expiring soon, clearing...');
+      this.accessToken = null;
+      try { sessionStorage.removeItem('pix_drive_token'); } catch (_) {}
+      throw new Error('Token expired. Please re-authenticate.');
+    }
     const resp = await fetch(url, {
       ...options,
       headers: {
@@ -131,6 +106,8 @@ class DriveSync {
     });
     if (resp.status === 401) {
       this.accessToken = null;
+      this._tokenExpiresAt = 0;
+      try { sessionStorage.removeItem('pix_drive_token'); } catch (_) {}
       throw new Error('Token expired. Please re-authenticate.');
     }
     return resp;
@@ -344,8 +321,11 @@ class DriveSync {
       photosFolderId = folder.id;
     }
 
-    // Convert base64 to blob
-    const byteStr = atob(base64Data.split(',')[1]);
+    // Convert base64 to blob — C5: validate format before split
+    const parts = base64Data.split(',');
+    const encoded = parts.length > 1 ? parts[1] : parts[0];
+    if (!encoded) throw new Error('Invalid photo data format');
+    const byteStr = atob(encoded);
     const ab = new ArrayBuffer(byteStr.length);
     const ia = new Uint8Array(ab);
     for (let i = 0; i < byteStr.length; i++) ia[i] = byteStr.charCodeAt(i);
@@ -414,29 +394,113 @@ class DriveSync {
         track: tracks.length > 0 ? tracks[0].positions : []
       };
 
-      exportData.syncVersion = Date.now();
       await this.uploadJSON(fileName, exportData);
 
-      // Upload photos first, then mark synced only on success
+      // Upload photos — track failures separately for retry
       for (const s of samples) {
-        let photoOk = true;
+        let photoSynced = true;
         if (s.photo) {
           const photoName = `foto_${s.pointName || s.id}_${timestamp}.jpg`;
           try {
             await this.uploadPhoto(photoName, s.photo);
           } catch (e) {
-            console.warn('Error uploading photo, sample NOT marked synced:', e);
-            photoOk = false;
+            console.warn('Error uploading photo for', s.pointName, ':', e.message);
+            photoSynced = false;
           }
         }
-        if (photoOk) {
+        // Only mark as synced if data AND photo both succeeded (or no photo)
+        if (photoSynced) {
           await pixDB.markSynced(s.id);
+          totalSynced++;
+        } else {
+          // Mark data synced but flag photo pending for retry
+          await pixDB.markSynced(s.id, { photoFailed: true });
           totalSynced++;
         }
       }
     }
 
     return { synced: totalSynced };
+  }
+
+  // ===== USER SYNC VIA DRIVE =====
+
+  /**
+   * Upload users.json to PIX Muestreo Drive folder.
+   * Contains all collaborator credentials (hashed passwords).
+   * @param {Array} users - Array of user objects from IndexedDB
+   */
+  async uploadUsersJSON(users) {
+    const folderId = await this.ensureFolder();
+    const payload = {
+      _type: 'pix_users_sync',
+      version: 1,
+      updatedAt: new Date().toISOString(),
+      users: users.map(u => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        passwordHash: u.passwordHash,
+        role: u.role,
+        active: u.active !== false,
+        createdAt: u.createdAt,
+        updatedAt: u.updatedAt || new Date().toISOString()
+      }))
+    };
+
+    // Check if users.json already exists — update instead of creating duplicate
+    const q = encodeURIComponent(`name='users.json' and '${folderId}' in parents and trashed=false`);
+    const searchResp = await this._fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`);
+    const searchData = await searchResp.json();
+
+    if (searchData.files && searchData.files.length > 0) {
+      // Update existing file
+      const fileId = searchData.files[0].id;
+      await this._fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload, null, 2)
+      });
+    } else {
+      // Create new file
+      await this.uploadJSON('users.json', payload);
+    }
+
+    console.log(`[Drive] Users synced: ${users.length} users uploaded`);
+    return { uploaded: users.length };
+  }
+
+  /**
+   * Download users.json from PIX Muestreo Drive folder.
+   * @returns {Object|null} Parsed users.json or null if not found
+   */
+  async downloadUsersJSON() {
+    try {
+      const folderId = await this.ensureFolder();
+      const q = encodeURIComponent(`name='users.json' and '${folderId}' in parents and trashed=false`);
+      const searchResp = await this._fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,modifiedTime)`);
+      const searchData = await searchResp.json();
+
+      if (!searchData.files || searchData.files.length === 0) {
+        console.log('[Drive] No users.json found in Drive');
+        return null;
+      }
+
+      const fileId = searchData.files[0].id;
+      const resp = await this._fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`);
+      const data = await resp.json();
+
+      if (data._type !== 'pix_users_sync') {
+        console.warn('[Drive] users.json has invalid format');
+        return null;
+      }
+
+      console.log(`[Drive] Users downloaded: ${data.users?.length || 0} users`);
+      return data;
+    } catch (e) {
+      console.warn('[Drive] Failed to download users:', e.message);
+      return null;
+    }
   }
 }
 

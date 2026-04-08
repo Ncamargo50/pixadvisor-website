@@ -1,6 +1,4 @@
-// PIX Muestreo - Main Application v2.0
-const APP_VERSION = PIX_VERSION; // from utils.js
-
+// PIX Muestreo - Main Application
 class PixApp {
   constructor() {
     this.currentView = 'projects';
@@ -13,11 +11,7 @@ class PixApp {
   }
 
   async init() {
-    // Init IndexedDB
-    await pixDB.init();
-
-    // Check for service order in URL params
-    await this._checkURLServiceOrder();
+    // DB already initialized in boot flow (DOMContentLoaded)
 
     // PWA Install - use global prompt captured before login
     if (deferredInstallPrompt) {
@@ -31,13 +25,9 @@ class PixApp {
       this.showInstallBanner();
     });
 
-    // Online/offline detection + smart airplane mode
-    window.addEventListener('online', () => { this.isOnline = true; this.updateConnectionStatus(); this._onBackOnline(); });
-    window.addEventListener('offline', () => { this.isOnline = false; this.updateConnectionStatus(); this._onGoingOffline(); });
-
-    // Auto light/dark mode based on time
-    this._applyAutoTheme();
-    setInterval(() => this._applyAutoTheme(), 600000); // check every 10 min
+    // Online/offline detection
+    window.addEventListener('online', () => { this.isOnline = true; this.updateConnectionStatus(); });
+    window.addEventListener('offline', () => { this.isOnline = false; this.updateConnectionStatus(); });
 
     // Init navigation
     this.initNavigation();
@@ -149,6 +139,49 @@ class PixApp {
     if (viewName === 'sync') this.updateSyncStats();
     if (viewName === 'projects') this.loadProjects();
     if (viewName === 'settings') this.updateTileCacheStats();
+    if (viewName === 'orders') pixOrders.loadOrders();
+    if (viewName === 'admin') pixAdmin.renderAdminView();
+  }
+
+  // Apply role-based permissions to UI
+  applyRolePermissions() {
+    const role = pixAuth.getUserRole();
+    const name = pixAuth.getUserName();
+
+    // Show user info in header
+    const userPill = document.getElementById('userPill');
+    const userName = document.getElementById('currentUserName');
+    if (userPill) userPill.style.display = 'flex';
+    if (userName) userName.textContent = name;
+
+    const navOrders = document.getElementById('navOrders');
+    const navSync = document.getElementById('navSync');
+    const navSettings = document.getElementById('navSettings');
+    const navAdmin = document.getElementById('navAdmin');
+    const btnCreateOrder = document.getElementById('btnCreateOrder');
+
+    if (role === 'admin') {
+      // Admin: show all + admin tab, hide settings tab
+      if (navOrders) navOrders.classList.remove('nav-hidden');
+      if (navSync) navSync.classList.remove('nav-hidden');
+      if (navSettings) navSettings.classList.add('nav-hidden');
+      if (navAdmin) navAdmin.classList.remove('nav-hidden');
+      if (btnCreateOrder) btnCreateOrder.style.display = '';
+    } else if (role === 'tecnico') {
+      // Tecnico: orders + sync + settings, no admin
+      if (navOrders) navOrders.classList.remove('nav-hidden');
+      if (navSync) navSync.classList.remove('nav-hidden');
+      if (navSettings) navSettings.classList.remove('nav-hidden');
+      if (navAdmin) navAdmin.classList.add('nav-hidden');
+      if (btnCreateOrder) btnCreateOrder.style.display = 'none';
+    } else {
+      // Cliente: only map, projects, sync (read-only)
+      if (navOrders) navOrders.classList.add('nav-hidden');
+      if (navSync) navSync.classList.remove('nav-hidden');
+      if (navSettings) navSettings.classList.add('nav-hidden');
+      if (navAdmin) navAdmin.classList.add('nav-hidden');
+      if (btnCreateOrder) btnCreateOrder.style.display = 'none';
+    }
   }
 
   // Connection status
@@ -166,7 +199,14 @@ class PixApp {
 
   // ===== PROJECTS =====
   async loadProjects() {
-    const projects = await pixDB.getAll('projects');
+    let projects = await pixDB.getAll('projects');
+    // Filter by role: admin sees all, tecnico sees own + assigned via orders
+    if (pixAuth.currentUser && pixAuth.isTecnico()) {
+      const userId = pixAuth.getUserId();
+      const myOrders = await pixDB.getAllByIndex('serviceOrders', 'technicianId', userId);
+      const orderProjectIds = new Set(myOrders.map(o => o.projectId).filter(Boolean));
+      projects = projects.filter(p => p.userId === userId || orderProjectIds.has(p.id));
+    }
     const container = document.getElementById('projectsList');
 
     if (projects.length === 0) {
@@ -201,8 +241,8 @@ class PixApp {
         <div class="card" onclick="app.openProject(${proj.id})">
           <div class="card-header">
             <div>
-              <div class="card-title">${escapeHtml(proj.name)}</div>
-              <div class="card-subtitle">${escapeHtml(proj.client || '')}</div>
+              <div class="card-title">${proj.name}</div>
+              <div class="card-subtitle">${proj.client || ''}</div>
             </div>
             <span class="card-badge badge-${badge}">${pct}%</span>
           </div>
@@ -396,7 +436,7 @@ class PixApp {
         document.getElementById('navTargetName').textContent = `Punto ${pt.name}`;
         pixMap.updatePointStatus(pt.id, 'current');
 
-        if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+        try { if (navigator.vibrate) navigator.vibrate([100, 50, 100]); } catch (_) {}
         this.toast(`Punto ${pt.name} detectado (${Math.round(dist)}m)`, 'success');
         break;
       }
@@ -672,6 +712,17 @@ class PixApp {
 
   // Save sample
   async saveSample() {
+    // C1: Guard against null currentPoint/currentField
+    if (!this.currentPoint || !this.currentField) {
+      this.toast('No hay punto seleccionado', 'error');
+      return;
+    }
+    // Duplicate prevention: check if point already collected
+    if (this.currentPoint.status === 'collected') {
+      this.toast('Este punto ya fue recolectado', 'warning');
+      return;
+    }
+
     const depth = this.collectForm.depth || document.querySelector('.depth-chip.active')?.dataset.depth || '0-20';
     const sampleType = document.getElementById('sampleType').value;
     const collector = document.getElementById('collectorField').value;
@@ -722,22 +773,25 @@ class PixApp {
       ibraSource: ibraData?.source || null,
       ibraRaw: ibraData?.raw || null,
       collector: collector,
+      userId: pixAuth.getUserId(),
       notes: notes,
-      photoId: null, // photo stored separately in photos store
+      photo: this.collectForm.photo,
       collectedAt: new Date().toISOString(),
       synced: 0
     };
 
-    // Digital signature for sample integrity
-    sample.signature = await this.signSample(sample);
-    // Store GPS readings history for audit
-    if (gpsNav.recentPositions && gpsNav.recentPositions.length > 0) {
-      sample.gpsReadings = gpsNav.recentPositions.slice(-10).map(p => ({ lat: p.lat, lng: p.lng, acc: p.accuracy, t: p.timestamp }));
+    try {
+      await pixDB.add('samples', sample);
+
+      // Update point status
+      this.currentPoint.status = 'collected';
+      await pixDB.put('points', this.currentPoint);
+      pixMap.updatePointStatus(this.currentPoint.id, 'collected');
+    } catch (e) {
+      console.error('Error saving sample:', e);
+      this.toast('Error guardando muestra: ' + e.message, 'error');
+      return;
     }
-    // Atomic save: sample + photo + point status in single IDB transaction
-    this.currentPoint.status = 'collected';
-    const sampleId = await pixDB.saveSampleAtomic(sample, this.currentPoint, this.collectForm.photo || null);
-    pixMap.updatePointStatus(this.currentPoint.id, 'collected');
 
     this.closeCollectForm();
     this.toast(`Muestra guardada: ${this.currentPoint.name}`, 'success');
@@ -793,21 +847,17 @@ class PixApp {
       for (const f of files) {
         const ext = f.name.split('.').pop().toUpperCase();
         html += `
-          <div class="file-list-item" data-file-id="${escapeHtml(f.id)}" data-file-name="${escapeHtml(f.name)}">
+          <div class="file-list-item" onclick="app.importFile('${f.id}', '${f.name}')">
             <div class="file-icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
             </div>
             <div class="file-info">
-              <div class="file-name">${escapeHtml(f.name)}</div>
+              <div class="file-name">${f.name}</div>
               <div class="file-meta">${ext} · ${new Date(f.modifiedTime).toLocaleDateString()}</div>
             </div>
           </div>`;
       }
-      const listEl = document.getElementById('importFileList');
-      listEl.innerHTML = html;
-      listEl.querySelectorAll('.file-list-item').forEach(el => {
-        el.addEventListener('click', () => app.importFile(el.dataset.fileId, el.dataset.fileName));
-      });
+      document.getElementById('importFileList').innerHTML = html;
     } catch (e) {
       document.getElementById('importFileList').innerHTML = `<p style="color:var(--danger);text-align:center">${e.message}</p>`;
     }
@@ -972,34 +1022,63 @@ class PixApp {
     const features = geojson.features || (geojson.type === 'Feature' ? [geojson] : []);
 
     features.forEach(f => {
-      if (!f.geometry) return;
+      if (!f.geometry || !f.geometry.coordinates) return;
       if (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon') {
         polygons.push(f);
       } else if (f.geometry.type === 'Point') {
+        // Validate coordinates exist and are valid numbers
+        const c = f.geometry.coordinates;
+        if (!c || c.length < 2 || !isFinite(c[0]) || !isFinite(c[1])) return;
         points.push(f);
       }
     });
 
-    // If we have polygons, create fields from them
+    // If we have polygons, create fields from them (with DB error handling)
     if (polygons.length > 0) {
       for (let i = 0; i < polygons.length; i++) {
         const poly = polygons[i];
         const fieldName = poly.properties?.name || poly.properties?.Name || `Campo ${i + 1}`;
         const area = this.calculateArea(poly.geometry);
 
+        try {
+          const fieldId = await pixDB.add('fields', {
+            projectId,
+            name: fieldName,
+            area: area,
+            boundary: { type: 'FeatureCollection', features: [poly] }
+          });
+
+          // Assign points that fall inside this polygon (or all if only 1 polygon)
+          const fieldPoints = polygons.length === 1 ? points :
+            points.filter(p => this.pointInPolygon(p.geometry.coordinates, poly.geometry));
+
+          for (let j = 0; j < fieldPoints.length; j++) {
+            const pt = fieldPoints[j];
+            await pixDB.add('points', {
+              fieldId,
+              name: pt.properties?.name || pt.properties?.Name || pt.properties?.id || `P${j + 1}`,
+              lat: pt.geometry.coordinates[1],
+              lng: pt.geometry.coordinates[0],
+              status: 'pending',
+              properties: pt.properties
+            });
+          }
+        } catch (e) {
+          console.error(`Error importing field ${fieldName}:`, e);
+        }
+      }
+    } else if (points.length > 0) {
+      // No polygons, create a single field from points
+      try {
         const fieldId = await pixDB.add('fields', {
           projectId,
-          name: fieldName,
-          area: area,
-          boundary: { type: 'FeatureCollection', features: [poly] }
+          name: projectName,
+          area: null,
+          boundary: null
         });
 
-        // Assign points that fall inside this polygon (or all if only 1 polygon)
-        const fieldPoints = polygons.length === 1 ? points :
-          points.filter(p => this.pointInPolygon(p.geometry.coordinates, poly.geometry));
-
-        for (let j = 0; j < fieldPoints.length; j++) {
-          const pt = fieldPoints[j];
+        for (let j = 0; j < points.length; j++) {
+          const pt = points[j];
           await pixDB.add('points', {
             fieldId,
             name: pt.properties?.name || pt.properties?.Name || pt.properties?.id || `P${j + 1}`,
@@ -1009,26 +1088,8 @@ class PixApp {
             properties: pt.properties
           });
         }
-      }
-    } else if (points.length > 0) {
-      // No polygons, create a single field from points
-      const fieldId = await pixDB.add('fields', {
-        projectId,
-        name: projectName,
-        area: null,
-        boundary: null
-      });
-
-      for (let j = 0; j < points.length; j++) {
-        const pt = points[j];
-        await pixDB.add('points', {
-          fieldId,
-          name: pt.properties?.name || pt.properties?.Name || pt.properties?.id || `P${j + 1}`,
-          lat: pt.geometry.coordinates[1],
-          lng: pt.geometry.coordinates[0],
-          status: 'pending',
-          properties: pt.properties
-        });
+      } catch (e) {
+        console.error('Error importing points:', e);
       }
     }
   }
@@ -1091,10 +1152,6 @@ class PixApp {
       return;
     }
 
-    // Pre-sync validation
-    const valid = await this.validateBeforeSync();
-    if (!valid) return;
-
     const btn = document.getElementById('syncBtn');
     btn.disabled = true;
     btn.innerHTML = '<svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg> Sincronizando...';
@@ -1139,57 +1196,6 @@ class PixApp {
     URL.revokeObjectURL(url);
 
     this.toast('Backup descargado', 'success');
-  }
-
-  // Export current field in various formats
-  async exportFieldAs(format) {
-    if (!this.currentField) {
-      this.toast('Seleccioná un campo primero', 'warning');
-      return;
-    }
-    const fieldId = this.currentField.id;
-    const fieldName = this.currentField.name || 'campo';
-    let blob, filename;
-
-    try {
-      switch (format) {
-        case 'geojson': {
-          const geojson = await syncManager.exportToGeoJSON(fieldId);
-          blob = new Blob([JSON.stringify(geojson, null, 2)], { type: 'application/geo+json' });
-          filename = `${fieldName}_muestras.geojson`;
-          break;
-        }
-        case 'kml': {
-          const kml = await syncManager.exportToKML(fieldId);
-          blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' });
-          filename = `${fieldName}_muestras.kml`;
-          break;
-        }
-        case 'csv': {
-          const csv = await syncManager.exportToCSV(fieldId);
-          blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-          filename = `${fieldName}_muestras.csv`;
-          break;
-        }
-        case 'shapefile': {
-          const shp = await syncManager.exportToShapefileGeoJSON(fieldId);
-          blob = new Blob([JSON.stringify(shp, null, 2)], { type: 'application/geo+json' });
-          filename = `${fieldName}_shapefile.geojson`;
-          this.toast('GeoJSON con CRS para QGIS. Abrir con "Agregar capa vectorial"', 'success');
-          break;
-        }
-        default:
-          this.toast('Formato no soportado', 'error');
-          return;
-      }
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = filename; a.click();
-      URL.revokeObjectURL(url);
-      this.toast(`Exportado: ${filename}`, 'success');
-    } catch (e) {
-      this.toast('Error al exportar: ' + e.message, 'error');
-    }
   }
 
   addSyncLog(message) {
@@ -1240,7 +1246,6 @@ class PixApp {
     const btn = document.getElementById('trackBtn');
     if (gpsNav.isTracking) {
       const positions = gpsNav.stopTracking();
-      gpsNav.releaseWakeLock();
       if (this.currentField && positions.length > 0) {
         pixDB.add('tracks', {
           fieldId: this.currentField.id,
@@ -1253,7 +1258,6 @@ class PixApp {
       this.toast('Recorrido guardado', 'success');
     } else {
       gpsNav.startTracking();
-      gpsNav.requestWakeLock(); // Keep GPS active with screen off
       btn.classList.add('active');
       this.toast('Grabando recorrido GPS', '');
     }
@@ -1277,9 +1281,8 @@ class PixApp {
     this._boundaryPositions = [];
     this._boundaryPolyline = null;
 
-    // Start GPS tracking with wake lock
+    // Start GPS tracking
     gpsNav.startTracking();
-    gpsNav.requestWakeLock();
 
     // Record positions at regular intervals (every 3 seconds)
     this._boundaryInterval = setInterval(() => {
@@ -1526,327 +1529,37 @@ class PixApp {
       this.hideInstallBanner();
     }
   }
-
-  // ===== LIGHT/DARK MODE =====
-
-  _applyAutoTheme() {
-    const hour = new Date().getHours();
-    const savedPref = localStorage.getItem('pix_theme');
-    if (savedPref === 'light' || (savedPref !== 'dark' && hour >= 6 && hour < 18)) {
-      document.documentElement.setAttribute('data-theme', 'light');
-    } else {
-      document.documentElement.removeAttribute('data-theme');
-    }
-  }
-
-  toggleTheme() {
-    const current = document.documentElement.getAttribute('data-theme');
-    if (current === 'light') {
-      document.documentElement.removeAttribute('data-theme');
-      localStorage.setItem('pix_theme', 'dark');
-      this.toast('Modo oscuro', '');
-    } else {
-      document.documentElement.setAttribute('data-theme', 'light');
-      localStorage.setItem('pix_theme', 'light');
-      this.toast('Modo claro', '');
-    }
-  }
-
-  // ===== SMART AIRPLANE MODE =====
-
-  _onGoingOffline() {
-    // Disable network checks to save battery
-    if (this._versionCheckTimer) { clearInterval(this._versionCheckTimer); this._versionCheckTimer = null; }
-    console.log('[PIX] Offline - disabling network checks to save battery');
-  }
-
-  _onBackOnline() {
-    // Re-enable network features
-    console.log('[PIX] Online - re-enabling network features');
-    this.checkVersionUpdate();
-    // Auto-sync if there are pending samples
-    setTimeout(async () => {
-      const unsynced = await pixDB.getUnsyncedSamples();
-      if (unsynced.length > 0 && driveSync.isAuthenticated()) {
-        this.toast(`${unsynced.length} muestras pendientes`, 'warning');
-      }
-    }, 3000);
-  }
-
-  // ===== PUSH NOTIFICATIONS =====
-
-  async requestNotificationPermission() {
-    if (!('Notification' in window)) return false;
-    if (Notification.permission === 'granted') return true;
-    const result = await Notification.requestPermission();
-    return result === 'granted';
-  }
-
-  async sendNotification(title, body, icon = 'icons/icon-192.png') {
-    if (Notification.permission !== 'granted') return;
-    try {
-      const reg = await navigator.serviceWorker?.ready;
-      if (reg) {
-        reg.showNotification(title, { body, icon, badge: icon, vibrate: [200] });
-      } else {
-        new Notification(title, { body, icon });
-      }
-    } catch (e) { /* fallback to toast */ this.toast(`${title}: ${body}`, ''); }
-  }
-
-  // ===== WEB BLUETOOTH GPS EXTERNO =====
-
-  async connectExternalGPS() {
-    if (!('bluetooth' in navigator)) {
-      this.toast('Bluetooth no disponible en este dispositivo', 'warning');
-      return;
-    }
-    try {
-      this.toast('Buscando GPS externo...', '');
-      const device = await navigator.bluetooth.requestDevice({
-        filters: [{ services: ['location_and_navigation'] }],
-        optionalServices: ['battery_service']
-      });
-      this.toast(`GPS conectado: ${device.name || 'Desconocido'}`, 'success');
-      // Note: Full NMEA parsing would go here for production use
-      console.log('[GPS] External device:', device);
-    } catch (e) {
-      if (e.name !== 'NotFoundError') {
-        this.toast('Error Bluetooth: ' + e.message, 'error');
-      }
-    }
-  }
-
-  // ===== SHARE FIELD BETWEEN COLLECTORS =====
-
-  async shareFieldPlan(fieldId) {
-    const field = await pixDB.get('fields', fieldId || this.currentField?.id);
-    const points = await pixDB.getAllByIndex('points', 'fieldId', field?.id);
-    if (!field || points.length === 0) { this.toast('Sin campo/puntos para compartir', 'warning'); return; }
-
-    const shareData = {
-      type: 'pix_field_share',
-      field: { name: field.name, areaHa: field.areaHa, boundary: field.boundary },
-      points: points.map(p => ({ name: p.name, lat: p.lat, lng: p.lng, zona: p.zona, tipo: p.tipo, status: p.status })),
-      sharedAt: new Date().toISOString(),
-      sharedBy: sessionStorage.getItem('pix_muestreo_user') || 'unknown'
-    };
-
-    const blob = new Blob([JSON.stringify(shareData, null, 2)], { type: 'application/json' });
-    const file = new File([blob], `campo_${field.name}.json`, { type: 'application/json' });
-
-    if (navigator.share && navigator.canShare({ files: [file] })) {
-      await navigator.share({ title: `PIX Campo: ${field.name}`, text: `${points.length} puntos de muestreo`, files: [file] });
-    } else {
-      // Fallback: download
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = file.name; a.click();
-      URL.revokeObjectURL(url);
-      this.toast('Plan de campo descargado para compartir', 'success');
-    }
-  }
-
-  // ===== DASHBOARD STATS =====
-
-  async showDashboard() {
-    const projects = await pixDB.getAll('projects');
-    const fields = await pixDB.getAll('fields');
-    const samples = await pixDB.getAll('samples');
-    const points = await pixDB.getAll('points');
-
-    const collected = points.filter(p => p.status === 'collected').length;
-    const pending = points.filter(p => p.status === 'pending').length;
-    const totalPoints = points.length;
-    const avgAccuracy = samples.length > 0 ? (samples.reduce((s, m) => s + (m.accuracy || 0), 0) / samples.length).toFixed(1) : '—';
-
-    // Samples per day
-    const byDay = {};
-    samples.forEach(s => {
-      const day = (s.collectedAt || '').slice(0, 10);
-      if (day) byDay[day] = (byDay[day] || 0) + 1;
-    });
-    const days = Object.keys(byDay).sort().slice(-7);
-    const dayValues = days.map(d => byDay[d]);
-    const maxDay = Math.max(...dayValues, 1);
-
-    let barsHtml = days.map((d, i) => {
-      const pct = Math.round(dayValues[i] / maxDay * 100);
-      return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:100%;height:${pct}px;min-height:4px;background:var(--gradient);border-radius:4px"></div><span style="font-size:9px;color:var(--text-muted)">${d.slice(5)}</span><span style="font-size:10px;color:var(--text);font-weight:600">${dayValues[i]}</span></div>`;
-    }).join('');
-    if (days.length === 0) barsHtml = '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:20px">Sin datos de colecta</div>';
-
-    // Collectors ranking
-    const byCollector = {};
-    samples.forEach(s => { if (s.collector) byCollector[s.collector] = (byCollector[s.collector] || 0) + 1; });
-    const collectors = Object.entries(byCollector).sort((a, b) => b[1] - a[1]).slice(0, 5);
-
-    const modal = document.getElementById('collectModal');
-    if (!modal) return;
-    modal.classList.add('active');
-    modal.querySelector('.modal-sheet').innerHTML = `
-      <div class="modal-handle"></div>
-      <div class="modal-title" style="margin-bottom:16px">Dashboard de Campo</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
-        <div class="sync-stat-card"><div class="sync-stat-value">${projects.length}</div><div class="sync-stat-label">Proyectos</div></div>
-        <div class="sync-stat-card"><div class="sync-stat-value">${fields.length}</div><div class="sync-stat-label">Campos</div></div>
-        <div class="sync-stat-card"><div class="sync-stat-value">${collected}/${totalPoints}</div><div class="sync-stat-label">Puntos colectados</div></div>
-        <div class="sync-stat-card"><div class="sync-stat-value">${avgAccuracy}m</div><div class="sync-stat-label">Precision GPS prom.</div></div>
-      </div>
-      <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text-muted)">Muestras por dia (ultimos 7)</div>
-      <div style="display:flex;gap:4px;height:100px;align-items:flex-end;padding:8px;background:var(--dark-3);border-radius:10px;margin-bottom:16px">${barsHtml}</div>
-      ${collectors.length > 0 ? `<div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text-muted)">Recolectores</div>${collectors.map(([name, count]) => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:13px"><span>${name}</span><span style="color:var(--teal);font-weight:600">${count} muestras</span></div>`).join('')}` : ''}
-      <button class="sync-btn" style="margin-top:16px;background:var(--dark-3)" onclick="document.getElementById('collectModal').classList.remove('active')">Cerrar</button>`;
-  }
-
-  // ===== VALIDATION PRE-SYNC =====
-
-  async validateBeforeSync() {
-    const unsynced = await pixDB.getUnsyncedSamples();
-    const issues = [];
-    for (const s of unsynced) {
-      const missing = [];
-      if (!s.barcode) missing.push('barcode');
-      if (!s.photoId && !s.photo) missing.push('foto');
-      if (!s.lat || !s.lng) missing.push('GPS');
-      if (missing.length > 0) {
-        issues.push({ point: s.pointName || `#${s.id}`, missing });
-      }
-    }
-    if (issues.length > 0) {
-      const msg = issues.slice(0, 3).map(i => `${i.point}: falta ${i.missing.join(', ')}`).join('\n');
-      const more = issues.length > 3 ? `\n...y ${issues.length - 3} mas` : '';
-      if (!confirm(`${issues.length} muestras con datos incompletos:\n\n${msg}${more}\n\nSincronizar igual?`)) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  // ===== DIGITAL SIGNATURE =====
-
-  async signSample(sampleData) {
-    const payload = JSON.stringify({
-      pointName: sampleData.pointName, lat: sampleData.lat, lng: sampleData.lng,
-      depth: sampleData.depth, barcode: sampleData.barcode, collectedAt: sampleData.collectedAt,
-      collector: sampleData.collector
-    });
-    const encoder = new TextEncoder();
-    const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(payload));
-    return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
-  }
-
-  // ===== SERVICE ORDERS (OS) =====
-
-  async _checkURLServiceOrder() {
-    const params = new URLSearchParams(window.location.search);
-    const osParam = params.get('os');
-    if (!osParam) return;
-    try {
-      const json = decodeURIComponent(escape(atob(osParam)));
-      const order = JSON.parse(json);
-      await this.importServiceOrder(order);
-      // Clean URL
-      window.history.replaceState({}, '', window.location.pathname);
-    } catch (e) {
-      console.error('Error parsing OS from URL:', e);
-    }
-  }
-
-  async importServiceOrder(order) {
-    if (!order || !order.id) { this.toast('Orden invalida', 'error'); return; }
-
-    // Create project from OS
-    const projectName = `OS #${String(order.id).padStart(3, '0')} — ${order.client?.nombre || 'Sin cliente'}`;
-    const projectId = await pixDB.add('projects', {
-      name: projectName,
-      client: order.client?.nombre || '',
-      propiedad: order.client?.propiedad || '',
-      ubicacion: order.client?.ubicacion || '',
-      serviceOrderId: order.id,
-      serviceOrder: order,
-      status: 'active'
-    });
-
-    // Create field from OS
-    const fieldId = await pixDB.add('fields', {
-      projectId,
-      name: order.field?.lote || 'Lote 1',
-      areaHa: order.field?.areaHa || 0,
-      boundary: order.field?.boundary || null,
-      analysisType: order.config?.analysisType || 'quimico',
-      depths: order.config?.depths || ['0-20'],
-      labDestino: order.config?.labDestino || '',
-      codigoIBRA: order.config?.codigoIBRA || ''
-    });
-
-    // Create points from OS
-    if (order.points && order.points.length > 0) {
-      for (const p of order.points) {
-        await pixDB.add('points', {
-          fieldId,
-          name: p.name || `P${p.id}`,
-          lat: p.lat,
-          lng: p.lng,
-          zona: p.zona || '',
-          tipo: p.tipo || 'principal',
-          status: 'pending'
-        });
-      }
-    }
-
-    this.toast(`Orden de servicio importada: ${order.points?.length || 0} puntos`, 'success');
-    await this.loadProjects();
-    await this.openProject(projectId);
-  }
-
-  async importServiceOrderFromFile() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    input.onchange = async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      try {
-        const text = await file.text();
-        const order = JSON.parse(text);
-        await this.importServiceOrder(order);
-      } catch (err) {
-        this.toast('Error al leer archivo de orden', 'error');
-      }
-    };
-    input.click();
-  }
-
-  async checkVersionUpdate() {
-    if (!this.isOnline) return;
-    try {
-      const resp = await fetch('https://pixadvisor.network/pix-muestreo/version.json', { cache: 'no-cache' });
-      if (!resp.ok) return;
-      const data = await resp.json();
-      if (data.version && data.version !== APP_VERSION) {
-        this.toast(`Nueva version disponible: v${data.version}`, 'warning');
-      }
-    } catch (e) { /* silently ignore */ }
-  }
 }
 
 // Global install prompt reference
 let deferredInstallPrompt = null;
 let appIsInstalled = false;
 
-// Check if already installed as PWA (standalone mode)
-if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
+// Check if running inside APK (WebViewAssetLoader) or installed as PWA
+if (window.location.origin.includes('appassets.androidplatform.net') ||
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.navigator.standalone) {
   appIsInstalled = true;
 }
 
-// Register SW BEFORE login (required for PWA installability)
+// Register SW with forced update on every load
 if ('serviceWorker' in navigator) {
   const base = location.pathname.replace(/\/[^/]*$/, '/');
   const swPath = base + 'sw.js';
   const swScope = base;
   navigator.serviceWorker.register(swPath, { scope: swScope })
-    .then(reg => console.log('SW registered:', reg.scope))
+    .then(reg => {
+      console.log('SW registered:', reg.scope);
+      reg.update();
+      reg.addEventListener('updatefound', () => {
+        const nw = reg.installing;
+        if (nw) nw.addEventListener('statechange', () => {
+          if (nw.state === 'activated') location.reload();
+        });
+      });
+    })
     .catch(e => console.log('SW error:', e));
+  navigator.serviceWorker.addEventListener('controllerchange', () => location.reload());
 }
 
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -1869,25 +1582,17 @@ window.addEventListener('appinstalled', () => {
 // Init app
 const app = new PixApp();
 document.addEventListener('DOMContentLoaded', async () => {
-  // Init DB early for auth check
+  // Init DB first (needed for auth)
   await pixDB.init();
+  await pixDB.migrateToV3();
 
-  // Check if first-time setup needed (no users exist)
-  try {
-    if (typeof pixDB.hasUsers === 'function') {
-      const hasUsers = await pixDB.hasUsers();
-      if (!hasUsers) {
-        await pixDB.createUser('admin', 'pixadvisor', 'admin');
-        console.log('Default admin user created (admin/pixadvisor)');
-      }
-    }
-  } catch (e) { console.log('User setup deferred:', e.message); }
-
-  const isAuth = sessionStorage.getItem('pix_muestreo_auth');
-  if (!isAuth) {
+  // Try restore session
+  const restored = await pixAuth.init();
+  if (!restored) {
     document.getElementById('loginOverlay').style.display = 'flex';
     return;
   }
+
   // Already authenticated
   if (appIsInstalled) {
     showApp();
@@ -1904,6 +1609,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 function showInstallScreen() {
   document.getElementById('loginOverlay').style.display = 'none';
   document.getElementById('installOverlay').style.display = 'flex';
+  // If beforeinstallprompt already fired, show the auto button
   if (deferredInstallPrompt) {
     const autoBtn = document.getElementById('autoInstallBtn');
     if (autoBtn) autoBtn.style.display = 'block';
@@ -1914,6 +1620,24 @@ function showApp() {
   document.getElementById('loginOverlay').style.display = 'none';
   document.getElementById('installOverlay').style.display = 'none';
   app.init();
+  app.applyRolePermissions();
+
+  // Background user sync from API (primary) or Drive (fallback) — non-blocking
+  setTimeout(async () => {
+    try {
+      const result = await pixAuth.syncUsersFromAPI();
+      if (result.synced > 0) {
+        app.toast(`Usuarios sincronizados (${result.source}): ${result.created || 0} nuevos, ${result.updated || 0} actualizados`, 'info');
+      }
+    } catch (e) {
+      console.warn('[App] Background user sync skipped:', e.message);
+    }
+  }, 2000);
+
+  // Periodic sync every 60 seconds (keeps credentials fresh)
+  setInterval(async () => {
+    try { await pixAuth.syncUsersFromAPI(); } catch (_) {}
+  }, 60000);
 }
 
 function skipInstall() {
@@ -1921,6 +1645,7 @@ function skipInstall() {
   showApp();
 }
 
+// Auto-install using beforeinstallprompt
 async function pixInstall() {
   if (deferredInstallPrompt) {
     deferredInstallPrompt.prompt();
@@ -1933,36 +1658,25 @@ async function pixInstall() {
   }
 }
 
-// Multi-user login handler
-async function pixLogin() {
-  const userInput = document.getElementById('loginUser')?.value || 'admin';
+// Login handler (multi-user)
+async function pixAuthLogin() {
+  const email = document.getElementById('loginEmail').value;
   const pass = document.getElementById('loginPass').value;
-  if (!pass) { document.getElementById('loginError').style.display = 'flex'; return; }
 
-  // Try multi-user auth first
-  const user = await pixDB.verifyUser(userInput, pass);
-  if (user) {
-    sessionStorage.setItem('pix_muestreo_auth', 'true');
-    sessionStorage.setItem('pix_muestreo_user', user.username);
-    sessionStorage.setItem('pix_muestreo_role', user.role);
-    document.getElementById('loginError').style.display = 'none';
-    if (appIsInstalled) { showApp(); } else { showInstallScreen(); }
+  if (!email || !pass) {
+    document.getElementById('loginError').style.display = 'block';
     return;
   }
 
-  // Fallback: legacy hash check for backward compatibility
-  const encoder = new TextEncoder();
-  const data = encoder.encode(pass);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  if (hash === '89718ab553cc01c43f255575a0c59bd5d98bbef2171c13ebe831314f034d71c9') {
-    sessionStorage.setItem('pix_muestreo_auth', 'true');
-    sessionStorage.setItem('pix_muestreo_user', 'admin');
-    sessionStorage.setItem('pix_muestreo_role', 'admin');
+  const user = await pixAuth.login(email, pass);
+  if (user) {
     document.getElementById('loginError').style.display = 'none';
-    if (appIsInstalled) { showApp(); } else { showInstallScreen(); }
+    if (appIsInstalled) {
+      showApp();
+    } else {
+      showInstallScreen();
+    }
   } else {
-    document.getElementById('loginError').style.display = 'flex';
+    document.getElementById('loginError').style.display = 'block';
   }
 }
