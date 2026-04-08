@@ -159,49 +159,63 @@ class PixMap {
   }
 
   // Add sample points with type-based colors (principal/submuestra)
-  // Red=principal(pending), Yellow=submuestra(pending), Green=collected
+  // Sizes: principal=20px with label, submuestra=12px dot only
   addTypedSamplePoints(points, onPointClick) {
     this.clearPoints();
 
     points.forEach(point => {
-      // A9 FIX: Skip points with invalid coordinates
       if (!isFinite(point.lat) || !isFinite(point.lng)) return;
 
       const tipo = point.tipo || (point.properties && point.properties.tipo) || 'principal';
       const status = point.status || 'pending';
+      const isPrincipal = tipo === 'principal';
 
-      // Color logic: green if collected, otherwise red for principal, yellow for submuestra
+      // Color: green=collected, red=principal pending, orange=submuestra pending
       let color;
       if (status === 'collected') {
-        color = '#4CAF50'; // green
-      } else if (tipo === 'submuestra') {
-        color = '#FFEB3B'; // yellow
+        color = '#4CAF50';
+      } else if (isPrincipal) {
+        color = '#F44336';
       } else {
-        color = '#F44336'; // red for principal
+        color = '#FFA726'; // orange for submuestras (easier to see on satellite)
       }
 
       const labelText = point.name || point.id;
-      // Shorter label for map display
       const shortLabel = labelText.length > 8 ? labelText.slice(-6) : labelText;
+
+      // Principal: bigger with label; Submuestra: small dot, label on hover
+      const size = isPrincipal ? 20 : 12;
+      const anchor = size / 2;
+      const dotStyle = `width:${size}px;height:${size}px;background:${color};border:2px solid #fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.5);`;
+
+      let html;
+      if (isPrincipal) {
+        html = `<div style="${dotStyle}display:flex;align-items:center;justify-content:center;">
+          <span style="font-size:8px;font-weight:700;color:#fff;text-shadow:0 1px 2px #000;">${shortLabel}</span>
+        </div>`;
+      } else {
+        html = `<div style="${dotStyle}"></div>`;
+      }
 
       const icon = L.divIcon({
         className: 'sample-point-marker',
-        html: `<div class="point-dot" style="background:${color};border-color:${color}">
-          <span class="point-label">${shortLabel}</span>
-        </div>`,
-        iconSize: [32, 32],
-        iconAnchor: [16, 16]
+        html: html,
+        iconSize: [size + 4, size + 4],
+        iconAnchor: [anchor + 2, anchor + 2]
       });
 
       const marker = L.marker([point.lat, point.lng], { icon }).addTo(this.map);
 
-      // Rich popup with point info
+      // Popup on click for all, tooltip on hover for submuestras
       const zonaStr = point.zona ? `Zona ${point.zona}` : '';
-      const tipoStr = tipo === 'principal' ? 'Principal' : 'Submuestra';
+      const tipoStr = isPrincipal ? 'Principal' : 'Submuestra';
       marker.bindPopup(
         `<b>${labelText}</b><br>${tipoStr} ${zonaStr}<br>` +
         `<small>${point.lat.toFixed(6)}, ${point.lng.toFixed(6)}</small>`
       );
+      if (!isPrincipal) {
+        marker.bindTooltip(shortLabel, { direction: 'top', offset: [0, -8], className: 'point-tooltip' });
+      }
 
       marker.on('click', () => {
         this.selectedPoint = point;
@@ -213,33 +227,30 @@ class PixMap {
     });
   }
 
-  // Add sample points
+  // Add sample points (generic, no type distinction)
   addSamplePoints(points, onPointClick) {
     this.clearPoints();
 
     points.forEach(point => {
-      // A9 FIX: Skip points with invalid coordinates
       if (!isFinite(point.lat) || !isFinite(point.lng)) return;
 
-      const status = point.status || 'pending'; // pending, collected, skipped
-      const colors = {
-        pending: '#FF9800',
-        collected: '#4CAF50',
-        skipped: '#F44336',
-        current: '#00BFA5'
-      };
+      const status = point.status || 'pending';
+      const colors = { pending: '#FF9800', collected: '#4CAF50', skipped: '#F44336', current: '#00BFA5' };
       const color = colors[status] || colors.pending;
+      const label = point.name || point.id;
+      const shortLabel = label.length > 6 ? label.slice(-5) : label;
 
       const icon = L.divIcon({
         className: 'sample-point-marker',
-        html: `<div class="point-dot" style="background:${color};border-color:${color}">
-          <span class="point-label">${point.name || point.id}</span>
+        html: `<div style="width:16px;height:16px;background:${color};border:2px solid #fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;">
+          <span style="font-size:7px;font-weight:700;color:#fff;text-shadow:0 1px 1px #000;">${shortLabel}</span>
         </div>`,
-        iconSize: [32, 32],
-        iconAnchor: [16, 16]
+        iconSize: [20, 20],
+        iconAnchor: [10, 10]
       });
 
       const marker = L.marker([point.lat, point.lng], { icon }).addTo(this.map);
+      marker.bindTooltip(label, { direction: 'top', offset: [0, -10] });
 
       marker.on('click', () => {
         this.selectedPoint = point;
@@ -261,13 +272,21 @@ class PixMap {
     const point = marker.pointData;
     point.status = status;
 
+    const tipo = point.tipo || (point.properties && point.properties.tipo) || 'principal';
+    const isPrincipal = tipo === 'principal';
+    const size = isPrincipal ? 20 : 12;
+    const anchor = size / 2;
+    const label = point.name || point.id;
+    const shortLabel = label.length > 8 ? label.slice(-6) : label;
+    const dotStyle = `width:${size}px;height:${size}px;background:${color};border:2px solid #fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.5);`;
+    const html = isPrincipal
+      ? `<div style="${dotStyle}display:flex;align-items:center;justify-content:center;"><span style="font-size:8px;font-weight:700;color:#fff;text-shadow:0 1px 2px #000;">${shortLabel}</span></div>`
+      : `<div style="${dotStyle}"></div>`;
     marker.setIcon(L.divIcon({
       className: 'sample-point-marker',
-      html: `<div class="point-dot" style="background:${color};border-color:${color}">
-        <span class="point-label">${point.name || point.id}</span>
-      </div>`,
-      iconSize: [32, 32],
-      iconAnchor: [16, 16]
+      html: html,
+      iconSize: [size + 4, size + 4],
+      iconAnchor: [anchor + 2, anchor + 2]
     }));
   }
 
