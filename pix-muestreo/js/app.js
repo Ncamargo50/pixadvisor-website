@@ -131,6 +131,10 @@ class PixApp {
     // Load projects
     this.loadProjects();
 
+    // 1.3 FIX: Auto-backup unsynced samples to localStorage on session start
+    // Survives IndexedDB corruption — separate storage mechanism
+    this._autoBackupToLocalStorage();
+
     // Load GPS settings
     this.loadGPSSettings();
 
@@ -220,7 +224,7 @@ class PixApp {
 
     if (viewName === 'sync') this.updateSyncStats();
     if (viewName === 'projects') this.loadProjects();
-    if (viewName === 'settings') { this.updateTileCacheStats(); this.loadIbraSettings(); }
+    if (viewName === 'settings') { this.updateTileCacheStats(); this.loadIbraSettings(); this._updateStorageQuota(); }
     if (viewName === 'orders') pixOrders.loadOrders();
     if (viewName === 'admin') pixAdmin.renderAdminView();
   }
@@ -557,10 +561,21 @@ class PixApp {
       gpsNav.targetPoint.lat, gpsNav.targetPoint.lng
     );
 
+    const distText = dist < 1000 ? `${Math.round(dist)}m` : `${(dist/1000).toFixed(1)}km`;
+    const dirText = gpsNav.compassDirection(bearing);
+
     document.getElementById('navDistance').innerHTML =
       dist < 1000 ? `${Math.round(dist)}<small>m</small>` : `${(dist/1000).toFixed(1)}<small>km</small>`;
     document.getElementById('navDirection').textContent =
-      `Dirección: ${gpsNav.compassDirection(bearing)} (${Math.round(bearing)}°)`;
+      `Dirección: ${dirText} (${Math.round(bearing)}°)`;
+
+    // 2.1: Floating overlay on map — always visible while walking
+    const overlay = document.getElementById('mapDistOverlay');
+    if (overlay) {
+      const name = gpsNav.targetPoint.name || '';
+      overlay.innerHTML = `<span class="dist-arrow">→</span>${distText} ${dirText}<span class="dist-name">${escH(name)}</span>`;
+      overlay.style.display = '';
+    }
 
     // Draw nav line
     pixMap.drawNavigationLine(
@@ -753,6 +768,19 @@ class PixApp {
         el.textContent = 'Cache: no disponible';
       }
     }
+  }
+
+  // 2.4: Storage quota display
+  async _updateStorageQuota() {
+    const est = await pixDB.storageEstimate();
+    const textEl = document.getElementById('storageText');
+    const fillEl = document.getElementById('storageFill');
+    if (!textEl || !fillEl) return;
+    const usageMB = (est.usage / (1024 * 1024)).toFixed(1);
+    const quotaMB = (est.quota / (1024 * 1024)).toFixed(0);
+    textEl.textContent = `${usageMB} MB / ${quotaMB} MB (${est.percentUsed}%)`;
+    fillEl.style.width = Math.min(est.percentUsed, 100) + '%';
+    fillEl.className = 'storage-fill ' + (est.percentUsed < 60 ? 'ok' : est.percentUsed < 80 ? 'warn' : 'danger');
   }
 
   // ===== COLLECT SAMPLE =====
@@ -1002,6 +1030,13 @@ class PixApp {
     const effectiveType = isSubmuestra ? (await pixDB.getSetting('lastSampleType') || sampleType) : sampleType;
     const effectiveCollector = isSubmuestra ? (await pixDB.getSetting('collectorName') || collector) : collector;
 
+    // 1.2 FIX: Validate coordinates before save
+    if (!isFinite(gpsLat) || !isFinite(gpsLng) || Math.abs(gpsLat) > 90 || Math.abs(gpsLng) > 180) {
+      this.toast('Coordenadas GPS inválidas. Esperá señal estable.', 'error');
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Guardar Muestra'; }
+      return;
+    }
+
     const sample = {
       pointId: this.currentPoint.id,
       fieldId: this.currentField.id,
@@ -1027,14 +1062,14 @@ class PixApp {
       synced: 0
     };
 
+    // 1.1 FIX: Atomic save — sample + point status in ONE IndexedDB transaction
+    // If crash occurs, both roll back (no orphaned samples)
     try {
-      await pixDB.add('samples', sample);
-
-      // Update point status
       this.currentPoint.status = 'collected';
-      await pixDB.put('points', this.currentPoint);
+      await pixDB.saveSampleAtomic(sample, this.currentPoint);
       pixMap.updatePointStatus(this.currentPoint.id, 'collected');
     } catch (e) {
+      this.currentPoint.status = 'pending'; // rollback in-memory
       console.error('Error saving sample:', e);
       this.toast('Error guardando muestra: ' + e.message, 'error');
       if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Guardar Muestra'; }
@@ -1485,6 +1520,53 @@ class PixApp {
         console.error('Error importing points:', e);
       }
     }
+
+    // 3.2 FIX: Post-import zone validation — detect misassignments
+    await this._validateImportedZones(projectId, projectName);
+  }
+
+  // 3.2: Validate zone structure after GeoJSON import
+  async _validateImportedZones(projectId, projectName) {
+    const fields = await pixDB.getAllByIndex('fields', 'projectId', projectId);
+    let totalPoints = 0;
+    let zoneWarnings = [];
+
+    for (const field of fields) {
+      const points = await pixDB.getAllByIndex('points', 'fieldId', field.id);
+      totalPoints += points.length;
+      if (points.length === 0) continue;
+
+      // Check zone distribution
+      const zones = {};
+      for (const p of points) {
+        const z = this._detectZone(p);
+        if (!zones[z]) zones[z] = { principals: 0, subs: 0 };
+        if (this._detectPointType(p) === 'principal') zones[z].principals++;
+        else zones[z].subs++;
+      }
+
+      const zoneKeys = Object.keys(zones);
+      // Warning: all points in zone 1 (likely failed detection)
+      if (zoneKeys.length === 1 && zoneKeys[0] == 1 && points.length > 3) {
+        zoneWarnings.push(`${field.name}: todos los ${points.length} puntos en Zona 1 — verificá nomenclatura`);
+      }
+      // Warning: zone without principal
+      for (const [z, counts] of Object.entries(zones)) {
+        if (counts.principals === 0 && counts.subs > 0) {
+          zoneWarnings.push(`${field.name}: Zona ${z} sin punto principal (${counts.subs} sub)`);
+        }
+      }
+    }
+
+    // Show validation summary
+    if (zoneWarnings.length > 0) {
+      console.warn('[Import] Zone warnings:', zoneWarnings);
+      this.toast(`Importado ${totalPoints} puntos. Atención: ${zoneWarnings[0]}`, 'warning');
+    } else if (totalPoints > 0) {
+      this.toast(`Importado: ${projectName} (${totalPoints} puntos)`, 'success');
+    } else {
+      this.toast(`Importado: ${projectName} (solo polígonos, sin puntos)`, 'info');
+    }
   }
 
   // M9 FIX: Calculate polygon area — handles MultiPolygon + holes correctly
@@ -1924,6 +2006,36 @@ ${detailHTML}
     }
   }
 
+  // 1.3: Auto-backup unsynced work to localStorage (survives DB corruption)
+  async _autoBackupToLocalStorage() {
+    try {
+      const samples = await pixDB.getUnsyncedSamples();
+      if (samples.length === 0) return;
+      const projects = await pixDB.getAll('projects');
+      const backup = {
+        ts: new Date().toISOString(),
+        version: '3.4.3',
+        unsyncedCount: samples.length,
+        projects: projects.map(p => ({ id: p.id, name: p.name, client: p.client })),
+        samples: samples.map(s => ({
+          id: s.id, pointName: s.pointName, fieldId: s.fieldId, zona: s.zona,
+          lat: s.lat, lng: s.lng, accuracy: s.accuracy, depth: s.depth,
+          sampleType: s.sampleType, barcode: s.barcode, collector: s.collector,
+          collectedAt: s.collectedAt
+        }))
+      };
+      // Rotate: keep last 3 backups
+      const prev2 = localStorage.getItem('pix_autobackup_1');
+      const prev1 = localStorage.getItem('pix_autobackup_0');
+      if (prev1) localStorage.setItem('pix_autobackup_2', prev2 || '');
+      if (prev1) localStorage.setItem('pix_autobackup_1', prev1);
+      localStorage.setItem('pix_autobackup_0', JSON.stringify(backup));
+      console.log(`[AutoBackup] ${samples.length} muestras respaldadas en localStorage`);
+    } catch (e) {
+      console.warn('[AutoBackup] Failed:', e.message);
+    }
+  }
+
   // Track toggle
   toggleTracking() {
     const btn = document.getElementById('trackBtn');
@@ -2252,6 +2364,7 @@ ${detailHTML}
     gpsNav.clearTarget();
     pixMap.clearNavigationLine();
     this.isNavigating = false;
+    const _ov = document.getElementById('mapDistOverlay'); if (_ov) _ov.style.display = 'none';
 
     document.getElementById('zoneCompleteModal').classList.add('active');
     if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]);
@@ -2319,6 +2432,7 @@ ${detailHTML}
       gpsNav.clearTarget();
       pixMap.clearNavigationLine();
       this.isNavigating = false;
+      const _ov2 = document.getElementById('mapDistOverlay'); if (_ov2) _ov2.style.display = 'none';
     } else {
       // Navigate to next zone's principal
       this.nextPoint();
@@ -2471,10 +2585,25 @@ ${detailHTML}
   }
 
   // Detect zone number from various nomenclatures
+  // 3.1 FIX: Enhanced zone detection — searches multiple property names + numeric extraction
   _detectZone(point) {
-    // Explicit zona field
+    // Explicit zona field (set during import or manual assignment)
     if (point.zona) return point.zona;
-    if (point.properties && point.properties.zona) return point.properties.zona;
+
+    // Search in properties object — common field names across GIS software
+    if (point.properties) {
+      const p = point.properties;
+      const zoneVal = p.zona || p.zone || p.Zone || p.ZONA || p.ZONE
+        || p.management_zone || p.ManagementZone || p.mz
+        || p.ambiente || p.Ambiente || p.AMBIENTE
+        || p.clase || p.class || p.CLASS;
+      if (zoneVal != null) {
+        const parsed = parseInt(zoneVal);
+        if (!isNaN(parsed)) return parsed;
+        // Non-numeric zone identifier (e.g., "Alta", "ZoneA") — return as string
+        return String(zoneVal);
+      }
+    }
 
     const name = (point.name || point.id || '');
 
@@ -2486,11 +2615,13 @@ ${detailHTML}
     const aMatch = name.match(/^A(\d+)/i);
     if (aMatch) return parseInt(aMatch[1]);
 
-    // Zona property in point.properties
-    if (point.properties) {
-      const z = point.properties.zone || point.properties.Zone || point.properties.ambiente || point.properties.Ambiente;
-      if (z) return parseInt(z) || z;
-    }
+    // "Zona1", "Zona_2", "Zone-3" patterns
+    const zonaMatch = name.match(/zona[_\s-]?(\d+)/i);
+    if (zonaMatch) return parseInt(zonaMatch[1]);
+
+    // Generic trailing number: "MU5" → 5, "Unit3" → 3
+    const trailingNum = name.match(/(\d+)$/);
+    if (trailingNum && parseInt(trailingNum[1]) <= 50) return parseInt(trailingNum[1]);
 
     return 1; // default zone 1
   }

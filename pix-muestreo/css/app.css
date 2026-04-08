@@ -614,6 +614,42 @@ html, body {
   transform: scale(0.9);
 }
 
+/* 2.1: Floating distance overlay on map */
+.map-dist-overlay {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  background: rgba(10,18,32,0.88);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(127,214,51,0.3);
+  border-radius: 20px;
+  padding: 6px 18px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.map-dist-overlay .dist-arrow { color: var(--teal); margin-right: 6px; }
+.map-dist-overlay .dist-name { color: var(--text-muted); font-weight: 400; font-size: 12px; margin-left: 8px; }
+
+/* 2.2: Submuestra pulse when near target */
+@keyframes pointPulse {
+  0% { box-shadow: 0 0 0 0 rgba(127,214,51,0.5); }
+  70% { box-shadow: 0 0 0 8px rgba(127,214,51,0); }
+  100% { box-shadow: 0 0 0 0 rgba(127,214,51,0); }
+}
+.point-pulse { animation: pointPulse 1.5s infinite; }
+
+/* 2.4: Storage quota bar */
+.storage-bar { height: 6px; background: var(--dark-3); border-radius: 3px; overflow: hidden; margin-top: 4px; }
+.storage-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+.storage-fill.ok { background: var(--success); }
+.storage-fill.warn { background: var(--warning); }
+.storage-fill.danger { background: var(--danger); }
+
 .card-stats {
   display: flex;
   gap: 16px;

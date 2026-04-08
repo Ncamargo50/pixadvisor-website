@@ -253,11 +253,12 @@ class PixMap {
       const labelText = point.name || point.id;
       const shortLabel = labelText.length > 8 ? labelText.slice(-6) : labelText;
 
-      // Principal: visible with label; Submuestra: tiny dot, label on hover
-      const size = isPrincipal ? 14 : 8;
-      const border = isPrincipal ? 2 : 1;
+      // 2.2 FIX: Submuestra 12px + halo for field visibility (was 8px, invisible in sunlight)
+      const size = isPrincipal ? 14 : 12;
+      const border = isPrincipal ? 2 : 2;
       const anchor = size / 2;
-      const dotStyle = `width:${size}px;height:${size}px;background:${color};border:${border}px solid #fff;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.6);`;
+      const halo = isPrincipal ? '' : 'box-shadow:0 0 0 3px rgba(255,255,255,0.5),0 1px 4px rgba(0,0,0,0.6);';
+      const dotStyle = `width:${size}px;height:${size}px;background:${color};border:${border}px solid #fff;border-radius:50%;${halo || 'box-shadow:0 1px 3px rgba(0,0,0,0.6);'}`;
 
       const html = `<div style="${dotStyle}"></div>`;
 
@@ -339,10 +340,11 @@ class PixMap {
 
     const tipo = point.tipo || (point.properties && point.properties.tipo) || 'principal';
     const isPrincipal = tipo === 'principal';
-    const size = isPrincipal ? 14 : 8;
-    const border = isPrincipal ? 2 : 1;
+    const size = isPrincipal ? 14 : 12;
+    const border = isPrincipal ? 2 : 2;
     const anchor = size / 2;
-    const dotStyle = `width:${size}px;height:${size}px;background:${color};border:${border}px solid #fff;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.6);`;
+    const halo = isPrincipal ? '' : 'box-shadow:0 0 0 3px rgba(255,255,255,0.5),0 1px 4px rgba(0,0,0,0.6);';
+    const dotStyle = `width:${size}px;height:${size}px;background:${color};border:${border}px solid #fff;border-radius:50%;${halo || 'box-shadow:0 1px 3px rgba(0,0,0,0.6);'}`;
     marker.setIcon(L.divIcon({
       className: '',
       html: `<div style="${dotStyle}"></div>`,

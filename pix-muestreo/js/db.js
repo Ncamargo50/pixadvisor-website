@@ -273,6 +273,20 @@ class PixDB {
     return this.put('settings', { key, value });
   }
 
+  // Atomic save: sample + point status update in ONE transaction
+  // If either fails, both roll back — prevents orphaned samples on crash
+  async saveSampleAtomic(sample, point) {
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction(['samples', 'points'], 'readwrite');
+      const now = new Date().toISOString();
+      tx.objectStore('samples').add({ ...sample, createdAt: sample.createdAt || now });
+      tx.objectStore('points').put({ ...point, updatedAt: point.updatedAt || now });
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
+    });
+  }
+
   // Bulk add multiple records in a single transaction
   async bulkAdd(store, items) {
     return new Promise((resolve, reject) => {

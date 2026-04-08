@@ -27,6 +27,8 @@ class GPSNavigator {
     this.warmupReadings = [];
     this.isWarmedUp = false;
     this.warmupThreshold = 3; // need 3 readings under 15m accuracy (faster warm-up)
+    this._warmupStartTime = null; // 2.3: timeout tracking
+    this._warmupDegraded = false; // true if warm-up forced by timeout
 
     // Position stabilization detection
     this.recentPositions = []; // last 10 positions
@@ -509,6 +511,7 @@ class GPSNavigator {
 
   _checkWarmup(accuracy) {
     this.warmupReadings.push(accuracy);
+    if (!this._warmupStartTime) this._warmupStartTime = Date.now();
 
     // Mantener solo las últimas 10 lecturas
     if (this.warmupReadings.length > 10) {
@@ -518,7 +521,22 @@ class GPSNavigator {
     // If ANY of the last 3 readings are < 15m → GPS warmed up (faster!)
     if (this.warmupReadings.length >= this.warmupThreshold) {
       const lastN = this.warmupReadings.slice(-this.warmupThreshold);
-      this.isWarmedUp = lastN.every(a => a < 15);
+      if (lastN.every(a => a < 15)) {
+        this.isWarmedUp = true;
+        this._warmupDegraded = false;
+        return;
+      }
+    }
+
+    // 2.3 FIX: After 90s without achieving <15m, force warm-up with degraded flag
+    // Prevents technician from being stuck indefinitely under tree cover/valleys
+    if (!this.isWarmedUp && this._warmupStartTime) {
+      const elapsed = (Date.now() - this._warmupStartTime) / 1000;
+      if (elapsed > 90 && accuracy < 50) {
+        this.isWarmedUp = true;
+        this._warmupDegraded = true;
+        console.warn(`[GPS] Warm-up forced after ${Math.round(elapsed)}s (accuracy ${accuracy.toFixed(1)}m)`);
+      }
     }
   }
 
@@ -565,6 +583,10 @@ class GPSNavigator {
   getCollectionStatus(requiredAccuracy = 5) {
     if (!this.accuracy) return { ok: false, msg: 'Sin señal GPS', color: '#F44336' };
     if (!this.isWarmedUp) return { ok: false, msg: 'GPS calentando...', color: '#FF9800' };
+    // 2.3: Allow collection with degraded accuracy warning (timeout forced warm-up)
+    if (this._warmupDegraded && this.accuracy > requiredAccuracy) {
+      return { ok: true, msg: `Precisión degradada (${this.accuracy.toFixed(1)}m) — cobertura limitada`, color: '#FF9800' };
+    }
     if (this.accuracy > requiredAccuracy) return { ok: false, msg: `Precisión insuficiente (${this.accuracy.toFixed(1)}m > ${requiredAccuracy}m)`, color: '#FF9800' };
     return { ok: true, msg: `Listo (${this.accuracy.toFixed(1)}m)`, color: '#4CAF50' };
   }
