@@ -169,6 +169,36 @@ class DriveSync {
     return this.folderId;
   }
 
+  // Find or create a subfolder inside a parent folder (cached per session)
+  async ensureSubfolder(parentId, folderName) {
+    if (!this._subfolderCache) this._subfolderCache = {};
+    const cacheKey = `${parentId}/${folderName}`;
+    if (this._subfolderCache[cacheKey]) return this._subfolderCache[cacheKey];
+
+    const safeName = folderName.replace(/[<>:"/\\|?*]/g, '_').trim() || 'Sin_Cliente';
+    const q = encodeURIComponent(`name='${safeName}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+    const resp = await this._fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`);
+    const data = await resp.json();
+
+    if (data.files && data.files.length > 0) {
+      this._subfolderCache[cacheKey] = data.files[0].id;
+      return data.files[0].id;
+    }
+
+    const createResp = await this._fetch('https://www.googleapis.com/drive/v3/files', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: safeName,
+        mimeType: 'application/vnd.google-apps.folder',
+        parents: [parentId]
+      })
+    });
+    const folder = await createResp.json();
+    this._subfolderCache[cacheKey] = folder.id;
+    return folder.id;
+  }
+
   // List files in Pixadvisor folder
   async listFiles(mimeType = null) {
     const folderId = await this.ensureFolder();
@@ -370,24 +400,22 @@ class DriveSync {
     return { type: 'FeatureCollection', features };
   }
 
-  // Upload JSON data to Drive
+  // Upload JSON data to Drive (root PIX Muestreo folder)
   async uploadJSON(fileName, data) {
     const folderId = await this.ensureFolder();
-    const metadata = {
-      name: fileName,
-      mimeType: 'application/json',
-      parents: [folderId]
-    };
+    return this._uploadFile(fileName, JSON.stringify(data, null, 2), 'application/json', folderId);
+  }
 
-    // Check if file exists, update it
-    const q = encodeURIComponent(`name='${fileName}' and '${folderId}' in parents and trashed=false`);
+  // Upload any file to a specific folder (upsert: update if exists, create if not)
+  async _uploadFile(fileName, content, mimeType, targetFolderId) {
+    const blob = new Blob([content], { type: mimeType });
+
+    // Check if file exists → update instead of duplicating
+    const q = encodeURIComponent(`name='${fileName}' and '${targetFolderId}' in parents and trashed=false`);
     const existing = await this._fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`);
     const existingData = await existing.json();
 
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-
     if (existingData.files && existingData.files.length > 0) {
-      // Update existing
       const fileId = existingData.files[0].id;
       const resp = await this._fetch(
         `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`,
@@ -396,7 +424,8 @@ class DriveSync {
       return resp.json();
     }
 
-    // Create new - multipart upload
+    // Create new — multipart upload
+    const metadata = { name: fileName, mimeType, parents: [targetFolderId] };
     const form = new FormData();
     form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
     form.append('file', blob);
@@ -406,6 +435,16 @@ class DriveSync {
       { method: 'POST', body: form }
     );
     return resp.json();
+  }
+
+  // Upload JSON to a specific subfolder
+  async uploadJSONToFolder(fileName, data, folderId) {
+    return this._uploadFile(fileName, JSON.stringify(data, null, 2), 'application/json', folderId);
+  }
+
+  // Upload HTML report to a specific subfolder
+  async uploadHTMLToFolder(fileName, html, folderId) {
+    return this._uploadFile(fileName, html, 'text/html', folderId);
   }
 
   // Upload photo (base64)
@@ -453,9 +492,16 @@ class DriveSync {
   }
 
   // A12+M15 FIX: Sync with parallel photo upload (batches of 3) + progress callback
+  // ═══════════════════════════════════════════════════════════
+  // SYNC ALL — Uploads samples + reports organized by client
+  // Folder structure: PIX Muestreo / {Cliente} / files...
+  // ═══════════════════════════════════════════════════════════
+
   async syncAll(onProgress = null) {
     const unsynced = await pixDB.getUnsyncedSamples();
     if (unsynced.length === 0) return { synced: 0 };
+
+    const rootFolderId = await this.ensureFolder();
 
     // Group by field
     const byField = {};
@@ -469,15 +515,32 @@ class DriveSync {
     const totalToSync = unsynced.length;
 
     for (const [fieldId, samples] of Object.entries(byField)) {
-      // A5 FIX: Handle 'general' fieldId before parseInt
+      // Resolve field → project → client
       let fieldName = 'campo';
+      let clientName = '';
+      let projectName = '';
       const numericFieldId = fieldId !== 'general' ? parseInt(fieldId) : null;
+
       if (numericFieldId !== null && !isNaN(numericFieldId)) {
         const field = await pixDB.get('fields', numericFieldId);
-        if (field) fieldName = field.name;
+        if (field) {
+          fieldName = field.name;
+          if (field.projectId) {
+            const project = await pixDB.get('projects', field.projectId);
+            if (project) {
+              clientName = (project.client || '').trim();
+              projectName = (project.name || '').trim();
+            }
+          }
+        }
       }
 
+      // Determine client folder name: client > project name > 'General'
+      const folderLabel = clientName || projectName || 'General';
+      const clientFolderId = await this.ensureSubfolder(rootFolderId, folderLabel);
+
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const dateStr = new Date().toISOString().slice(0, 10);
       const fileName = `muestreo_${fieldName}_${timestamp}.json`;
 
       // Get track data
@@ -487,17 +550,24 @@ class DriveSync {
 
       const exportData = {
         app: 'PIX Muestreo',
-        version: '1.0',
+        version: '2.0',
         exportDate: new Date().toISOString(),
+        client: clientName,
+        project: projectName,
         field: fieldName,
         fieldId: fieldId,
         totalSamples: samples.length,
         samples: samples.map(s => ({
           pointName: s.pointName,
+          pointType: s.pointType || 'principal',
+          zona: s.zona || '',
           lat: s.lat,
           lng: s.lng,
+          accuracy: s.accuracy,
+          gpsMethod: s.gpsMethod,
           depth: s.depth,
           barcode: s.barcode,
+          ibraSampleId: s.ibraSampleId,
           sampleType: s.sampleType,
           collector: s.collector,
           notes: s.notes,
@@ -507,9 +577,19 @@ class DriveSync {
         track: tracks.length > 0 ? tracks[0].positions : []
       };
 
-      await this.uploadJSON(fileName, exportData);
+      // Upload samples JSON to client subfolder
+      await this.uploadJSONToFolder(fileName, exportData, clientFolderId);
 
-      // A12 FIX: Upload photos in parallel batches of 3 for better performance
+      // Generate and upload field report HTML
+      try {
+        const reportHTML = this._buildFieldReportHTML(exportData, clientName, projectName, dateStr);
+        const reportName = `reporte_${fieldName}_${dateStr}.html`;
+        await this.uploadHTMLToFolder(reportName, reportHTML, clientFolderId);
+      } catch (e) {
+        console.warn('[Drive] Report generation failed:', e.message);
+      }
+
+      // Upload photos in parallel batches of 3
       const PHOTO_BATCH = 3;
       const photosToUpload = samples.filter(s => s.photo).map(s => ({
         sample: s,
@@ -523,7 +603,6 @@ class DriveSync {
             this.uploadPhoto(photoName, sample.photo).then(() => ({ id: sample.id, ok: true }))
           )
         );
-        // Mark each sample
         for (let j = 0; j < batch.length; j++) {
           const res = results[j];
           if (res.status === 'fulfilled') {
@@ -547,6 +626,101 @@ class DriveSync {
     }
 
     return { synced: totalSynced };
+  }
+
+  // Build a field report HTML for upload to Drive
+  _buildFieldReportHTML(data, clientName, projectName, dateStr) {
+    const collector = data.samples[0]?.collector || '—';
+    const sampleType = data.samples[0]?.sampleType || '—';
+
+    // Group samples by zone
+    const byZone = {};
+    for (const s of data.samples) {
+      const z = s.zona || 'Sin zona';
+      if (!byZone[z]) byZone[z] = [];
+      byZone[z].push(s);
+    }
+
+    let zonesHTML = '';
+    for (const [zone, pts] of Object.entries(byZone)) {
+      const principal = pts.find(p => p.pointType === 'principal');
+      const subs = pts.filter(p => p.pointType !== 'principal');
+      const barcode = principal?.ibraSampleId || principal?.barcode || '—';
+      zonesHTML += `<tr>
+        <td style="text-align:center;font-weight:700">${zone}</td>
+        <td>${barcode}</td>
+        <td style="text-align:center">${pts.length} pts</td>
+        <td style="text-align:center">${principal?.depth || '0-20'}</td>
+        <td>${principal?.sampleType || sampleType}</td>
+      </tr>`;
+    }
+
+    let pointsHTML = '';
+    for (const s of data.samples) {
+      const isPrin = s.pointType === 'principal';
+      const hora = s.collectedAt ? new Date(s.collectedAt).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }) : '—';
+      const acc = s.accuracy ? s.accuracy.toFixed(1) + 'm' : '—';
+      pointsHTML += `<tr style="${isPrin ? 'background:#fff3e0;font-weight:600' : ''}">
+        <td>${s.pointName || '—'}</td>
+        <td>${s.zona || '—'}</td>
+        <td>${isPrin ? 'Principal' : 'Sub'}</td>
+        <td style="text-align:right;font-family:monospace">${s.lat.toFixed(6)}</td>
+        <td style="text-align:right;font-family:monospace">${s.lng.toFixed(6)}</td>
+        <td style="text-align:center">${acc}</td>
+        <td style="text-align:center">${s.depth || '0-20'}</td>
+        <td style="text-align:center">${hora}</td>
+      </tr>`;
+    }
+
+    return `<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8">
+<title>Reporte — ${data.field} — ${dateStr}</title>
+<style>
+  @page { size: A4; margin: 15mm; }
+  body { font-family: Arial, sans-serif; font-size: 13px; color: #333; margin: 0; padding: 20px; }
+  .hdr { display:flex; justify-content:space-between; align-items:center; border-bottom:3px solid #4CAF50; padding-bottom:12px; margin-bottom:16px; }
+  .hdr h1 { font-size:18px; margin:0; color:#2E7D32; }
+  .sec-title { font-size:13px; font-weight:700; color:#fff; background:#4CAF50; padding:6px 12px; }
+  .grid { display:grid; grid-template-columns:140px 1fr; border:1px solid #ddd; }
+  .grid .l { background:#f5f5f5; padding:5px 10px; font-weight:600; font-size:11px; border-bottom:1px solid #ddd; border-right:1px solid #ddd; }
+  .grid .v { padding:5px 10px; font-size:12px; border-bottom:1px solid #ddd; }
+  table { width:100%; border-collapse:collapse; margin-top:8px; }
+  th { background:#e8f5e9; padding:5px 8px; text-align:left; font-size:11px; border:1px solid #ddd; }
+  td { padding:4px 8px; border:1px solid #ddd; font-size:12px; }
+  .foot { margin-top:24px; text-align:center; font-size:10px; color:#999; border-top:1px solid #eee; padding-top:8px; }
+  @media print { body { padding:0; } }
+</style></head><body>
+
+<div class="hdr">
+  <div><h1>PIX Muestreo — Reporte de Campo</h1><div style="font-size:10px;color:#888">Pixadvisor Agricultura de Precision</div></div>
+  <div style="text-align:right;font-size:12px;color:#666">${dateStr}</div>
+</div>
+
+<div class="sec-title">1. DATOS GENERALES</div>
+<div class="grid">
+  <div class="l">Cliente</div><div class="v" style="font-weight:700">${clientName || '—'}</div>
+  <div class="l">Hacienda</div><div class="v" style="font-weight:700">${projectName || '—'}</div>
+  <div class="l">Campo / Lote</div><div class="v">${data.field}</div>
+  <div class="l">Fecha</div><div class="v">${dateStr}</div>
+  <div class="l">Tecnico</div><div class="v">${collector}</div>
+  <div class="l">Total muestras</div><div class="v">${data.totalSamples} puntos</div>
+  <div class="l">Tipo de analisis</div><div class="v">${sampleType}</div>
+</div>
+
+<div style="margin-top:16px"><div class="sec-title">2. RESUMEN POR ZONA</div></div>
+<table>
+  <tr><th style="text-align:center;width:50px">Zona</th><th>QR / Codigo</th><th style="text-align:center">Puntos</th><th style="text-align:center">Prof.</th><th>Analisis</th></tr>
+  ${zonesHTML}
+</table>
+
+<div style="margin-top:16px"><div class="sec-title">3. DETALLE DE PUNTOS GPS</div></div>
+<table>
+  <tr><th>Punto</th><th>Zona</th><th>Tipo</th><th style="text-align:right">Latitud</th><th style="text-align:right">Longitud</th><th style="text-align:center">Precision</th><th style="text-align:center">Prof.</th><th style="text-align:center">Hora</th></tr>
+  ${pointsHTML}
+</table>
+
+<div class="foot">Generado por PIX Muestreo — Pixadvisor Agricultura de Precision — pixadvisor.network — ${new Date().toLocaleString('es')}</div>
+</body></html>`;
   }
 
   // ===== USER SYNC VIA DRIVE =====

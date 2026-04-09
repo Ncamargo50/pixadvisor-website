@@ -1,6 +1,6 @@
 // PIX Muestreo - Service Worker for Offline Support
-// v21 — fix: save button re-enabled on every form open
-const CACHE_NAME = 'pix-muestreo-v21';
+// v22 — Drive sync: client subfolders + auto-report upload
+const CACHE_NAME = 'pix-muestreo-v22';
 const TILE_CACHE = 'pix-tiles-v1';
 
 // Derive base path dynamically — works in both web (/pix-muestreo/) and APK WebView
