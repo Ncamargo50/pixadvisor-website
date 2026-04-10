@@ -2,13 +2,19 @@
 class PixAuth {
   constructor() {
     this.currentUser = null;
-    // Master admin key — works on ANY APK installation, no sync required
-    // SHA-256 of 'pixmaster2026'
-    this._masterHash = 'ac201887896eb32421c6785528a878dbd31faf74050f0f041c80d9304c70e298';
+    // Master admin key — loaded dynamically from IndexedDB (user-configurable)
+    this._masterHash = null;
   }
 
   // Restore session from localStorage
   async init() {
+    // Load master key hash from IndexedDB (user-configurable, no hardcoded secrets)
+    try {
+      this._masterHash = await pixDB.getSetting('master_key_hash');
+    } catch (e) {
+      console.warn('[Auth] Could not load master key setting:', e.message);
+    }
+
     const userId = localStorage.getItem('pix_user_id');
     if (!userId) return false;
 
@@ -43,9 +49,9 @@ class PixAuth {
     const emailLower = email.toLowerCase().trim();
     const hash = await this.hashPassword(password);
 
-    // MASTER KEY: works on ANY APK without sync
+    // MASTER KEY: works on ANY APK without sync (only if configured by admin)
     // User types any email/name + master password → admin access
-    if (hash === this._masterHash) {
+    if (this._masterHash && hash === this._masterHash) {
       const masterUser = {
         id: 'master-admin',
         name: 'Administrador PIX',
@@ -123,6 +129,20 @@ class PixAuth {
     user.updatedAt = new Date().toISOString();
     await pixDB.putUser(user);
     return user;
+  }
+
+  // Check if master key has been configured
+  hasMasterKey() { return !!this._masterHash; }
+
+  // Set or change the master key (admin only — stored as SHA-256 hash in IndexedDB)
+  async setMasterKey(newPassword) {
+    if (!newPassword || newPassword.length < 6) {
+      throw new Error('La clave debe tener al menos 6 caracteres');
+    }
+    const hash = await this.hashPassword(newPassword);
+    await pixDB.setSetting('master_key_hash', hash);
+    this._masterHash = hash;
+    console.log('[Auth] Master key updated');
   }
 
   // Toggle user active status

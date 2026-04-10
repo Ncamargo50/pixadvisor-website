@@ -125,7 +125,7 @@ class PixDB {
         id: 'admin-default',
         name: 'Administrador',
         email: 'admin@pixadvisor.local',
-        passwordHash: '7a17b544989777f595141ea66cc7b88f7e6d5efcb9f6d5f4fef6c1f1e187127e', // pix2026
+        passwordHash: '7a17b544989777f595141ea66cc7b88f7e6d5efcb9f6d5f4fef6c1f1e187127e',
         role: 'admin',
         active: true,
         createdAt: new Date().toISOString()
@@ -153,9 +153,15 @@ class PixDB {
     await this.setSetting('migration_v3_done', true);
   }
 
+  // Guard: ensure DB is initialized before any operation
+  _ensureDB() {
+    if (!this.db) throw new Error('IndexedDB no inicializada — llamá pixDB.init() primero');
+  }
+
   // Generic CRUD
   // A3 FIX: Don't overwrite caller's createdAt (e.g. from sync/import)
   async add(store, data) {
+    this._ensureDB();
     return new Promise((resolve, reject) => {
       const tx = this.db.transaction(store, 'readwrite');
       const req = tx.objectStore(store).add({
@@ -169,6 +175,7 @@ class PixDB {
 
   // A4 FIX: Don't overwrite caller's updatedAt (e.g. from remote sync)
   async put(store, data) {
+    this._ensureDB();
     return new Promise((resolve, reject) => {
       const tx = this.db.transaction(store, 'readwrite');
       const req = tx.objectStore(store).put({
@@ -182,6 +189,7 @@ class PixDB {
 
   // Put user without auto-timestamps (uses string keyPath)
   async putUser(userData) {
+    this._ensureDB();
     return new Promise((resolve, reject) => {
       const tx = this.db.transaction('users', 'readwrite');
       const req = tx.objectStore('users').put(userData);
@@ -191,6 +199,7 @@ class PixDB {
   }
 
   async get(store, id) {
+    this._ensureDB();
     return new Promise((resolve, reject) => {
       const tx = this.db.transaction(store, 'readonly');
       const req = tx.objectStore(store).get(id);
@@ -200,6 +209,7 @@ class PixDB {
   }
 
   async getAll(store) {
+    this._ensureDB();
     return new Promise((resolve, reject) => {
       const tx = this.db.transaction(store, 'readonly');
       const req = tx.objectStore(store).getAll();
@@ -209,6 +219,7 @@ class PixDB {
   }
 
   async getAllByIndex(store, indexName, value) {
+    this._ensureDB();
     return new Promise((resolve, reject) => {
       const tx = this.db.transaction(store, 'readonly');
       const idx = tx.objectStore(store).index(indexName);
@@ -300,6 +311,7 @@ class PixDB {
 
   // Bulk add multiple records in a single transaction
   async bulkAdd(store, items) {
+    this._ensureDB();
     return new Promise((resolve, reject) => {
       const tx = this.db.transaction(store, 'readwrite');
       const os = tx.objectStore(store);
@@ -309,6 +321,7 @@ class PixDB {
       }
       tx.oncomplete = () => resolve(items.length);
       tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error || new Error('bulkAdd transaction aborted'));
     });
   }
 

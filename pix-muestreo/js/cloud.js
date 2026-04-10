@@ -4,7 +4,7 @@
 
 // App version constant — used by registerDevice() for fleet tracking
 // IMPORTANT: CACHE_NAME lives in SW scope and is NOT accessible from main page
-const APP_VERSION = 'pix-muestreo-v40';
+const APP_VERSION = 'pix-muestreo-v41c';
 
 // Default Supabase credentials (PIX Muestreo project)
 const _CLOUD_DEFAULT_URL = 'https://fnoocboaupjmxpkhdnij.supabase.co';
@@ -47,21 +47,32 @@ class PixCloud {
 
   async _fetch(path, options = {}) {
     if (!this._enabled) throw new Error('Cloud no configurado');
-    const resp = await fetch(this.url + '/rest/v1' + path, {
-      ...options,
-      headers: {
-        'apikey': this.key,
-        'Authorization': 'Bearer ' + this.key,
-        'Content-Type': 'application/json',
-        'Prefer': options._prefer || 'return=representation',
-        ...options.headers
+    // AbortController: 30s timeout prevents hanging on bad network
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    try {
+      const resp = await fetch(this.url + '/rest/v1' + path, {
+        ...options,
+        signal: controller.signal,
+        headers: {
+          'apikey': this.key,
+          'Authorization': 'Bearer ' + this.key,
+          'Content-Type': 'application/json',
+          'Prefer': options._prefer || 'return=representation',
+          ...options.headers
+        }
+      });
+      if (!resp.ok) {
+        const errText = await resp.text().catch(() => resp.statusText);
+        throw new Error(`Cloud ${resp.status}: ${errText}`);
       }
-    });
-    if (!resp.ok) {
-      const errText = await resp.text().catch(() => resp.statusText);
-      throw new Error(`Cloud ${resp.status}: ${errText}`);
+      return resp;
+    } catch (e) {
+      if (e.name === 'AbortError') throw new Error('Cloud: timeout de red (30s)');
+      throw e;
+    } finally {
+      clearTimeout(timeoutId);
     }
-    return resp;
   }
 
   // ═══════════════════════════════════════════════
@@ -95,6 +106,8 @@ class PixCloud {
         lat: s.lat,
         lng: s.lng,
         accuracy: s.accuracy,
+        gpsMethod: s.gpsMethod || 'single',
+        gnss: s.gnss || null,
         depth: s.depth,
         sampleType: s.sampleType,
         barcode: s.barcode,

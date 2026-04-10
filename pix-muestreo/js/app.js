@@ -5,6 +5,11 @@ function escH(str) {
   if (str == null) return '';
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
+// XSS protection — escape for JS string context inside onclick handlers
+function escJS(str) {
+  if (str == null) return '';
+  return String(str).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"').replace(/</g,'\\x3c').replace(/>/g,'\\x3e');
+}
 
 // Field-friendly modal system — large touch targets, readable in sunlight
 const pixModal = {
@@ -649,21 +654,56 @@ class PixApp {
       fill.className = 'gps-quality-fill ' + (quality >= 75 ? 'good' : quality >= 40 ? 'medium' : 'poor');
     }
 
+    // Native GNSS satellite info (Level 2 bridge)
+    const gnss = gpsNav.getGNSSDisplayInfo();
+
+    // Update satellite info row (only visible when native bridge is active)
+    const satRow = document.getElementById('gnssSatRow');
+    if (satRow) {
+      if (gnss.available) {
+        satRow.style.display = 'flex';
+        const satEl = document.getElementById('gnssSatText');
+        if (satEl) satEl.textContent = `${gnss.satText} | ${gnss.constellationText}${gnss.hasDualFreq ? ' | L1+L5' : ''}`;
+      } else {
+        satRow.style.display = 'none';
+      }
+    }
+
     // Update status row
     const statusRow = document.getElementById('gpsStatusRow');
     const statusDot = document.getElementById('gpsStatusDot');
     const statusText = document.getElementById('gpsStatusText');
     if (statusRow) {
       statusRow.style.display = 'flex';
+
+      // Build HDOP text — real or estimated
+      const hdop = gpsNav.getEstimatedHDOP();
+      const hdopPrefix = gpsNav.hasRealHDOP() ? 'HDOP' : 'HDOP~';
+      const hdopStr = hdop ? `${hdopPrefix}${hdop}` : 'HDOP ?';
+
+      // Build status text with native GNSS data when available
       if (gpsNav.isWarmedUp && gpsNav.isStabilized) {
         statusDot.className = 'gps-status-dot ready';
-        statusText.textContent = `Listo | HDOP ~${gpsNav.getEstimatedHDOP() || '?'} | ${gpsNav.isStabilized ? 'Estable' : 'Mov.'}`;
+        if (gnss.available) {
+          const fix3d = gnss.fixType === 3 ? '3D' : gnss.fixType === 2 ? '2D' : '';
+          statusText.textContent = `Listo ${fix3d} | ${hdopStr} | ${gnss.satText} | Estable`;
+        } else {
+          statusText.textContent = `Listo | ${hdopStr} | Estable`;
+        }
       } else if (gpsNav.isWarmedUp) {
         statusDot.className = 'gps-status-dot warming';
-        statusText.textContent = 'GPS listo, estabilizando posición...';
+        if (gnss.available) {
+          statusText.textContent = `${hdopStr} | ${gnss.satText} | Estabilizando...`;
+        } else {
+          statusText.textContent = 'GPS listo, estabilizando posición...';
+        }
       } else {
         statusDot.className = 'gps-status-dot warming';
-        statusText.textContent = 'GPS calentando, esperá mejor señal...';
+        if (gnss.available && gnss.usedSats > 0) {
+          statusText.textContent = `Calentando | ${gnss.satText} | ${gnss.constellationText}`;
+        } else {
+          statusText.textContent = 'GPS calentando, esperá mejor señal...';
+        }
       }
     }
   }
@@ -1082,6 +1122,18 @@ class PixApp {
       return;
     }
 
+    // Capture native GNSS metadata at moment of collection (Level 2)
+    const gnssSnap = gpsNav.getGNSSDisplayInfo();
+    const gnssMetadata = gnssSnap.available ? {
+      usedSats: gnssSnap.usedSats,
+      totalSats: gnssSnap.totalSats,
+      hdop: gnssSnap.hdop,
+      fixType: gnssSnap.fixType,
+      hasDualFreq: gnssSnap.hasDualFreq,
+      avgCn0: gnssSnap.avgCn0,
+      constellations: gnssSnap.constellationText
+    } : null;
+
     const sample = {
       pointId: this.currentPoint.id,
       fieldId: this.currentField.id,
@@ -1092,6 +1144,7 @@ class PixApp {
       lng: gpsLng,
       accuracy: gpsAcc,
       gpsMethod: gpsMethod,
+      gnss: gnssMetadata,
       depth: depth,
       sampleType: effectiveType,
       barcode: this.collectForm.barcode,
@@ -1918,6 +1971,48 @@ class PixApp {
     const keyEl = document.getElementById('cloudKey');
     if (urlEl) urlEl.value = url || (typeof _CLOUD_DEFAULT_URL !== 'undefined' ? _CLOUD_DEFAULT_URL : '');
     if (keyEl) keyEl.value = key || (typeof _CLOUD_DEFAULT_KEY !== 'undefined' ? _CLOUD_DEFAULT_KEY : '');
+  }
+
+  // ═══════════════════════════════════════════════
+  // MASTER KEY MANAGEMENT (admin only)
+  // ═══════════════════════════════════════════════
+
+  async saveMasterKey() {
+    const newPass = document.getElementById('masterKeyNew')?.value || '';
+    const confirm = document.getElementById('masterKeyConfirm')?.value || '';
+
+    if (!newPass) {
+      this.toast('Ingresa la nueva clave maestra', 'warning');
+      return;
+    }
+    if (newPass.length < 6) {
+      this.toast('La clave debe tener al menos 6 caracteres', 'warning');
+      return;
+    }
+    if (newPass !== confirm) {
+      this.toast('Las claves no coinciden', 'error');
+      return;
+    }
+
+    try {
+      await pixAuth.setMasterKey(newPass);
+      document.getElementById('masterKeyNew').value = '';
+      document.getElementById('masterKeyConfirm').value = '';
+      this._loadMasterKeyStatus();
+      this.toast('Clave maestra actualizada correctamente', 'success');
+    } catch (e) {
+      this.toast('Error: ' + e.message, 'error');
+    }
+  }
+
+  _loadMasterKeyStatus() {
+    const el = document.getElementById('masterKeyStatus');
+    if (!el) return;
+    if (pixAuth.hasMasterKey()) {
+      el.innerHTML = '<span style="color:#22c55e">&#x1f512; Clave maestra configurada</span> — podes cambiarla abajo';
+    } else {
+      el.innerHTML = '<span style="color:#f59e0b">&#x26a0; Sin clave maestra</span> — configura una para acceso de emergencia';
+    }
   }
 
   // Export all data as JSON (offline backup)
@@ -3028,14 +3123,14 @@ h1{font-size:16px;color:#333}h2{font-size:14px;color:#555;margin:16px 0 8px}
   // Check if all points in a zone are collected
   async _checkZoneComplete(zona) {
     const points = await pixDB.getAllByIndex('points', 'fieldId', this.currentField.id);
-    const zonePoints = points.filter(p => this._detectZone(p) == zona);
+    const zonePoints = points.filter(p => String(this._detectZone(p)) === String(zona));
     return zonePoints.length > 0 && zonePoints.every(p => p.status === 'collected');
   }
 
   // Show zone complete modal with QR IBRA scan
   async _openZoneCompleteModal(zona) {
     const points = await pixDB.getAllByIndex('points', 'fieldId', this.currentField.id);
-    const zonePoints = points.filter(p => this._detectZone(p) == zona);
+    const zonePoints = points.filter(p => String(this._detectZone(p)) === String(zona));
     const subs = zonePoints.filter(p => this._detectPointType(p) === 'submuestra');
     const principal = zonePoints.find(p => this._detectPointType(p) === 'principal');
 

@@ -34,19 +34,7 @@
         <button onclick="pixAuthLogin()" id="loginBtn" style="width:100%;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#7FD633,#0d9488);color:#0F1B2D;font-size:15px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;">
             Ingresar
         </button>
-        <div id="loginHelp" style="display:none;margin-top:14px;background:rgba(127,214,51,0.06);border:1px solid rgba(127,214,51,0.12);border-radius:10px;padding:10px;text-align:left">
-            <div style="color:#7FD633;font-size:12px;font-weight:600;margin-bottom:6px">Primer acceso?</div>
-            <div style="color:#94a3b8;font-size:11px;line-height:1.5">
-                <strong style="color:white">Admin default:</strong><br>
-                Email: <code style="background:rgba(255,255,255,0.08);padding:1px 4px;border-radius:4px;color:#7FD633">admin@pixadvisor.local</code><br>
-                Clave: <code style="background:rgba(255,255,255,0.08);padding:1px 4px;border-radius:4px;color:#7FD633">pix2026</code><br>
-                <span style="color:#64748b;font-size:10px">(o use clave maestra: pixmaster2026)</span>
-            </div>
-        </div>
-        <button onclick="document.getElementById('loginHelp').style.display=document.getElementById('loginHelp').style.display==='none'?'block':'none'" style="background:none;border:none;color:#475569;font-size:0.75rem;margin-top:12px;cursor:pointer;text-decoration:underline">
-            Necesita ayuda para ingresar?
-        </button>
-        <p style="color:#475569;font-size:0.75rem;margin-top:8px;">Pixadvisor — Agricultura de Precision</p>
+        <p style="color:#475569;font-size:0.75rem;margin-top:16px;">Pixadvisor — Agricultura de Precision</p>
     </div>
 </div>
 
@@ -170,6 +158,10 @@
                                     <span class="gps-status-dot" id="gpsStatusDot"></span>
                                     <span class="gps-status-text" id="gpsStatusText">Calentando...</span>
                                 </div>
+                                <div class="gnss-sat-row" id="gnssSatRow" style="display:none">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;flex-shrink:0"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+                                    <span class="gnss-sat-text" id="gnssSatText"></span>
+                                </div>
                             </div>
                         </div>
                         <div class="map-action-bar">
@@ -240,7 +232,7 @@
 
                 <button class="sync-btn" id="syncBtn" onclick="app.syncToDrive()">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/><path d="M21 3v9h-9"/></svg>
-                    Sincronizar con Drive
+                    Sincronizar Datos
                 </button>
 
                 <button class="sync-btn" id="cloudSyncBtn" onclick="app.syncToCloud()" style="background:linear-gradient(135deg,#0D9488,#7FD633);display:none">
@@ -257,6 +249,14 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8M16 17H8M10 9H8"/></svg>
                     Reporte IBRA — Ficha de Envio
                 </button>
+
+                <div class="section-title" style="margin-top:24px;font-size:14px;display:flex;align-items:center;gap:8px">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
+                    Mis Archivos <span id="savedFilesCount" style="background:var(--accent);color:var(--dark);font-size:11px;padding:1px 6px;border-radius:8px;font-weight:700">0</span>
+                </div>
+                <div id="savedFilesList" style="background:var(--dark-2);border-radius:12px;overflow:hidden;margin-bottom:16px;max-height:300px;overflow-y:auto">
+                    <div style="text-align:center;color:var(--text-muted);padding:16px;font-size:13px">Cargando archivos...</div>
+                </div>
 
                 <div class="section-title" style="margin-top:24px;font-size:14px">Registro de actividad</div>
                 <div class="sync-log" id="syncLog">

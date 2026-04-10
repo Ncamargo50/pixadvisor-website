@@ -246,6 +246,8 @@ class BarcodeScanner {
 
       input.onchange = e => {
         const file = e.target.files[0];
+        // Cleanup: remove orphan input from DOM
+        if (input.parentNode) input.parentNode.removeChild(input);
         if (!file) { reject('No file'); return; }
 
         const reader = new FileReader();
@@ -265,11 +267,16 @@ class BarcodeScanner {
             canvas.getContext('2d').drawImage(img, 0, 0, w, h);
             resolve(canvas.toDataURL('image/jpeg', 0.7));
           };
+          img.onerror = () => reject('Error loading image');
           img.src = ev.target.result;
         };
+        reader.onerror = () => reject('Error reading file');
         reader.readAsDataURL(file);
       };
 
+      // Append briefly to DOM (required by some Android WebViews) then click
+      input.style.display = 'none';
+      document.body.appendChild(input);
       input.click();
     });
   }

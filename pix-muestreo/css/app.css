@@ -421,6 +421,21 @@ html, body {
   50% { opacity: 0.3; }
 }
 
+/* GNSS Satellite Row (Level 2 native bridge) */
+.gnss-sat-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--teal);
+  letter-spacing: 0.3px;
+}
+.gnss-sat-text {
+  font-weight: 600;
+  font-family: 'SF Mono', 'Consolas', monospace;
+}
+
 .map-fab {
   position: absolute;
   right: 16px;

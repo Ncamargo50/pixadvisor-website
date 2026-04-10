@@ -101,12 +101,17 @@ class PixMap {
         this.liveTrackLine.addLatLng([lat, lng]);
       } else {
         const last = pts[pts.length - 1];
+        // Haversine-approximate distance using cos(lat) correction
+        const cosLat = Math.cos(lat * Math.PI / 180);
         const dx = (lat - last.lat) * 111320;
-        const dy = (lng - last.lng) * 111320 * Math.cos(lat * Math.PI / 180);
+        const dy = (lng - last.lng) * 111320 * cosLat;
         if (Math.sqrt(dx * dx + dy * dy) >= 3) {
           this.liveTrackLine.addLatLng([lat, lng]);
-          // Simplify every 500 points to prevent memory bloat on long sessions
-          if (pts.length > 500 && pts.length % 100 === 0) {
+          // Aggressive decimation: cap at 2000 points max (8h session safety)
+          if (pts.length > 2000) {
+            const simplified = pts.filter((p, i) => i === 0 || i === pts.length - 1 || i % 4 === 0);
+            this.liveTrackLine.setLatLngs(simplified);
+          } else if (pts.length > 500 && pts.length % 100 === 0) {
             const simplified = pts.filter((p, i) => i === 0 || i === pts.length - 1 || i % 3 === 0);
             this.liveTrackLine.setLatLngs(simplified);
           }

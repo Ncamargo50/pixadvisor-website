@@ -75,7 +75,7 @@ class PixOrders {
           </div>
           <span class="card-badge ${statusClasses[order.status] || ''}">${statusLabels[order.status] || order.status}</span>
         </div>
-        ${order.notes ? `<div style="font-size:12px;color:var(--text-muted);margin-top:8px;line-height:1.4">${order.notes.substring(0, 80)}${order.notes.length > 80 ? '...' : ''}</div>` : ''}
+        ${order.notes ? `<div style="font-size:12px;color:var(--text-muted);margin-top:8px;line-height:1.4">${escH((order.notes || '').substring(0, 80))}${(order.notes || '').length > 80 ? '...' : ''}</div>` : ''}
       </div>`;
   }
 
@@ -242,7 +242,7 @@ class PixOrders {
           <div class="order-detail-item"><span class="order-detail-label">Vence</span><span>${dueDate}</span></div>
           <div class="order-detail-item"><span class="order-detail-label">Creada</span><span>${createdDate}</span></div>
         </div>
-        ${order.notes ? `<div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06);font-size:13px;color:var(--text-muted);line-height:1.5">${order.notes}</div>` : ''}
+        ${order.notes ? `<div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06);font-size:13px;color:var(--text-muted);line-height:1.5">${escH(order.notes)}</div>` : ''}
       </div>
       ${totalPoints > 0 ? `
       <div class="card" style="margin-bottom:12px">
