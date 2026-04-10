@@ -1124,13 +1124,19 @@ class PixApp {
     // Auto-update cloud order status: asignada → en_progreso on first sample
     this._autoUpdateOrderStatus(this.currentField.id, 'en_progreso').catch(() => {});
 
-    // Check if current zone is complete → show QR modal
+    // Check if current zone is complete → show QR modal only on principal point
     const currentZone = this._detectZone(this.currentPoint);
     const zoneComplete = await this._checkZoneComplete(currentZone);
+    const isPrincipal = this._detectPointType(this.currentPoint) === 'principal';
 
     if (zoneComplete) {
-      // Zone done! Show QR IBRA modal
-      this._openZoneCompleteModal(currentZone);
+      if (isPrincipal) {
+        // Principal point completed the zone → show QR IBRA modal
+        this._openZoneCompleteModal(currentZone);
+      } else {
+        // Zone complete on sub-sample → skip QR, advance directly
+        this.nextZone();
+      }
     } else {
       // Navigate to next point in same zone (principal first, then subs in order)
       this.nextPoint();
@@ -2370,16 +2376,18 @@ h1{font-size:16px;color:#333}h2{font-size:14px;color:#555;margin:16px 0 8px}
       if (pixCloud.isEnabled()) {
         const result = await pixCloud.syncAll();
         this.addSyncLog(`☁ Auto-sync: ${result.synced} campos`);
-        // Upload pending boundaries
-        await this._syncBoundariesToCloud();
+        // Upload pending boundaries + auxiliary syncs (each independently guarded)
+        try { await this._syncBoundariesToCloud(); } catch (e) { /* silent */ }
         try { await this._registerDevice(); } catch (e) { /* silent */ }
         try { await this._pullCloudOrders(); } catch (e) { /* silent */ }
         try { await this._syncCloudCredentials(); } catch (e) { /* silent */ }
       }
       // Sync to Drive if authenticated
       if (driveSync.isAuthenticated()) {
-        const result = await driveSync.syncAll();
-        this.addSyncLog(`📁 Auto-sync: ${result.synced} muestras a Drive`);
+        try {
+          const result = await driveSync.syncAll();
+          this.addSyncLog(`📁 Auto-sync: ${result.synced} muestras a Drive`);
+        } catch (e) { console.warn('[AutoSync] Drive:', e.message); }
       }
       await pixDB.setSetting('lastSyncTime', String(Date.now()));
       this.toast('Auto-sync completado', 'success');
@@ -2411,7 +2419,7 @@ h1{font-size:16px;color:#333}h2{font-size:14px;color:#555;margin:16px 0 8px}
             'apikey': settings.key, 'Authorization': 'Bearer ' + settings.key,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ boundary: field.boundary, area_ha: field.area || null, updated_at: new Date().toISOString() })
+          body: JSON.stringify({ boundary: field.boundary, area_ha: field.area || null })
         }).catch(() => {});
       }
     } catch (e) {
