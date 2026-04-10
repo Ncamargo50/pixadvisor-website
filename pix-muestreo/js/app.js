@@ -1819,10 +1819,10 @@ class PixApp {
       } catch (ce) {
         this.addSyncLog(`☁ Cloud error: ${ce.message}`);
       }
-      // Pull orders + register device + sync credentials (each independently)
+      // Sync credentials FIRST (corrects collectorName), THEN pull orders (matches by name)
+      try { await this._syncCloudCredentials(); } catch (e) { console.warn('[Sync] credentials:', e.message); }
       try { await this._pullCloudOrders(); } catch (e) { console.warn('[Sync] pullOrders:', e.message); }
       try { await this._registerDevice(); } catch (e) { console.warn('[Sync] registerDevice:', e.message); }
-      try { await this._syncCloudCredentials(); } catch (e) { console.warn('[Sync] credentials:', e.message); }
       try { await this._syncBoundariesToCloud(); } catch (e) { console.warn('[Sync] boundaries:', e.message); }
 
       // Mark saved files as synced after Cloud sync succeeds
@@ -1911,10 +1911,10 @@ class PixApp {
         this.toast('No hay campos con muestras para sincronizar', 'info');
       }
 
-      // Pull orders + register device + sync credentials (each independently)
+      // Sync credentials FIRST (corrects collectorName), THEN pull orders (matches by name)
+      try { await this._syncCloudCredentials(); } catch (e) { console.warn('[Sync] credentials:', e.message); }
       try { await this._pullCloudOrders(); } catch (e) { console.warn('[Sync] pullOrders:', e.message); }
       try { await this._registerDevice(); } catch (e) { console.warn('[Sync] registerDevice:', e.message); }
-      try { await this._syncCloudCredentials(); } catch (e) { console.warn('[Sync] credentials:', e.message); }
       try { await this._syncBoundariesToCloud(); } catch (e) { console.warn('[Sync] boundaries:', e.message); }
       await pixDB.setSetting('lastSyncTime', String(Date.now()));
     } catch (e) {
@@ -2634,8 +2634,8 @@ h1{font-size:16px;color:#333}h2{font-size:14px;color:#555;margin:16px 0 8px}
         // Upload pending boundaries + auxiliary syncs (each independently guarded)
         try { await this._syncBoundariesToCloud(); } catch (e) { /* silent */ }
         try { await this._registerDevice(); } catch (e) { /* silent */ }
-        try { await this._pullCloudOrders(); } catch (e) { /* silent */ }
         try { await this._syncCloudCredentials(); } catch (e) { /* silent */ }
+        try { await this._pullCloudOrders(); } catch (e) { /* silent */ }
       }
       // Sync to Drive if authenticated
       if (driveSync.isAuthenticated()) {
@@ -3971,6 +3971,8 @@ window.addEventListener('appinstalled', () => {
 
 // Init app
 const app = new PixApp();
+let _preLoginSyncPromise = null; // Resolves when cloud credential sync finishes (or fails)
+
 document.addEventListener('DOMContentLoaded', async () => {
   try {
     // Init DB first (needed for auth)
@@ -3980,6 +3982,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Try restore session
     const restored = await pixAuth.init();
     if (!restored) {
+      // ── PRE-LOGIN: sync cloud credentials so dashboard-created technicians can login ──
+      // Runs in background while login screen is visible — non-blocking
+      _preLoginSyncPromise = _preLoginCloudSync();
       document.getElementById('loginOverlay').style.display = 'flex';
       return;
     }
@@ -4063,6 +4068,64 @@ async function pixInstall() {
   }
 }
 
+// ── PRE-LOGIN: Sync cloud credentials before user attempts login ──
+// This bridges technicians created in the web Dashboard → local IndexedDB
+// so they can log in on the APK immediately (no need to sync manually first)
+async function _preLoginCloudSync() {
+  try {
+    await pixCloud.init();
+    if (!pixCloud.isEnabled()) return;
+
+    // Race against 8s timeout — don't block login screen forever on bad network
+    const techs = await Promise.race([
+      pixCloud.pullTechnicians(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000))
+    ]);
+
+    if (!techs || techs.length === 0) return;
+
+    // Bridge cloud technicians → local IndexedDB users
+    let synced = 0;
+    for (const t of techs) {
+      const email = (t.email || t.username || '').toLowerCase().trim();
+      if (!email || !t.password_hash) continue;
+      try {
+        const existing = await pixDB.getByIndex('users', 'email', email);
+        if (!existing) {
+          await pixDB.putUser({
+            id: 'cloud-' + (t.id || Date.now() + '-' + Math.random().toString(36).substr(2, 6)),
+            name: t.full_name || t.username || email,
+            email: email,
+            passwordHash: t.password_hash,
+            role: t.role || 'tecnico',
+            phone: t.phone || '',
+            active: true,
+            createdAt: new Date().toISOString(),
+            _syncedFrom: 'cloud'
+          });
+          synced++;
+        } else {
+          // Update password/role/name if cloud is newer
+          let changed = false;
+          if (t.password_hash !== existing.passwordHash) { existing.passwordHash = t.password_hash; changed = true; }
+          if (t.full_name && t.full_name !== existing.name) { existing.name = t.full_name; changed = true; }
+          if (t.role && t.role !== existing.role) { existing.role = t.role; changed = true; }
+          if (changed) {
+            existing._syncedFrom = 'cloud';
+            existing.updatedAt = new Date().toISOString();
+            await pixDB.putUser(existing);
+            synced++;
+          }
+        }
+      } catch (e) { /* skip individual user errors */ }
+    }
+    if (synced > 0) console.log(`[Boot] Pre-login: synced ${synced} technicians from Cloud`);
+  } catch (e) {
+    // Non-fatal — offline or timeout, user still logs in with local credentials
+    console.warn('[Boot] Pre-login cloud sync skipped:', e.message);
+  }
+}
+
 // Login handler (multi-user)
 async function pixAuthLogin() {
   const email = document.getElementById('loginEmail').value;
@@ -4080,6 +4143,15 @@ async function pixAuthLogin() {
   if (loginBtn) {
     loginBtn.disabled = true;
     loginBtn.textContent = 'Verificando...';
+  }
+
+  // Wait for pre-login cloud sync if still running (max 8s, usually <2s)
+  if (_preLoginSyncPromise) {
+    try {
+      if (loginBtn) loginBtn.textContent = 'Sincronizando...';
+      await _preLoginSyncPromise;
+    } catch (e) { /* timeout ok */ }
+    _preLoginSyncPromise = null;
   }
 
   try {

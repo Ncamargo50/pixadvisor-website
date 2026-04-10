@@ -4,7 +4,7 @@
 
 // App version constant — used by registerDevice() for fleet tracking
 // IMPORTANT: CACHE_NAME lives in SW scope and is NOT accessible from main page
-const APP_VERSION = 'pix-muestreo-v41c';
+const APP_VERSION = 'pix-muestreo-v42';
 
 // Default Supabase credentials (PIX Muestreo project)
 const _CLOUD_DEFAULT_URL = 'https://fnoocboaupjmxpkhdnij.supabase.co';

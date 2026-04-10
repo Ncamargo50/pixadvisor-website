@@ -1111,10 +1111,11 @@ async function submitOrder() {
       await supaPost('/service_orders?id=eq.' + editId, body, 'PATCH');
       toast('Orden actualizada');
     } else {
-      body.status = 'pendiente';
+      // If a technician is assigned at creation, mark as 'asignada' (not 'pendiente')
+      body.status = techId ? 'asignada' : 'pendiente';
       body.created_at = new Date().toISOString();
       await supaPost('/service_orders', body);
-      toast('Orden creada');
+      toast(techId ? 'Orden creada y asignada' : 'Orden creada');
     }
     toggleOrderForm(false);
     loadOrders();
