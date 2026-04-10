@@ -640,7 +640,7 @@ async function supaPost(path, body, method = 'POST') {
 async function loadData() {
   try {
     const [fields, activities, devices] = await Promise.all([
-      supaFetch('/field_syncs?select=*&total_points=gte.0&order=synced_at.desc'),
+      supaFetch('/field_syncs?select=*&client=neq._ELIMINADO_&order=synced_at.desc'),
       supaFetch('/activity_log?select=*&order=created_at.desc&limit=30'),
       supaFetch('/devices?select=*&order=last_seen.desc')
     ]);
@@ -730,7 +730,7 @@ function renderFields(fields) {
 async function deleteField(id, name) {
   if (!confirm('Eliminar campo "' + name + '" del dashboard?')) return;
   try {
-    await supaPost('/field_syncs?id=eq.' + id, { total_points: -1 }, 'PATCH');
+    await supaPost('/field_syncs?id=eq.' + id, { client: '_ELIMINADO_' }, 'PATCH');
     toast('Campo "' + name + '" eliminado');
     loadData();
   } catch (e) {
@@ -1613,7 +1613,7 @@ async function exportReports() {
 
   try {
     const rootDir = await window.showDirectoryPicker({ mode: 'readwrite', startIn: 'desktop' });
-    const fields = await supaFetch('/field_syncs?select=*&total_points=gte.0&order=synced_at.desc');
+    const fields = await supaFetch('/field_syncs?select=*&client=neq._ELIMINADO_&order=synced_at.desc');
     const activities = await supaFetch('/activity_log?select=*&order=created_at.desc&limit=100');
 
     if (!fields || fields.length === 0) {
