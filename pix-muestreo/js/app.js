@@ -247,7 +247,7 @@ class PixApp {
       }, 100);
     }
 
-    if (viewName === 'sync') this.updateSyncStats();
+    if (viewName === 'sync') { this.updateSyncStats(); this.loadSavedFiles(); }
     if (viewName === 'projects') this.loadProjects();
     if (viewName === 'settings') { this.updateTileCacheStats(); this.loadIbraSettings(); this._updateStorageQuota(); this._loadCloudSettings(); this._updateCloudStatus(); }
     if (viewName === 'orders') pixOrders.loadOrders();
@@ -1770,6 +1770,15 @@ class PixApp {
       try { await this._registerDevice(); } catch (e) { console.warn('[Sync] registerDevice:', e.message); }
       try { await this._syncCloudCredentials(); } catch (e) { console.warn('[Sync] credentials:', e.message); }
       try { await this._syncBoundariesToCloud(); } catch (e) { console.warn('[Sync] boundaries:', e.message); }
+
+      // Mark saved files as synced after Cloud sync succeeds
+      try {
+        const unsyncedFiles = await pixDB.getUnsyncedFiles();
+        for (const f of unsyncedFiles) {
+          await pixDB.markFileSynced(f.id);
+        }
+        if (unsyncedFiles.length > 0) this.addSyncLog(`📁 ${unsyncedFiles.length} archivos marcados como sincronizados`);
+      } catch (e) { console.warn('[Sync] markFiles:', e.message); }
     }
 
     // 2) Drive sync — only if authenticated (requires Google OAuth)
@@ -2183,22 +2192,26 @@ ${detailHTML}
 
 </body></html>`;
 
+    const reportFileName = `reporte_ibra_${project.name.replace(/\s/g, '_')}_${today}.html`;
+
+    // Backup report in IndexedDB (persists inside the APK)
+    try {
+      await pixDB.saveFile({
+        fieldId: fields[0]?.id || null, projectName: project.name, fieldName: fields.map(f => f.name).join(', '),
+        fileName: reportFileName, type: 'ibra_report', mimeType: 'text/html', content: html
+      });
+    } catch (e) { console.warn('[Report] IndexedDB save error:', e.message); }
+
     // Open in new window for print
     const win = window.open('', '_blank', 'width=800,height=1000');
     if (win) {
       win.document.write(html);
       win.document.close();
-      this.toast('Reporte generado — usá Imprimir para PDF', 'success');
+      this.toast('Reporte generado + respaldado', 'success');
     } else {
       // Fallback: download as HTML
-      const blob = new Blob([html], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `reporte_ibra_${project.name.replace(/\s/g, '_')}_${today}.html`;
-      a.click();
-      URL.revokeObjectURL(url);
-      this.toast('Reporte descargado como HTML', 'success');
+      this._downloadBlob(html, reportFileName, 'text/html');
+      this.toast('Reporte descargado + respaldado', 'success');
     }
   }
 
@@ -2213,6 +2226,79 @@ ${detailHTML}
   }
 
   // ═══════════════════════════════════════════════
+  // MIS ARCHIVOS — Offline file backup management
+  // ═══════════════════════════════════════════════
+
+  async loadSavedFiles() {
+    const container = document.getElementById('savedFilesList');
+    if (!container) return;
+
+    try {
+      const files = await pixDB.getFiles();
+      if (!files || files.length === 0) {
+        container.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:16px;font-size:13px">No hay archivos guardados</div>';
+        return;
+      }
+
+      const typeIcons = { ibra_report: '📄', track: '🗺', boundary: '📐', backup: '💾' };
+      const typeLabels = { ibra_report: 'Reporte IBRA', track: 'Trayecto GPS', boundary: 'Perimetro', backup: 'Backup' };
+
+      container.innerHTML = files.map(f => {
+        const icon = typeIcons[f.type] || '📁';
+        const label = typeLabels[f.type] || f.type;
+        const size = f.sizeBytes ? (f.sizeBytes > 1024 ? Math.round(f.sizeBytes / 1024) + ' KB' : f.sizeBytes + ' B') : '—';
+        const date = f.createdAt ? new Date(f.createdAt).toLocaleString('es', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+        const syncBadge = f.synced ? '<span style="color:#22c55e;font-size:10px">● Sync</span>' : '<span style="color:#f59e0b;font-size:10px">● Pendiente</span>';
+
+        return `<div class="saved-file-item" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.05)">
+          <span style="font-size:20px">${icon}</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escH(f.fileName)}</div>
+            <div style="font-size:11px;color:var(--text-muted)">${label} · ${escH(f.fieldName || '')} · ${size} · ${date} ${syncBadge}</div>
+          </div>
+          <button class="action-btn secondary" style="padding:6px 10px;font-size:11px;border-radius:8px;white-space:nowrap" onclick="app.redownloadFile(${f.id})">Descargar</button>
+          <button style="background:none;border:none;color:var(--text-muted);font-size:16px;cursor:pointer;padding:4px" onclick="app.deleteSavedFile(${f.id})">✕</button>
+        </div>`;
+      }).join('');
+    } catch (e) {
+      container.innerHTML = `<div style="color:var(--text-muted);padding:12px;font-size:12px">Error: ${escH(e.message)}</div>`;
+    }
+
+    // Update file count badge
+    const badge = document.getElementById('savedFilesCount');
+    if (badge) {
+      const files = await pixDB.getFiles();
+      badge.textContent = files.length;
+    }
+  }
+
+  async redownloadFile(fileId) {
+    try {
+      const file = await pixDB.get('files', fileId);
+      if (!file || !file.content) {
+        this.toast('Archivo sin contenido', 'error');
+        return;
+      }
+      this._downloadBlob(file.content, file.fileName, file.mimeType || 'text/html');
+      this.toast(`Descargado: ${file.fileName}`, 'success');
+    } catch (e) {
+      this.toast('Error: ' + e.message, 'error');
+    }
+  }
+
+  async deleteSavedFile(fileId) {
+    const ok = await pixModal.confirm('Eliminar archivo', 'Se eliminará el respaldo interno. El archivo descargado en Downloads no se afecta.', { confirmText: 'Eliminar' });
+    if (!ok) return;
+    try {
+      await pixDB.delete('files', fileId);
+      this.toast('Archivo eliminado', 'success');
+      this.loadSavedFiles();
+    } catch (e) {
+      this.toast('Error: ' + e.message, 'error');
+    }
+  }
+
+  // ═══════════════════════════════════════════════
   // AUTO-SAVE REPORTS OFFLINE — on field completion
   // ═══════════════════════════════════════════════
 
@@ -2223,68 +2309,83 @@ ${detailHTML}
 
     const fieldName = (field.name || 'campo').replace(/[^a-zA-Z0-9_-]/g, '_');
     const today = new Date().toISOString().slice(0, 10);
+    let filesSaved = 0;
 
-    // 1. Auto-generate IBRA report HTML and save to Downloads
+    // 1. Auto-generate IBRA report HTML → Download + IndexedDB backup
     try {
       const ibra = await this.loadIbraSettings();
       const fields = [field];
       const allSamples = await pixDB.getAll('samples');
       const collector = await pixDB.getSetting('collectorName') || '';
       const html = this._buildIbraReportHTML(project, fields, allSamples, ibra, collector, today);
+      const fileName = `IBRA_${fieldName}_${today}.html`;
 
-      const blob = new Blob([html], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `IBRA_${fieldName}_${today}.html`;
-      a.click();
-      URL.revokeObjectURL(url);
-      this.addSyncLog(`📄 Informe IBRA guardado: ${a.download}`);
+      // Download to phone
+      this._downloadBlob(html, fileName, 'text/html');
+
+      // Backup in IndexedDB
+      await pixDB.saveFile({
+        fieldId: field.id, projectName: project.name, fieldName: field.name,
+        fileName, type: 'ibra_report', mimeType: 'text/html', content: html
+      });
+      filesSaved++;
+      this.addSyncLog(`📄 IBRA guardado: ${fileName}`);
     } catch (e) {
       console.warn('[AutoSave] IBRA report error:', e.message);
     }
 
-    // 2. Auto-save track report (recorridos del dia)
+    // 2. Auto-save track report → Download + IndexedDB backup
     try {
       const tracks = await pixDB.getAllByIndex('tracks', 'fieldId', field.id);
       if (tracks.length > 0) {
         const trackGeoJSON = this._buildTrackGeoJSON(tracks, field, project);
-        const tBlob = new Blob([JSON.stringify(trackGeoJSON, null, 2)], { type: 'application/json' });
-        const tUrl = URL.createObjectURL(tBlob);
-        const tA = document.createElement('a');
-        tA.href = tUrl;
-        tA.download = `trayecto_${fieldName}_${today}.geojson`;
-        tA.click();
-        URL.revokeObjectURL(tUrl);
-        this.addSyncLog(`🗺 Trayecto guardado: ${tA.download}`);
+        const content = JSON.stringify(trackGeoJSON, null, 2);
+        const fileName = `trayecto_${fieldName}_${today}.geojson`;
+
+        this._downloadBlob(content, fileName, 'application/json');
+
+        await pixDB.saveFile({
+          fieldId: field.id, projectName: project.name, fieldName: field.name,
+          fileName, type: 'track', mimeType: 'application/geo+json', content
+        });
+        filesSaved++;
+        this.addSyncLog(`🗺 Trayecto guardado: ${fileName}`);
       }
     } catch (e) {
       console.warn('[AutoSave] Track report error:', e.message);
     }
 
-    // 3. Auto-save field boundary as GeoJSON
+    // 3. Auto-save field boundary as GeoJSON → Download + IndexedDB backup
     if (field.boundary) {
       try {
-        const bBlob = new Blob([JSON.stringify(field.boundary, null, 2)], { type: 'application/json' });
-        const bUrl = URL.createObjectURL(bBlob);
-        const bA = document.createElement('a');
-        bA.href = bUrl;
-        bA.download = `perimetro_${fieldName}_${today}.geojson`;
-        bA.click();
-        URL.revokeObjectURL(bUrl);
-        this.addSyncLog(`📐 Perimetro guardado: ${bA.download}`);
+        const content = JSON.stringify(field.boundary, null, 2);
+        const fileName = `perimetro_${fieldName}_${today}.geojson`;
+
+        this._downloadBlob(content, fileName, 'application/json');
+
+        await pixDB.saveFile({
+          fieldId: field.id, projectName: project.name, fieldName: field.name,
+          fileName, type: 'boundary', mimeType: 'application/geo+json', content
+        });
+        filesSaved++;
+        this.addSyncLog(`📐 Perimetro guardado: ${fileName}`);
       } catch (e) {
         console.warn('[AutoSave] Boundary save error:', e.message);
       }
     }
 
-    // Store the generated reports in IndexedDB for later cloud sync
-    await pixDB.setSetting(`report_pending_${field.id}`, JSON.stringify({
-      fieldId: field.id, fieldName: field.name, projectName: project.name,
-      generatedAt: new Date().toISOString(), synced: false
-    }));
+    this.toast(`${filesSaved} archivos guardados (Downloads + respaldo interno)`, 'success');
+  }
 
-    this.toast('Reportes guardados en Downloads', 'success');
+  // Helper: download a string as file via Blob
+  _downloadBlob(content, fileName, mimeType) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   // Build track GeoJSON with daily trajectory

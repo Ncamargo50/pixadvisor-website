@@ -1,6 +1,6 @@
 // IndexedDB - Offline database for PIX Muestreo
 const DB_NAME = 'PixMuestreo';
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 
 class PixDB {
   constructor() {
@@ -95,6 +95,17 @@ class PixDB {
           so.createIndex('status', 'status', { unique: false });
           so.createIndex('createdBy', 'createdBy', { unique: false });
           so.createIndex('priority', 'priority', { unique: false });
+        }
+
+        // === V5 NEW STORE: Offline file backup ===
+        // Stores generated reports (HTML), tracks (GeoJSON), boundaries (GeoJSON)
+        // so they persist inside the APK and can be re-downloaded or re-synced
+        if (!db.objectStoreNames.contains('files')) {
+          const fl = db.createObjectStore('files', { keyPath: 'id', autoIncrement: true });
+          fl.createIndex('fieldId', 'fieldId', { unique: false });
+          fl.createIndex('type', 'type', { unique: false });          // 'ibra_report', 'track', 'boundary', 'backup'
+          fl.createIndex('synced', 'synced', { unique: false });      // 0 = pending, 1 = synced
+          fl.createIndex('createdAt', 'createdAt', { unique: false });
         }
       };
       req.onsuccess = e => { this.db = e.target.result; resolve(this.db); };
@@ -299,6 +310,46 @@ class PixDB {
       tx.oncomplete = () => resolve(items.length);
       tx.onerror = () => reject(tx.error);
     });
+  }
+
+  // ═══════════════════════════════════════════════
+  // FILE BACKUP — Save/retrieve generated files
+  // ═══════════════════════════════════════════════
+
+  // Save a file to IndexedDB for offline backup
+  async saveFile(fileData) {
+    // fileData: { fieldId, projectName, fieldName, fileName, type, mimeType, content, synced: 0 }
+    return this.add('files', {
+      ...fileData,
+      synced: fileData.synced || 0,
+      sizeBytes: fileData.content ? fileData.content.length : 0
+    });
+  }
+
+  // Get all saved files (newest first)
+  async getFiles() {
+    const files = await this.getAll('files');
+    return files.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  }
+
+  // Get unsynced files
+  async getUnsyncedFiles() {
+    return this.getAllByIndex('files', 'synced', 0);
+  }
+
+  // Mark file as synced
+  async markFileSynced(fileId) {
+    const file = await this.get('files', fileId);
+    if (file) {
+      file.synced = 1;
+      file.syncedAt = new Date().toISOString();
+      await this.put('files', file);
+    }
+  }
+
+  // Get files for a specific field
+  async getFilesByField(fieldId) {
+    return this.getAllByIndex('files', 'fieldId', fieldId);
   }
 
   // Check storage quota — returns { usage, quota, percentUsed }
