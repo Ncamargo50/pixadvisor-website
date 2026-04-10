@@ -640,7 +640,7 @@ async function supaPost(path, body, method = 'POST') {
 async function loadData() {
   try {
     const [fields, activities, devices] = await Promise.all([
-      supaFetch('/field_syncs?select=*&order=synced_at.desc'),
+      supaFetch('/field_syncs?select=*&total_points=gte.0&order=synced_at.desc'),
       supaFetch('/activity_log?select=*&order=created_at.desc&limit=30'),
       supaFetch('/devices?select=*&order=last_seen.desc')
     ]);
@@ -728,22 +728,9 @@ function renderFields(fields) {
 }
 
 async function deleteField(id, name) {
-  if (!confirm('Eliminar campo "' + name + '" del dashboard?\nSe borraran todos los datos sincronizados de este campo.')) return;
+  if (!confirm('Eliminar campo "' + name + '" del dashboard?')) return;
   try {
-    const resp = await fetch(SUPA_URL + '/rest/v1/field_syncs?id=eq.' + id, {
-      method: 'DELETE',
-      headers: {
-        'apikey': SUPA_KEY,
-        'Authorization': 'Bearer ' + SUPA_KEY,
-        'Prefer': 'return=representation'
-      }
-    });
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    const deleted = await resp.json();
-    if (!deleted || deleted.length === 0) {
-      toast('No se pudo eliminar — ejecutar SQL de permisos DELETE en Supabase', 'err');
-      return;
-    }
+    await supaPost('/field_syncs?id=eq.' + id, { total_points: -1 }, 'PATCH');
     toast('Campo "' + name + '" eliminado');
     loadData();
   } catch (e) {
@@ -1139,7 +1126,7 @@ async function submitOrder() {
 
 async function loadOrders() {
   try {
-    const orders = await supaFetch('/service_orders?select=*&order=created_at.desc');
+    const orders = await supaFetch('/service_orders?select=*&status=neq.cancelada&order=created_at.desc');
     renderOrders(orders);
   } catch (e) {
     console.error('[Orders] Load error:', e);
@@ -1163,9 +1150,9 @@ async function updateOrderStatus(id, status) {
 }
 
 async function deleteOrder(id, title) {
-  if (!confirm('Eliminar la orden "' + title + '"?\n\nEsta accion no se puede deshacer.')) return;
+  if (!confirm('Eliminar la orden "' + title + '"?')) return;
   try {
-    await supaDelete('/service_orders?id=eq.' + id);
+    await supaPost('/service_orders?id=eq.' + id, { status: 'cancelada', updated_at: new Date().toISOString() }, 'PATCH');
     toast('Orden eliminada: ' + title);
     loadOrders();
   } catch (e) {
@@ -1365,7 +1352,7 @@ async function submitTechnician() {
 async function loadTechnicians() {
   try {
     const [techs, devices] = await Promise.all([
-      supaFetch('/technicians?select=*&order=created_at.desc'),
+      supaFetch('/technicians?select=*&active=eq.true&order=created_at.desc'),
       supaFetch('/devices?select=*&order=last_seen.desc')
     ]);
     _devicesCache = devices || [];
@@ -1418,22 +1405,9 @@ async function resetTechPassword(id, name) {
 }
 
 async function deleteTechnician(id, name) {
-  if (!confirm('Eliminar tecnico "' + name + '"?\nEsta accion no se puede deshacer.')) return;
+  if (!confirm('Eliminar tecnico "' + name + '"?')) return;
   try {
-    const resp = await fetch(SUPA_URL + '/rest/v1/technicians?id=eq.' + id, {
-      method: 'DELETE',
-      headers: {
-        'apikey': SUPA_KEY,
-        'Authorization': 'Bearer ' + SUPA_KEY,
-        'Prefer': 'return=representation'
-      }
-    });
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    const deleted = await resp.json();
-    if (!deleted || deleted.length === 0) {
-      toast('No se pudo eliminar — verificar permisos RLS en Supabase', 'err');
-      return;
-    }
+    await supaPost('/technicians?id=eq.' + id, { active: false, updated_at: new Date().toISOString() }, 'PATCH');
     toast('Tecnico "' + name + '" eliminado');
     loadTechnicians();
   } catch (e) {
@@ -1639,7 +1613,7 @@ async function exportReports() {
 
   try {
     const rootDir = await window.showDirectoryPicker({ mode: 'readwrite', startIn: 'desktop' });
-    const fields = await supaFetch('/field_syncs?select=*&order=synced_at.desc');
+    const fields = await supaFetch('/field_syncs?select=*&total_points=gte.0&order=synced_at.desc');
     const activities = await supaFetch('/activity_log?select=*&order=created_at.desc&limit=100');
 
     if (!fields || fields.length === 0) {
