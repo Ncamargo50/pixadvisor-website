@@ -76,6 +76,7 @@
 <div class="header">
   <img src="icons/icon-192.png" alt="PIX">
   <h1>Panel de Supervision</h1>
+  <button id="exportBtn" onclick="exportReports()" style="padding:8px 16px;border:1px solid rgba(127,214,51,0.3);background:rgba(127,214,51,0.1);color:var(--green);border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap;display:none" title="Exportar reportes a carpeta local">📁 Exportar Reportes</button>
   <div class="status" id="connStatus">
     <span class="dot dot-off" id="connDot"></span>
     <span id="connText">Desconectado</span>
@@ -426,6 +427,388 @@ function timeAgo(date) {
 function setConnected(ok) {
   document.getElementById('connDot').className = 'dot ' + (ok ? 'dot-on' : 'dot-off');
   document.getElementById('connText').textContent = ok ? 'Conectado' : 'Sin conexion';
+  // Show export button when connected
+  const eb = document.getElementById('exportBtn');
+  if (eb) eb.style.display = ok ? '' : 'none';
+}
+
+// ═══════════════════════════════════════════════════
+// EXPORT REPORTS TO LOCAL FOLDER
+// File System Access API (Chrome 86+)
+// ═══════════════════════════════════════════════════
+
+const IBRA_CADASTRO = {
+  solicitante: 'PIXADVISOR AGRICULTURA DE PRECISÃO',
+  responsavel: 'NILTON LUIZ CAMARGO',
+  telefone: '43 999819554',
+  endereco: 'RUA ELIEZER MARTINS BANDEIRA 44',
+  cep: '86200536',
+  bairro: 'CINQUENTENÁRIO',
+  municipio: 'IBIPORÃ',
+  uf: 'PR',
+  cpfCnpj: '41.196.481/0001-30',
+  emailLaudos: 'nilton.camargo@pixadvisor.network, gis.agronomico@gmail.com'
+};
+
+function safeName(name) {
+  return (name || 'Sin-nombre').replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, ' ').trim().substring(0, 80);
+}
+
+async function writeFile(dir, filename, content) {
+  const fh = await dir.getFileHandle(filename, { create: true });
+  const w = await fh.createWritable();
+  await w.write(content);
+  await w.close();
+}
+
+async function exportReports() {
+  if (!window.showDirectoryPicker) {
+    alert('Tu navegador no soporta File System Access API. Usa Google Chrome actualizado.');
+    return;
+  }
+
+  const btn = document.getElementById('exportBtn');
+  const origText = btn.textContent;
+  btn.textContent = '⏳ Selecciona carpeta...';
+  btn.disabled = true;
+
+  try {
+    const rootDir = await window.showDirectoryPicker({ mode: 'readwrite', startIn: 'desktop' });
+    const fields = await supaFetch('/field_syncs?select=*&order=synced_at.desc');
+    const activities = await supaFetch('/activity_log?select=*&order=created_at.desc&limit=100');
+
+    if (!fields || fields.length === 0) {
+      alert('No hay datos de campo para exportar.');
+      btn.textContent = origText; btn.disabled = false;
+      return;
+    }
+
+    // Create base folder: PIX-Reportes
+    const baseDir = await rootDir.getDirectoryHandle('PIX-Reportes', { create: true });
+    const today = new Date().toISOString().slice(0, 10);
+    let exported = 0;
+
+    for (const field of fields) {
+      const projName = safeName((field.project || 'Sin-Proyecto') + ' - ' + (field.client || 'Sin-Cliente'));
+      const projDir = await baseDir.getDirectoryHandle(projName, { create: true });
+
+      const fName = safeName(field.field_name || 'Sin-Campo');
+      const fieldDir = await projDir.getDirectoryHandle(fName, { create: true });
+
+      // 1. Ficha IBRA (HTML print-ready)
+      await writeFile(fieldDir, `Ficha_IBRA_${fName}_${today}.html`, genIBRA(field));
+
+      // 2. GPS Points (GeoJSON)
+      await writeFile(fieldDir, `Puntos_GPS_${fName}.geojson`, genGeoJSON(field));
+
+      // 3. Resumen de Campo (HTML)
+      await writeFile(fieldDir, `Resumen_${fName}_${today}.html`, genSummary(field));
+
+      // 4. Datos crudos (JSON)
+      await writeFile(fieldDir, `Datos_${fName}.json`, JSON.stringify(field, null, 2));
+
+      // 5. Puntos CSV
+      await writeFile(fieldDir, `Puntos_${fName}.csv`, genCSV(field));
+
+      exported++;
+      btn.textContent = `⏳ ${exported}/${fields.length}...`;
+    }
+
+    // Global activity log
+    await writeFile(baseDir, `Actividad_${today}.json`, JSON.stringify(activities, null, 2));
+
+    // Export manifest
+    const manifest = {
+      exportDate: new Date().toISOString(),
+      exportedBy: 'PIX Muestreo Dashboard',
+      totalFields: fields.length,
+      totalSamples: fields.reduce((s, f) => s + (f.samples?.length || 0), 0),
+      fields: fields.map(f => ({
+        project: f.project, field: f.field_name, client: f.client,
+        samples: f.samples?.length || 0, progress: f.progress_pct + '%'
+      }))
+    };
+    await writeFile(baseDir, `_manifiesto_${today}.json`, JSON.stringify(manifest, null, 2));
+
+    btn.textContent = `✅ ${exported} campos exportados!`;
+    setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 4000);
+
+  } catch (e) {
+    if (e.name !== 'AbortError') {
+      console.error('[Export]', e);
+      alert('Error al exportar: ' + e.message);
+    }
+    btn.textContent = origText;
+    btn.disabled = false;
+  }
+}
+
+// ── IBRA REPORT (Ficha de Envio) ──
+function genIBRA(field) {
+  const d = field.synced_at ? new Date(field.synced_at).toISOString().slice(0,10) : new Date().toISOString().slice(0,10);
+  const samples = field.samples || [];
+
+  // Build zones
+  const zones = {};
+  for (const s of samples) {
+    const z = s.zona || 1;
+    if (!zones[z]) zones[z] = { zona: z, count: 0, barcode: '', clase: '', depth: s.depth || '0-20', points: [] };
+    zones[z].count++;
+    if (s.barcode) zones[z].barcode = s.barcode;
+    zones[z].points.push(s);
+  }
+  const zonesArr = Object.values(zones).sort((a, b) => a.zona - b.zona);
+  const totalPts = samples.length;
+  const totalZones = zonesArr.length;
+
+  let zonesTableRows = zonesArr.map(z =>
+    `<tr>
+      <td style="text-align:center">${z.zona}</td>
+      <td>${esc(z.barcode) || '—'}</td>
+      <td>${esc(z.clase) || '—'}</td>
+      <td style="text-align:center">${z.count}</td>
+      <td>${z.depth} cm</td>
+      <td>Quimico</td>
+    </tr>`
+  ).join('');
+
+  // Page 2: detail points per zone
+  let zoneDetails = zonesArr.map(z => {
+    let rows = z.points.map(p =>
+      `<tr>
+        <td>${esc(p.pointName || '?')}</td>
+        <td>${p.lat ? p.lat.toFixed(6) : '—'}</td>
+        <td>${p.lng ? p.lng.toFixed(6) : '—'}</td>
+        <td>${p.depth || '0-20'} cm</td>
+        <td>${p.collectedAt ? new Date(p.collectedAt).toLocaleTimeString('es', {hour:'2-digit',minute:'2-digit'}) : '—'}</td>
+      </tr>`
+    ).join('');
+    return `
+      <h3 style="margin:16px 0 6px;color:#0D9488">ZONA ${z.zona} ${z.clase ? '(' + esc(z.clase) + ')' : ''} — QR: ${esc(z.barcode) || 'Sin codigo'}</h3>
+      <table>
+        <thead><tr><th>Punto</th><th>Latitud</th><th>Longitud</th><th>Prof.</th><th>Hora</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  }).join('');
+
+  return `<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<title>Ficha IBRA — ${esc(field.field_name)}</title>
+<style>
+  @page { size: A4; margin: 15mm; }
+  @media print { .no-print { display: none !important; } .page-break { page-break-before: always; } }
+  body { font-family: Arial, sans-serif; font-size: 12px; color: #1a1a1a; max-width: 210mm; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 18px; text-align: center; margin: 0 0 4px; color: #0D9488; }
+  h2 { font-size: 14px; background: #f0f9f4; padding: 6px 10px; margin: 16px 0 8px; border-left: 3px solid #0D9488; }
+  h3 { font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+  th, td { border: 1px solid #ccc; padding: 5px 8px; font-size: 11px; }
+  th { background: #e8f5e9; font-weight: 600; text-align: left; }
+  .info-grid { display: grid; grid-template-columns: 140px 1fr; gap: 2px 8px; margin-bottom: 8px; }
+  .info-grid .label { font-weight: 600; color: #555; }
+  .btn-print { display: block; margin: 16px auto; padding: 10px 30px; background: #0D9488; color: #fff; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; }
+</style>
+</head>
+<body>
+  <button class="btn-print no-print" onclick="window.print()">Imprimir / Guardar PDF</button>
+
+  <h1>IBRA megalab — FICHA PARA ENVIO DE AMOSTRAS</h1>
+  <p style="text-align:center;color:#666;font-size:11px;margin-bottom:16px">Generado por PIX Muestreo — ${d}</p>
+
+  <h2>1. SOLICITANTE</h2>
+  <div class="info-grid">
+    <span class="label">Solicitante:</span><span>${IBRA_CADASTRO.solicitante}</span>
+    <span class="label">Responsavel:</span><span>${IBRA_CADASTRO.responsavel}</span>
+    <span class="label">Telefone:</span><span>${IBRA_CADASTRO.telefone}</span>
+    <span class="label">Endereco:</span><span>${IBRA_CADASTRO.endereco}</span>
+    <span class="label">CEP:</span><span>${IBRA_CADASTRO.cep}</span>
+    <span class="label">Bairro:</span><span>${IBRA_CADASTRO.bairro}</span>
+    <span class="label">Municipio:</span><span>${IBRA_CADASTRO.municipio} / ${IBRA_CADASTRO.uf}</span>
+    <span class="label">CPF/CNPJ:</span><span>${IBRA_CADASTRO.cpfCnpj}</span>
+    <span class="label">E-mail laudos:</span><span>${IBRA_CADASTRO.emailLaudos}</span>
+  </div>
+
+  <h2>2. CLIENTE / PROPRIEDADE</h2>
+  <div class="info-grid">
+    <span class="label">Cliente:</span><span>${esc(field.client) || '—'}</span>
+    <span class="label">Hacienda/Proyecto:</span><span>${esc(field.project)}</span>
+    <span class="label">Lote/Campo:</span><span>${esc(field.field_name)}</span>
+    <span class="label">Area:</span><span>${field.area_ha ? field.area_ha + ' ha' : '—'}</span>
+    <span class="label">Fecha colecta:</span><span>${d}</span>
+    <span class="label">Tecnico:</span><span>${esc(field.technician)}</span>
+  </div>
+
+  <h2>3. AMOSTRAS POR ZONA</h2>
+  <table>
+    <thead><tr><th>Zona</th><th>QR / Codigo IBRA</th><th>Clase</th><th>Puntos</th><th>Profundidad</th><th>Analisis</th></tr></thead>
+    <tbody>${zonesTableRows}</tbody>
+  </table>
+  <p style="font-size:11px;color:#555"><strong>Total:</strong> ${totalZones} muestra(s) compuesta(s), ${totalPts} puntos GPS</p>
+
+  <div class="page-break"></div>
+  <h2>4. DETALLE DE PUNTOS POR ZONA</h2>
+  ${zoneDetails}
+
+  <div style="margin-top:30px;border-top:1px solid #ccc;padding-top:10px">
+    <div class="info-grid" style="grid-template-columns:1fr 1fr">
+      <div style="border-bottom:1px solid #999;padding-bottom:30px;text-align:center">
+        <br><small>Assinatura do Solicitante</small>
+      </div>
+      <div style="border-bottom:1px solid #999;padding-bottom:30px;text-align:center">
+        <br><small>Assinatura do Tecnico</small>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+// ── GEOJSON EXPORT ──
+function genGeoJSON(field) {
+  const features = [];
+
+  // Add boundary if exists
+  if (field.boundary && field.boundary.features) {
+    for (const feat of field.boundary.features) {
+      features.push({
+        ...feat,
+        properties: {
+          ...feat.properties,
+          name: field.field_name,
+          type: 'boundary',
+          area_ha: field.area_ha
+        }
+      });
+    }
+  }
+
+  // Add sample points
+  for (const s of (field.samples || [])) {
+    if (s.lat && s.lng) {
+      features.push({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [s.lng, s.lat] },
+        properties: {
+          name: s.pointName || '?',
+          zona: s.zona,
+          depth: s.depth || '0-20',
+          barcode: s.barcode || '',
+          collector: s.collector || '',
+          collectedAt: s.collectedAt || '',
+          accuracy: s.accuracy || null,
+          sampleType: s.sampleType || ''
+        }
+      });
+    }
+  }
+
+  return JSON.stringify({ type: 'FeatureCollection', features }, null, 2);
+}
+
+// ── FIELD SUMMARY REPORT ──
+function genSummary(field) {
+  const d = field.synced_at ? new Date(field.synced_at).toISOString().slice(0,10) : new Date().toISOString().slice(0,10);
+  const samples = field.samples || [];
+  const pct = field.progress_pct || 0;
+  const color = pct >= 100 ? '#4CAF50' : pct > 50 ? '#FF9800' : '#F44336';
+
+  // Zone summary
+  const zones = {};
+  for (const s of samples) {
+    const z = s.zona || 1;
+    if (!zones[z]) zones[z] = { zona: z, count: 0 };
+    zones[z].count++;
+  }
+
+  let sampleRows = samples.map((s, i) =>
+    `<tr>
+      <td>${i + 1}</td>
+      <td>${esc(s.pointName || '?')}</td>
+      <td>${s.zona || '?'}</td>
+      <td>${s.lat ? s.lat.toFixed(6) : '—'}</td>
+      <td>${s.lng ? s.lng.toFixed(6) : '—'}</td>
+      <td>${s.accuracy ? s.accuracy.toFixed(1) + 'm' : '—'}</td>
+      <td>${s.depth || '0-20'}</td>
+      <td>${esc(s.barcode || '')}</td>
+      <td>${s.collectedAt ? new Date(s.collectedAt).toLocaleString('es') : '—'}</td>
+    </tr>`
+  ).join('');
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Resumen — ${esc(field.field_name)}</title>
+<style>
+  @page { size: A4 landscape; margin: 12mm; }
+  @media print { .no-print { display: none !important; } }
+  body { font-family: Arial, sans-serif; font-size: 12px; color: #1a1a1a; max-width: 290mm; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 18px; color: #1B5E20; margin-bottom: 4px; }
+  .meta { color: #666; font-size: 11px; margin-bottom: 16px; }
+  .cards { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .card { background: #f5f5f5; border-radius: 8px; padding: 12px 16px; min-width: 120px; text-align: center; }
+  .card-val { font-size: 22px; font-weight: 800; color: #0D9488; }
+  .card-lbl { font-size: 10px; color: #777; text-transform: uppercase; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 11px; }
+  th, td { border: 1px solid #ddd; padding: 4px 6px; }
+  th { background: #e8f5e9; font-weight: 600; }
+  .progress { height: 8px; background: #eee; border-radius: 4px; overflow: hidden; width: 200px; display: inline-block; }
+  .progress-inner { height: 100%; border-radius: 4px; }
+  .btn-print { display: inline-block; margin: 10px 0; padding: 8px 24px; background: #0D9488; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
+</style>
+</head>
+<body>
+  <button class="btn-print no-print" onclick="window.print()">Imprimir / PDF</button>
+  <h1>${esc(field.field_name)}</h1>
+  <div class="meta">${esc(field.project)} — ${esc(field.client || 'Sin cliente')} — Tecnico: ${esc(field.technician)} — ${d}</div>
+
+  <div class="cards">
+    <div class="card"><div class="card-val">${field.area_ha || '—'}</div><div class="card-lbl">Hectareas</div></div>
+    <div class="card"><div class="card-val">${field.total_points || '?'}</div><div class="card-lbl">Puntos totales</div></div>
+    <div class="card"><div class="card-val">${field.collected_points || 0}</div><div class="card-lbl">Colectados</div></div>
+    <div class="card"><div class="card-val" style="color:${color}">${pct}%</div><div class="card-lbl">Avance</div></div>
+    <div class="card"><div class="card-val">${Object.keys(zones).length}</div><div class="card-lbl">Zonas</div></div>
+  </div>
+
+  <div style="margin-bottom:16px">
+    <strong>Progreso:</strong>
+    <div class="progress"><div class="progress-inner" style="width:${pct}%;background:${color}"></div></div>
+    <span>${field.collected_points || 0} / ${field.total_points || '?'} puntos</span>
+  </div>
+
+  <h2 style="font-size:14px;color:#1B5E20">Detalle de Muestras</h2>
+  <table>
+    <thead><tr><th>#</th><th>Punto</th><th>Zona</th><th>Latitud</th><th>Longitud</th><th>Precision</th><th>Prof.</th><th>Codigo</th><th>Fecha/Hora</th></tr></thead>
+    <tbody>${sampleRows}</tbody>
+  </table>
+
+  <p style="font-size:10px;color:#999;margin-top:20px;text-align:center">PIX Muestreo — Reporte generado automaticamente el ${new Date().toLocaleString('es')}</p>
+</body>
+</html>`;
+}
+
+// ── CSV EXPORT ──
+function genCSV(field) {
+  const samples = field.samples || [];
+  const header = 'Punto,Zona,Latitud,Longitud,Precision_m,Profundidad,Codigo_Barras,Tipo,Colector,Fecha_Hora,Notas';
+  const rows = samples.map(s => {
+    return [
+      s.pointName || '',
+      s.zona || '',
+      s.lat || '',
+      s.lng || '',
+      s.accuracy || '',
+      s.depth || '0-20',
+      s.barcode || '',
+      s.sampleType || '',
+      s.collector || '',
+      s.collectedAt || '',
+      (s.notes || '').replace(/,/g, ';').replace(/\n/g, ' ')
+    ].join(',');
+  });
+  return header + '\n' + rows.join('\n');
 }
 </script>
 </body>
