@@ -134,6 +134,11 @@
   .online-dot.on { background: var(--green); box-shadow: 0 0 6px var(--green); }
   .online-dot.off { background: var(--red); }
 
+  /* Technician GPS pulse on map */
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(59,130,246,0.5); } 70% { box-shadow: 0 0 0 12px rgba(59,130,246,0); } 100% { box-shadow: 0 0 0 0 rgba(59,130,246,0); } }
+  .tech-online-badge { display: inline-flex; align-items: center; gap: 5px; }
+  .tech-online-badge .pulse-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+
   /* Toast notification */
   .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 10px; font-size: 13px; font-weight: 600; z-index: 9999; opacity: 0; transform: translateY(10px); transition: all 0.3s; pointer-events: none; }
   .toast.show { opacity: 1; transform: translateY(0); }
@@ -416,12 +421,13 @@
                 <th>Telefono</th>
                 <th>Email</th>
                 <th>Activo</th>
-                <th>Ultimo Login</th>
+                <th>Sesion</th>
+                <th>Dispositivo</th>
                 <th>Acciones</th>
               </tr>
             </thead>
             <tbody id="techsTableBody">
-              <tr><td colspan="8" style="text-align:center;color:var(--muted);padding:30px">Cargando tecnicos...</td></tr>
+              <tr><td colspan="9" style="text-align:center;color:var(--muted);padding:30px">Cargando tecnicos...</td></tr>
             </tbody>
           </table>
         </div>
@@ -486,6 +492,8 @@ let SUPA_URL = localStorage.getItem('pix_dash_url') || _DEFAULT_URL;
 let SUPA_KEY = localStorage.getItem('pix_dash_key') || _DEFAULT_KEY;
 let dashMap = null;
 let fieldLayers = [];
+let techMarkers = [];  // GPS markers for online technicians
+let _devicesCache = []; // Cached devices for cross-reference
 let refreshTimer = null;
 let activeTab = localStorage.getItem('pix_dash_tab') || 'tabPanel';
 let orderGeoData = null; // Holds parsed GeoJSON for new order
@@ -584,6 +592,7 @@ function showDashboard() {
   refreshTimer = setInterval(() => {
     if (activeTab === 'tabPanel') loadData();
     else if (activeTab === 'tabDispositivos') loadDevices();
+    else if (activeTab === 'tabTecnicos') loadTechnicians();
   }, 30000);
 
   setConnected(true);
@@ -599,6 +608,14 @@ async function supaFetch(path) {
   });
   if (!resp.ok) throw new Error('HTTP ' + resp.status);
   return resp.json();
+}
+
+async function supaDelete(path) {
+  const resp = await fetch(SUPA_URL + '/rest/v1' + path, {
+    method: 'DELETE',
+    headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }
+  });
+  if (!resp.ok) throw new Error('HTTP ' + resp.status);
 }
 
 async function supaPost(path, body, method = 'POST') {
@@ -622,15 +639,18 @@ async function supaPost(path, body, method = 'POST') {
 
 async function loadData() {
   try {
-    const [fields, activities] = await Promise.all([
+    const [fields, activities, devices] = await Promise.all([
       supaFetch('/field_syncs?select=*&order=synced_at.desc'),
-      supaFetch('/activity_log?select=*&order=created_at.desc&limit=30')
+      supaFetch('/activity_log?select=*&order=created_at.desc&limit=30'),
+      supaFetch('/devices?select=*&order=last_seen.desc')
     ]);
 
+    _devicesCache = devices || [];
     renderStats(fields);
     renderTechs(fields);
     renderFields(fields);
     renderMap(fields);
+    renderTechGPS(devices);
     renderActivity(activities);
     setConnected(true);
 
@@ -755,6 +775,48 @@ function renderMap(fields) {
       const firstSample = fields.flatMap(f => f.samples || []).find(s => s.lat);
       if (firstSample) dashMap.setView([firstSample.lat, firstSample.lng], 14);
     }
+  }
+}
+
+// ── RENDER TECH GPS MARKERS ON MAP ──
+function renderTechGPS(devices) {
+  // Clear old tech markers
+  techMarkers.forEach(m => dashMap.removeLayer(m));
+  techMarkers = [];
+  if (!devices || !dashMap) return;
+
+  const ONE_HOUR = 3600000;
+
+  for (const d of devices) {
+    let lat = null, lng = null;
+    if (d.last_location && typeof d.last_location === 'object' && d.last_location.lat) {
+      lat = d.last_location.lat; lng = d.last_location.lng;
+    } else if (d.last_lat && d.last_lng) {
+      lat = d.last_lat; lng = d.last_lng;
+    }
+    if (!lat || !lng) continue;
+
+    const lastSeen = d.last_seen ? new Date(d.last_seen) : null;
+    const isOnline = lastSeen && (Date.now() - lastSeen.getTime()) < ONE_HOUR;
+    const color = isOnline ? '#3B82F6' : '#64748B';
+    const name = d.technician_name || d.technician || 'Sin nombre';
+    const ago = lastSeen ? timeAgo(lastSeen) : 'Desconocido';
+
+    const marker = L.circleMarker([lat, lng], {
+      radius: isOnline ? 9 : 6,
+      color: '#fff', weight: 2,
+      fillColor: color, fillOpacity: isOnline ? 0.9 : 0.5
+    }).bindPopup(
+      `<b>${esc(name)}</b><br>` +
+      `<span style="color:${isOnline ? '#22C55E' : '#EF4444'}">${isOnline ? '🟢 Online' : '🔴 Offline'}</span><br>` +
+      `📱 ${esc(d.phone_model || '—')}<br>` +
+      `📡 v${esc(d.app_version || '?')}<br>` +
+      `🕐 ${ago}<br>` +
+      `📍 ${lat.toFixed(5)}, ${lng.toFixed(5)}`
+    ).bindTooltip(name, { permanent: isOnline, direction: 'top', offset: [0, -10], className: 'tech-tooltip' });
+
+    marker.addTo(dashMap);
+    techMarkers.push(marker);
   }
 }
 
@@ -1075,6 +1137,17 @@ async function updateOrderStatus(id, status) {
   }
 }
 
+async function deleteOrder(id, title) {
+  if (!confirm('Eliminar la orden "' + title + '"?\n\nEsta accion no se puede deshacer.')) return;
+  try {
+    await supaDelete('/service_orders?id=eq.' + id);
+    toast('Orden eliminada: ' + title);
+    loadOrders();
+  } catch (e) {
+    toast('Error al eliminar: ' + e.message, 'err');
+  }
+}
+
 function editOrder(order) {
   document.getElementById('orderEditId').value = order.id;
   document.getElementById('orderTitle').value = order.title || '';
@@ -1162,6 +1235,7 @@ function renderOrders(orders) {
       <td onclick="event.stopPropagation()">
         ${statusSelect}
         <button class="btn btn-sm btn-secondary" style="margin-left:4px" onclick="editOrder(_ordersCache[${idx}])">Editar</button>
+        <button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="deleteOrder('${o.id}', '${esc(o.title)}')">Eliminar</button>
       </td>
     </tr>
     <tr class="order-detail" id="detail-${o.id}">
@@ -1265,8 +1339,12 @@ async function submitTechnician() {
 
 async function loadTechnicians() {
   try {
-    const techs = await supaFetch('/technicians?select=*&order=created_at.desc');
-    renderTechnicians(techs);
+    const [techs, devices] = await Promise.all([
+      supaFetch('/technicians?select=*&order=created_at.desc'),
+      supaFetch('/devices?select=*&order=last_seen.desc')
+    ]);
+    _devicesCache = devices || [];
+    renderTechnicians(techs, devices);
   } catch (e) {
     console.error('[Technicians] Load error:', e);
     document.getElementById('techsTableBody').innerHTML =
@@ -1317,22 +1395,45 @@ async function resetTechPassword(id, name) {
 // Store technicians for editing
 let _techsCache = [];
 
-function renderTechnicians(techs) {
+function renderTechnicians(techs, devices) {
   _techsCache = techs;
   const tbody = document.getElementById('techsTableBody');
 
   if (!techs || techs.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:30px">No hay tecnicos registrados</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:30px">No hay tecnicos registrados</td></tr>';
     return;
+  }
+
+  // Build device lookup by technician_name for session info
+  const ONE_HOUR = 3600000;
+  const devByName = {};
+  if (devices) {
+    for (const d of devices) {
+      const key = (d.technician_name || d.technician || '').toLowerCase().trim();
+      if (key && (!devByName[key] || new Date(d.last_seen) > new Date(devByName[key].last_seen))) {
+        devByName[key] = d;
+      }
+    }
   }
 
   const roleMap = { admin: 'badge-red', supervisor: 'badge-yellow', tecnico: 'badge-teal' };
 
   tbody.innerHTML = techs.map((t, idx) => {
     const rBadge = roleMap[t.role] || 'badge-teal';
-    const lastLogin = t.last_login ? timeAgo(new Date(t.last_login)) : 'Nunca';
     const activeClass = t.active ? 'badge-green' : 'badge-red';
     const activeText = t.active ? 'Activo' : 'Inactivo';
+
+    // Cross-reference with devices for session/online status
+    const nameKey = (t.full_name || '').toLowerCase().trim();
+    const dev = devByName[nameKey];
+    const lastSeen = dev && dev.last_seen ? new Date(dev.last_seen) : null;
+    const isOnline = lastSeen && (Date.now() - lastSeen.getTime()) < ONE_HOUR;
+    const sessionHTML = isOnline
+      ? `<span class="tech-online-badge"><span class="pulse-dot"></span><span class="badge badge-green">Online</span></span> <small style="color:var(--muted)">${timeAgo(lastSeen)}</small>`
+      : lastSeen
+        ? `<span class="badge badge-muted">Offline</span> <small style="color:var(--muted)">${timeAgo(lastSeen)}</small>`
+        : `<span class="badge badge-muted">Sin conexion</span>`;
+    const deviceInfo = dev ? `${esc(dev.phone_model || '?')} v${esc(dev.app_version || '?')}` : '—';
 
     return `<tr>
       <td><strong>${esc(t.full_name)}</strong></td>
@@ -1343,7 +1444,8 @@ function renderTechnicians(techs) {
       <td>
         <span class="badge ${activeClass}" style="cursor:pointer" onclick="toggleTechnicianActive('${t.id}', ${t.active})" title="Clic para cambiar">${activeText}</span>
       </td>
-      <td><span class="badge badge-muted">${lastLogin}</span></td>
+      <td>${sessionHTML}</td>
+      <td><small style="color:var(--muted)">${deviceInfo}</small></td>
       <td>
         <button class="btn btn-sm btn-secondary" onclick="editTechnician(_techsCache[${idx}])">Editar</button>
         <button class="btn btn-sm btn-danger" onclick="resetTechPassword('${t.id}', '${esc(t.full_name)}')">Reset PW</button>

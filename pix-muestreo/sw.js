@@ -1,6 +1,6 @@
 // PIX Muestreo - Service Worker for Offline Support
-// v36 — Fix agent GPS refs, dashboard field_data/esc/technician, audit fixes
-const CACHE_NAME = 'pix-muestreo-v36';
+// v37 — Cloud tech→APK login bridge, dashboard GPS tracking, delete orders, session visibility
+const CACHE_NAME = 'pix-muestreo-v37';
 const TILE_CACHE = 'pix-tiles-v1';
 
 // Derive base path dynamically — works in both web (/pix-muestreo/) and APK WebView
