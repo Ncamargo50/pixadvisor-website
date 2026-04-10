@@ -23,11 +23,18 @@ class SyncManager {
   // Auto-sync when coming online
   setupAutoSync() {
     window.addEventListener('online', async () => {
-      console.log('Back online - checking for unsynced data');
-      const unsynced = await pixDB.getUnsyncedSamples();
-      if (unsynced.length > 0 && driveSync.isAuthenticated()) {
-        app.toast(`${unsynced.length} muestras pendientes. Sincronizando...`, 'warning');
-        setTimeout(() => app.syncToDrive(), 2000);
+      try {
+        console.log('Back online - checking for unsynced data');
+        if (typeof pixDB === 'undefined' || typeof driveSync === 'undefined') return;
+        const unsynced = await pixDB.getUnsyncedSamples();
+        if (unsynced.length > 0 && driveSync.isAuthenticated()) {
+          if (typeof app !== 'undefined') {
+            app.toast(`${unsynced.length} muestras pendientes. Sincronizando...`, 'warning');
+            setTimeout(() => app.syncToDrive().catch(e => console.warn('[Sync] Auto-sync error:', e)), 2000);
+          }
+        }
+      } catch (e) {
+        console.warn('[Sync] Online handler error:', e);
       }
     });
   }

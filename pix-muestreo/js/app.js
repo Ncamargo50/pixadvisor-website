@@ -114,18 +114,28 @@ class PixApp {
 
     // Load saved settings
     const collector = await pixDB.getSetting('collectorName');
-    if (collector) document.getElementById('collectorName').value = collector;
+    if (collector) document.querySelectorAll('#collectorName').forEach(inp => inp.value = collector);
 
     const clientId = await pixDB.getSetting('driveClientId');
     if (clientId) {
-      document.getElementById('driveClientId').value = clientId;
+      // FIX: admin.js creates duplicate #driveClientId — sync all inputs
+      document.querySelectorAll('#driveClientId').forEach(inp => inp.value = clientId);
       try {
         await driveSync.init(clientId);
         // C3 FIX: Use driveSync.isAuthenticated() which restores from sessionStorage
         if (driveSync.isAuthenticated()) {
           console.log('[App] Drive token restored from session');
+          this._updateDriveStatus('connected');
         }
       } catch (e) { console.log('Drive init deferred'); }
+    }
+
+    // Init Cloud sync (Supabase)
+    await pixCloud.init();
+    this._updateCloudStatus();
+    if (pixCloud.isEnabled()) {
+      const cloudBtn = document.getElementById('cloudSyncBtn');
+      if (cloudBtn) cloudBtn.style.display = '';
     }
 
     // Load projects
@@ -162,7 +172,9 @@ class PixApp {
 
     // Drive auth callback — auto-reopen import modal after OAuth completes
     document.addEventListener('drive-authenticated', () => {
-      this.toast('Google Drive conectado', 'success');
+      console.log('[Drive] drive-authenticated event received!');
+      this.toast('✓ Google Drive conectado exitosamente', 'success');
+      this._updateDriveStatus('connected');
       this.updateConnectionStatus();
       // If user was trying to import when auth was triggered, reopen modal automatically
       if (this._pendingDriveImport) {
@@ -229,7 +241,7 @@ class PixApp {
 
     if (viewName === 'sync') this.updateSyncStats();
     if (viewName === 'projects') this.loadProjects();
-    if (viewName === 'settings') { this.updateTileCacheStats(); this.loadIbraSettings(); this._updateStorageQuota(); }
+    if (viewName === 'settings') { this.updateTileCacheStats(); this.loadIbraSettings(); this._updateStorageQuota(); this._loadCloudSettings(); this._updateCloudStatus(); }
     if (viewName === 'orders') pixOrders.loadOrders();
     if (viewName === 'admin') pixAdmin.renderAdminView();
   }
@@ -686,12 +698,13 @@ class PixApp {
   }
 
   async loadGPSSettings() {
+    // FIX: admin.js creates duplicate GPS setting IDs — update ALL matching elements
     const minAcc = await pixDB.getSetting('gps_minAccuracy');
-    if (minAcc) document.getElementById('gpsMinAccuracy').value = minAcc;
+    if (minAcc) document.querySelectorAll('#gpsMinAccuracy').forEach(el => el.value = minAcc);
     const avgSamples = await pixDB.getSetting('gps_avgSamples');
-    if (avgSamples) document.getElementById('gpsAvgSamples').value = avgSamples;
+    if (avgSamples) document.querySelectorAll('#gpsAvgSamples').forEach(el => el.value = avgSamples);
     const kalman = await pixDB.getSetting('gps_kalmanEnabled');
-    if (kalman !== null && kalman !== undefined) document.getElementById('gpsKalmanEnabled').value = kalman;
+    if (kalman !== null && kalman !== undefined) document.querySelectorAll('#gpsKalmanEnabled').forEach(el => el.value = kalman);
     const detRadius = await pixDB.getSetting('gps_detectionRadius');
 
     // Store settings for quick access — optimized defaults for precision agriculture
@@ -764,8 +777,10 @@ class PixApp {
   }
 
   async updateTileCacheStats() {
-    const el = document.getElementById('tileCacheStats');
-    if (!el) return;
+    // FIX: admin.js duplicates #tileCacheStats — update all instances
+    const els = document.querySelectorAll('#tileCacheStats');
+    if (!els.length) return;
+    const el = els[0];
     if (typeof pixMap.getCacheStats === 'function') {
       try {
         const stats = await pixMap.getCacheStats();
@@ -1716,6 +1731,16 @@ class PixApp {
       });
       this.addSyncLog(`✓ ${result.synced} muestras sincronizadas a Drive`);
       this.toast(`${result.synced} muestras sincronizadas`, 'success');
+
+      // Auto-sync to Cloud after Drive sync succeeds
+      if (pixCloud.isEnabled()) {
+        try {
+          const cloudResult = await pixCloud.syncAll();
+          this.addSyncLog(`☁ ${cloudResult.synced} campos sincronizados a Cloud`);
+        } catch (ce) {
+          this.addSyncLog(`☁ Cloud: ${ce.message}`);
+        }
+      }
     } catch (e) {
       this.addSyncLog(`✗ Error: ${e.message}`);
       this.toast('Error al sincronizar', 'error');
@@ -1724,6 +1749,79 @@ class PixApp {
     btn.disabled = false;
     btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/><path d="M21 3v9h-9"/></svg> Sincronizar con Drive';
     this.updateSyncStats();
+  }
+
+  // ===== CLOUD SYNC (Supabase) =====
+  async syncToCloud() {
+    if (!pixCloud.isEnabled()) {
+      this.toast('Configura Cloud en Ajustes primero', 'warning');
+      this.showView('settings');
+      return;
+    }
+
+    const btn = document.getElementById('cloudSyncBtn');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg> Sincronizando Cloud...'; }
+
+    try {
+      const result = await pixCloud.syncAll((done, total) => {
+        if (btn) btn.innerHTML = `<svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg> Cloud ${done}/${total}`;
+      });
+      this.addSyncLog(`☁ ${result.synced} campos sincronizados a Cloud`);
+      this.toast(`${result.synced} campos subidos al Cloud`, 'success');
+    } catch (e) {
+      this.addSyncLog(`☁ Cloud error: ${e.message}`);
+      this.toast('Error Cloud: ' + e.message, 'error');
+    }
+
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z"/></svg> Sincronizar con Cloud';
+    }
+  }
+
+  async saveCloudSettings() {
+    const url = document.getElementById('cloudUrl')?.value || '';
+    const key = document.getElementById('cloudKey')?.value || '';
+
+    if (!url.trim() || !key.trim()) {
+      this.toast('Completa URL y Key de Supabase', 'warning');
+      return;
+    }
+
+    await pixCloud.saveSettings(url, key);
+
+    try {
+      await pixCloud.testConnection();
+      this.toast('Cloud conectado exitosamente', 'success');
+      this._updateCloudStatus('connected');
+      const cloudBtn = document.getElementById('cloudSyncBtn');
+      if (cloudBtn) cloudBtn.style.display = '';
+    } catch (e) {
+      this.toast('Error conectando Cloud: ' + e.message, 'error');
+      this._updateCloudStatus('error');
+    }
+  }
+
+  _updateCloudStatus(state) {
+    const el = document.getElementById('cloudStatus');
+    if (!el) return;
+    if (state === 'connected' || (pixCloud.isEnabled() && !state)) {
+      el.innerHTML = '<span style="color:#22c55e">● Cloud activo</span>';
+    } else if (state === 'error') {
+      el.innerHTML = '<span style="color:#ef4444">✕ Error</span>';
+    } else {
+      el.innerHTML = '<span style="color:#ef4444">○ No config</span>';
+    }
+  }
+
+  // Load cloud settings into Settings form
+  async _loadCloudSettings() {
+    const url = await pixDB.getSetting('cloud_url');
+    const key = await pixDB.getSetting('cloud_key');
+    const urlEl = document.getElementById('cloudUrl');
+    const keyEl = document.getElementById('cloudKey');
+    if (urlEl && url) urlEl.value = url;
+    if (keyEl && key) keyEl.value = key;
   }
 
   // Export all data as JSON (offline backup)
@@ -2032,26 +2130,116 @@ ${detailHTML}
 
   // ===== SETTINGS =====
   async connectDrive() {
-    const clientId = document.getElementById('driveClientId').value.trim();
-    if (!clientId) {
-      this.toast('Ingresá el Client ID primero', 'warning');
-      return;
-    }
-    await pixDB.setSetting('driveClientId', clientId);
     try {
+      // FIX: There are TWO inputs with id="driveClientId" (index.html + admin.js)
+      // getElementById returns the first; querySelectorAll gets all of them
+      const inputs = document.querySelectorAll('#driveClientId');
+      let clientId = '';
+      inputs.forEach(inp => {
+        inp.blur();
+        const v = inp.value.trim();
+        if (v && v.length > clientId.length) clientId = v;
+      });
+
+      if (!clientId) {
+        this.toast('Pegá el Client ID y tocá Conectar', 'warning');
+        return;
+      }
+      // Aggressive sanitization: strip ALL non-visible/non-ASCII characters
+      clientId = clientId.replace(/[^\x20-\x7E]/g, '').replace(/\s+/g, '').trim();
+      console.log('[Drive] Sanitized clientId:', JSON.stringify(clientId), 'len:', clientId.length);
+
+      if (!clientId.includes('.apps.googleusercontent.com')) {
+        this.toast('Client ID inválido (debe terminar en .apps.googleusercontent.com)', 'error');
+        return;
+      }
+
+      // Sync all inputs with the resolved value
+      inputs.forEach(inp => inp.value = clientId);
+
+      this._updateDriveStatus('connecting');
+      this.toast('Conectando con Google Drive...', 'success');
+      await pixDB.setSetting('driveClientId', clientId);
+
       await driveSync.init(clientId);
       await driveSync.authenticate();
     } catch (e) {
-      this.toast('Error: ' + e.message, 'error');
+      console.error('[Drive] connectDrive error:', e);
+      this._updateDriveStatus('error');
+      this.toast('Error Drive: ' + e.message, 'error');
     }
   }
 
+  _updateDriveStatus(state) {
+    const statusEl = document.getElementById('driveStatus');
+    if (!statusEl) return;
+    const states = {
+      disconnected: { text: 'Desconectado', color: '#ef4444', icon: '○' },
+      connecting:   { text: 'Conectando...', color: '#f59e0b', icon: '◌' },
+      connected:    { text: 'Conectado', color: '#22c55e', icon: '●' },
+      error:        { text: 'Error', color: '#ef4444', icon: '✕' }
+    };
+    const s = states[state] || states.disconnected;
+    statusEl.innerHTML = `<span style="color:${s.color}">${s.icon} ${s.text}</span>`;
+  }
+
   async saveCollectorName() {
-    const name = document.getElementById('collectorName').value.trim();
+    // FIX: admin.js creates duplicate #collectorName — read ALL inputs, use the one with value
+    const inputs = document.querySelectorAll('#collectorName');
+    let name = '';
+    inputs.forEach(inp => {
+      const v = inp.value.trim();
+      if (v && v.length > name.length) name = v;
+    });
     if (name) {
       await pixDB.setSetting('collectorName', name);
-      this.toast('Nombre guardado', 'success');
+      // Sync all inputs
+      inputs.forEach(inp => inp.value = name);
+      this.toast('Nombre guardado: ' + name, 'success');
+    } else {
+      this.toast('Escribi tu nombre primero', 'warning');
     }
+  }
+
+  // Upload field boundary + metadata to Drive (called after boundary trace or import)
+  async _syncFieldToDrive(field) {
+    if (!driveSync.isAuthenticated()) return;
+    if (!field || !field.boundary) return;
+
+    // Resolve project for client/hacienda info
+    let clientName = '', projectName = '';
+    if (field.projectId) {
+      const project = await pixDB.get('projects', field.projectId);
+      if (project) {
+        clientName = (project.client || '').trim();
+        projectName = (project.name || '').trim();
+      }
+    }
+
+    const rootFolderId = await driveSync.ensureFolder();
+    const folderLabel = clientName || projectName || 'General';
+    const clientFolderId = await driveSync.ensureSubfolder(rootFolderId, folderLabel);
+
+    // Build field GeoJSON with full metadata
+    const fieldExport = {
+      type: 'FeatureCollection',
+      name: field.name,
+      properties: {
+        app: 'PIX Muestreo',
+        fieldId: field.id,
+        fieldName: field.name,
+        client: clientName,
+        project: projectName,
+        area: field.area,
+        updatedAt: field.updatedAt || new Date().toISOString()
+      },
+      features: field.boundary.features || []
+    };
+
+    const fileName = `lote_${field.name.replace(/[^a-zA-Z0-9_-]/g, '_')}.geojson`;
+    await driveSync.uploadJSONToFolder(fileName, fieldExport, clientFolderId);
+    console.log('[Drive] Field boundary synced:', fileName);
+    this.toast(`Lote "${field.name}" sincronizado a Drive`, 'success');
   }
 
   // 1.3: Auto-backup unsynced work to localStorage (survives DB corruption)
@@ -2324,12 +2512,23 @@ ${detailHTML}
       try {
         this.currentField.boundary = geojson;
         this.currentField.area = Math.round(area * 100) / 100;
+        this.currentField.updatedAt = new Date().toISOString();
         await pixDB.put('fields', this.currentField);
 
         // Reload field on map
         this.loadFieldOnMap(this.currentField);
         this.toast(`Area guardada: ${positions.length} puntos, ${area.toFixed(2)} ha`, 'success');
         if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+
+        // Upload field boundary to Drive if authenticated
+        if (driveSync.isAuthenticated()) {
+          this._syncFieldToDrive(this.currentField).catch(e => {
+            console.warn('[Drive] Field sync error:', e.message);
+            this.toast('Lote guardado local. Error al subir a Drive.', 'warning');
+          });
+        } else {
+          this.toast('Lote guardado local. Conecta Drive para sincronizar.', 'info');
+        }
       } catch (err) {
         console.error('[Boundary] Save error:', err);
         this.toast('Error al guardar el area: ' + err.message, 'error');

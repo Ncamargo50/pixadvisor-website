@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PIX Muestreo — Panel de Supervision</title>
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="stylesheet" href="lib/leaflet.css">
+<style>
+  :root {
+    --bg: #0F1B2D; --bg2: #162236; --bg3: #1E2D44;
+    --text: #E2E8F0; --muted: #64748B; --green: #7FD633;
+    --teal: #0D9488; --red: #EF4444; --yellow: #F59E0B;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: Inter, -apple-system, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  .header { background: var(--bg2); border-bottom: 1px solid rgba(127,214,51,0.15); padding: 14px 20px; display: flex; align-items: center; gap: 14px; position: sticky; top: 0; z-index: 100; }
+  .header img { width: 36px; height: 36px; border-radius: 10px; }
+  .header h1 { font-size: 18px; font-weight: 700; flex: 1; }
+  .header .status { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .header .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .dot-on { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .dot-off { background: var(--red); }
+
+  .setup-panel { max-width: 480px; margin: 60px auto; padding: 32px; background: var(--bg2); border-radius: 16px; border: 1px solid rgba(127,214,51,0.12); }
+  .setup-panel h2 { font-size: 20px; margin-bottom: 8px; }
+  .setup-panel p { color: var(--muted); font-size: 13px; margin-bottom: 20px; line-height: 1.6; }
+  .setup-panel label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; margin-top: 14px; }
+  .setup-panel input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); background: var(--bg3); color: var(--text); font-size: 14px; outline: none; }
+  .setup-panel input:focus { border-color: var(--green); }
+  .setup-panel button { width: 100%; padding: 14px; border: none; border-radius: 12px; background: linear-gradient(135deg, var(--green), var(--teal)); color: var(--bg); font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 20px; }
+  .setup-panel button:hover { opacity: 0.9; }
+  .setup-panel .error { color: var(--red); font-size: 12px; margin-top: 8px; display: none; }
+
+  .container { max-width: 1200px; margin: 0 auto; padding: 16px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .stat-card { background: var(--bg2); border-radius: 12px; padding: 16px; text-align: center; border: 1px solid rgba(255,255,255,0.05); }
+  .stat-value { font-size: 28px; font-weight: 800; background: linear-gradient(135deg, var(--green), var(--teal)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+
+  .panel { background: var(--bg2); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden; }
+  .panel-title { font-size: 14px; font-weight: 700; padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; gap: 8px; }
+  .panel-body { padding: 16px; }
+
+  #dashMap { height: 360px; border-radius: 0 0 12px 12px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; color: var(--muted); font-weight: 500; font-size: 11px; text-transform: uppercase; padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  td { padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.03); }
+  tr:hover td { background: rgba(127,214,51,0.03); }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; }
+  .badge-green { background: rgba(127,214,51,0.15); color: var(--green); }
+  .badge-yellow { background: rgba(245,158,11,0.15); color: var(--yellow); }
+  .badge-red { background: rgba(239,68,68,0.15); color: var(--red); }
+  .badge-teal { background: rgba(13,148,136,0.15); color: var(--teal); }
+
+  .progress-bar { height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 3px; transition: width 0.5s; }
+
+  .activity-item { padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.03); display: flex; gap: 10px; align-items: flex-start; }
+  .activity-time { font-size: 11px; color: var(--muted); min-width: 50px; }
+  .activity-text { font-size: 13px; flex: 1; }
+  .activity-text strong { color: var(--green); }
+
+  .refresh-bar { text-align: center; padding: 8px; font-size: 11px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <img src="icons/icon-192.png" alt="PIX">
+  <h1>Panel de Supervision</h1>
+  <div class="status" id="connStatus">
+    <span class="dot dot-off" id="connDot"></span>
+    <span id="connText">Desconectado</span>
+  </div>
+</div>
+
+<!-- SETUP PANEL (shown if no credentials) -->
+<div class="setup-panel" id="setupPanel" style="display:none">
+  <h2>Conectar a Supabase</h2>
+  <p>Ingresa las credenciales de tu proyecto Supabase para ver los datos de campo en tiempo real.</p>
+  <label>Project URL</label>
+  <input type="text" id="setupUrl" placeholder="https://xxxxx.supabase.co">
+  <label>Public (anon) Key</label>
+  <input type="text" id="setupKey" placeholder="eyJhbGciOi...">
+  <div class="error" id="setupError"></div>
+  <button onclick="connectSupabase()">Conectar</button>
+  <p style="margin-top:16px;font-size:11px;text-align:center">Estas credenciales se guardan solo en tu navegador (localStorage)</p>
+</div>
+
+<!-- DASHBOARD (shown when connected) -->
+<div id="dashboard" style="display:none">
+  <div class="container">
+
+    <!-- STATS -->
+    <div class="stats" id="statsGrid">
+      <div class="stat-card"><div class="stat-value" id="statTechs">0</div><div class="stat-label">Tecnicos</div></div>
+      <div class="stat-card"><div class="stat-value" id="statFields">0</div><div class="stat-label">Campos</div></div>
+      <div class="stat-card"><div class="stat-value" id="statSamples">0</div><div class="stat-label">Muestras</div></div>
+      <div class="stat-card"><div class="stat-value" id="statProgress">0%</div><div class="stat-label">Avance</div></div>
+    </div>
+
+    <!-- MAP + TECHNICIANS -->
+    <div class="grid">
+      <div class="panel">
+        <div class="panel-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/></svg>
+          Mapa de Campos
+        </div>
+        <div id="dashMap"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+          Tecnicos
+        </div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>Nombre</th><th>Muestras</th><th>Campos</th><th>Ultima sync</th></tr></thead>
+            <tbody id="techTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- FIELDS TABLE + ACTIVITY -->
+    <div class="grid">
+      <div class="panel">
+        <div class="panel-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+          Campos
+        </div>
+        <div class="panel-body" style="max-height:400px;overflow-y:auto">
+          <table>
+            <thead><tr><th>Campo</th><th>Cliente</th><th>Area</th><th>Avance</th><th>Tecnico</th></tr></thead>
+            <tbody id="fieldsTable"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Actividad Reciente
+        </div>
+        <div class="panel-body" style="max-height:400px;overflow-y:auto" id="activityList">
+          <div style="color:var(--muted);font-size:13px;padding:20px;text-align:center">Cargando...</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="refresh-bar" id="refreshBar">Auto-refresh cada 30s</div>
+  </div>
+</div>
+
+<!-- SCRIPTS -->
+<script src="lib/leaflet.js"></script>
+<script>
+// ═══════════════════════════════════════════════════
+// PIX Muestreo Dashboard — Supabase Direct REST
+// ═══════════════════════════════════════════════════
+
+let SUPA_URL = localStorage.getItem('pix_dash_url') || '';
+let SUPA_KEY = localStorage.getItem('pix_dash_key') || '';
+let dashMap = null;
+let fieldLayers = [];
+let refreshTimer = null;
+
+// ── INIT ──
+window.addEventListener('DOMContentLoaded', () => {
+  if (SUPA_URL && SUPA_KEY) {
+    showDashboard();
+  } else {
+    document.getElementById('setupPanel').style.display = 'block';
+  }
+});
+
+// ── SETUP / CONNECT ──
+async function connectSupabase() {
+  const url = document.getElementById('setupUrl').value.trim().replace(/\/+$/, '');
+  const key = document.getElementById('setupKey').value.trim();
+  const errEl = document.getElementById('setupError');
+
+  if (!url || !key) {
+    errEl.textContent = 'Completa ambos campos';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  try {
+    // Test connection
+    const resp = await fetch(url + '/rest/v1/field_syncs?select=count', {
+      headers: { 'apikey': key, 'Authorization': 'Bearer ' + key }
+    });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+
+    localStorage.setItem('pix_dash_url', url);
+    localStorage.setItem('pix_dash_key', key);
+    SUPA_URL = url;
+    SUPA_KEY = key;
+
+    document.getElementById('setupPanel').style.display = 'none';
+    showDashboard();
+  } catch (e) {
+    errEl.textContent = 'Error de conexion: ' + e.message;
+    errEl.style.display = 'block';
+  }
+}
+
+// ── SHOW DASHBOARD ──
+function showDashboard() {
+  document.getElementById('dashboard').style.display = 'block';
+  document.getElementById('setupPanel').style.display = 'none';
+
+  // Init map
+  if (!dashMap) {
+    dashMap = L.map('dashMap', { zoomControl: true }).setView([-23.3, -51.1], 8);
+    L.tileLayer('https://mt{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
+      subdomains: '0123', maxZoom: 20, attribution: 'Google'
+    }).addTo(dashMap);
+  }
+
+  // Initial load
+  loadData();
+
+  // Auto-refresh every 30s
+  if (refreshTimer) clearInterval(refreshTimer);
+  refreshTimer = setInterval(loadData, 30000);
+
+  setConnected(true);
+}
+
+// ── FETCH HELPER ──
+async function supaFetch(path) {
+  const resp = await fetch(SUPA_URL + '/rest/v1' + path, {
+    headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }
+  });
+  if (!resp.ok) throw new Error('HTTP ' + resp.status);
+  return resp.json();
+}
+
+// ── LOAD ALL DATA ──
+async function loadData() {
+  try {
+    const [fields, activities] = await Promise.all([
+      supaFetch('/field_syncs?select=*&order=synced_at.desc'),
+      supaFetch('/activity_log?select=*&order=created_at.desc&limit=30')
+    ]);
+
+    renderStats(fields);
+    renderTechs(fields);
+    renderFields(fields);
+    renderMap(fields);
+    renderActivity(activities);
+    setConnected(true);
+
+    document.getElementById('refreshBar').textContent =
+      'Actualizado: ' + new Date().toLocaleTimeString('es') + ' — auto-refresh cada 30s';
+  } catch (e) {
+    console.error('[Dashboard] Load error:', e);
+    setConnected(false);
+    document.getElementById('refreshBar').textContent = 'Error: ' + e.message;
+  }
+}
+
+// ── RENDER STATS ──
+function renderStats(fields) {
+  const techs = [...new Set(fields.map(f => f.technician))];
+  const totalSamples = fields.reduce((s, f) => s + (f.samples?.length || 0), 0);
+  const totalPts = fields.reduce((s, f) => s + (f.total_points || 0), 0);
+  const collPts = fields.reduce((s, f) => s + (f.collected_points || 0), 0);
+  const pct = totalPts > 0 ? Math.round(collPts / totalPts * 100) : 0;
+
+  document.getElementById('statTechs').textContent = techs.length;
+  document.getElementById('statFields').textContent = fields.length;
+  document.getElementById('statSamples').textContent = totalSamples;
+  document.getElementById('statProgress').textContent = pct + '%';
+}
+
+// ── RENDER TECHNICIANS TABLE ──
+function renderTechs(fields) {
+  const techMap = {};
+  for (const f of fields) {
+    const t = f.technician || 'Sin nombre';
+    if (!techMap[t]) techMap[t] = { samples: 0, fields: 0, lastSync: null };
+    techMap[t].samples += f.samples?.length || 0;
+    techMap[t].fields++;
+    const syncTime = f.synced_at ? new Date(f.synced_at) : null;
+    if (syncTime && (!techMap[t].lastSync || syncTime > techMap[t].lastSync)) {
+      techMap[t].lastSync = syncTime;
+    }
+  }
+
+  const tbody = document.getElementById('techTable');
+  tbody.innerHTML = Object.entries(techMap).map(([name, data]) => {
+    const ago = data.lastSync ? timeAgo(data.lastSync) : 'Nunca';
+    const recent = data.lastSync && (Date.now() - data.lastSync.getTime()) < 3600000;
+    return `<tr>
+      <td><strong>${esc(name)}</strong></td>
+      <td>${data.samples}</td>
+      <td>${data.fields}</td>
+      <td><span class="badge ${recent ? 'badge-green' : 'badge-yellow'}">${ago}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── RENDER FIELDS TABLE ──
+function renderFields(fields) {
+  const tbody = document.getElementById('fieldsTable');
+  tbody.innerHTML = fields.map(f => {
+    const pct = f.progress_pct || 0;
+    const color = pct >= 100 ? 'var(--green)' : pct > 50 ? 'var(--yellow)' : 'var(--red)';
+    return `<tr>
+      <td><strong>${esc(f.field_name)}</strong><br><small style="color:var(--muted)">${esc(f.project)}</small></td>
+      <td>${esc(f.client || '—')}</td>
+      <td>${f.area_ha ? f.area_ha + ' ha' : '—'}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="progress-bar" style="flex:1"><div class="progress-fill" style="width:${pct}%;background:${color}"></div></div>
+          <span style="font-size:12px;min-width:32px">${pct}%</span>
+        </div>
+        <small style="color:var(--muted)">${f.collected_points || 0}/${f.total_points || '?'} pts</small>
+      </td>
+      <td><small>${esc(f.technician)}</small></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── RENDER MAP ──
+function renderMap(fields) {
+  // Clear old layers
+  fieldLayers.forEach(l => dashMap.removeLayer(l));
+  fieldLayers = [];
+
+  const bounds = [];
+
+  for (const f of fields) {
+    // Try to add boundary polygon
+    if (f.boundary && f.boundary.features) {
+      try {
+        const pct = f.progress_pct || 0;
+        const color = pct >= 100 ? '#7FD633' : pct > 50 ? '#F59E0B' : '#EF4444';
+        const layer = L.geoJSON(f.boundary, {
+          style: { color, weight: 2, fillColor: color, fillOpacity: 0.12 }
+        }).bindPopup(`<b>${esc(f.field_name)}</b><br>${f.collected_points || 0} muestras<br>${pct}% completo<br><small>${esc(f.technician)}</small>`);
+        layer.addTo(dashMap);
+        fieldLayers.push(layer);
+        bounds.push(layer.getBounds());
+      } catch (e) { /* invalid geojson */ }
+    }
+
+    // Add sample points as small markers
+    if (f.samples && f.samples.length > 0) {
+      for (const s of f.samples) {
+        if (s.lat && s.lng) {
+          const marker = L.circleMarker([s.lat, s.lng], {
+            radius: 4, color: '#7FD633', fillColor: '#7FD633', fillOpacity: 0.7, weight: 1
+          }).bindPopup(`<b>${esc(s.pointName || '?')}</b><br>Zona ${s.zona || '?'}<br>${s.depth || '0-20'} cm<br><small>${esc(s.collector || '')}</small>`);
+          marker.addTo(dashMap);
+          fieldLayers.push(marker);
+          bounds.push(L.latLng(s.lat, s.lng));
+        }
+      }
+    }
+  }
+
+  // Fit bounds
+  if (bounds.length > 0) {
+    try {
+      const group = L.featureGroup(fieldLayers.filter(l => l.getBounds));
+      if (group.getLayers().length > 0) dashMap.fitBounds(group.getBounds().pad(0.1));
+      else if (bounds[0].lat) dashMap.setView(bounds[0], 14);
+    } catch (e) {
+      // fallback: center on first sample
+      const firstSample = fields.flatMap(f => f.samples || []).find(s => s.lat);
+      if (firstSample) dashMap.setView([firstSample.lat, firstSample.lng], 14);
+    }
+  }
+}
+
+// ── RENDER ACTIVITY ──
+function renderActivity(activities) {
+  const el = document.getElementById('activityList');
+  if (!activities || activities.length === 0) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:20px;text-align:center">Sin actividad registrada</div>';
+    return;
+  }
+  el.innerHTML = activities.map(a => {
+    const t = new Date(a.created_at);
+    const d = a.details || {};
+    let text = '';
+    if (a.action === 'sync') {
+      text = `<strong>${esc(a.technician)}</strong> sincronizo <strong>${esc(d.field || '?')}</strong> (${d.samples || 0} muestras)`;
+    } else {
+      text = `<strong>${esc(a.technician)}</strong>: ${esc(a.action)}`;
+    }
+    return `<div class="activity-item">
+      <span class="activity-time">${t.toLocaleTimeString('es', {hour:'2-digit',minute:'2-digit'})}</span>
+      <span class="activity-text">${text}</span>
+    </div>`;
+  }).join('');
+}
+
+// ── HELPERS ──
+function esc(s) { return s == null ? '' : String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function timeAgo(date) {
+  const ms = Date.now() - date.getTime();
+  if (ms < 60000) return 'Ahora';
+  if (ms < 3600000) return Math.floor(ms / 60000) + ' min';
+  if (ms < 86400000) return Math.floor(ms / 3600000) + ' hrs';
+  return Math.floor(ms / 86400000) + ' dias';
+}
+
+function setConnected(ok) {
+  document.getElementById('connDot').className = 'dot ' + (ok ? 'dot-on' : 'dot-off');
+  document.getElementById('connText').textContent = ok ? 'Conectado' : 'Sin conexion';
+}
+</script>
+</body>
+</html>

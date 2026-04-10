@@ -1,6 +1,6 @@
 // PIX Muestreo - Service Worker for Offline Support
-// v22 — Drive sync: client subfolders + auto-report upload
-const CACHE_NAME = 'pix-muestreo-v22';
+// v31 — Cloud sync (Supabase), dashboard web, multi-technician support
+const CACHE_NAME = 'pix-muestreo-v31';
 const TILE_CACHE = 'pix-tiles-v1';
 
 // Derive base path dynamically — works in both web (/pix-muestreo/) and APK WebView
@@ -25,6 +25,7 @@ const STATIC_ASSETS = [
   BASE + 'js/drive.js',
   BASE + 'js/auth.js',
   BASE + 'js/sync.js',
+  BASE + 'js/cloud.js',
   BASE + 'js/orders.js',
   BASE + 'js/admin.js',
   BASE + 'js/agent-field.js',

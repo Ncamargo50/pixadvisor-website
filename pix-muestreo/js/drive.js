@@ -71,10 +71,25 @@ class DriveSync {
 
   // Request authentication
   async authenticate() {
-    // In APK WebView: use native bridge → Chrome Custom Tabs
-    if (typeof AndroidBridge !== 'undefined' && AndroidBridge.startGoogleAuth) {
-      console.log('[Drive] Launching native OAuth via Chrome Custom Tabs');
-      AndroidBridge.startGoogleAuth(DRIVE_CONFIG.CLIENT_ID);
+    // In APK WebView: build URL in JS and open via native bridge
+    if (typeof AndroidBridge !== 'undefined') {
+      const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth'
+        + '?client_id=' + encodeURIComponent(DRIVE_CONFIG.CLIENT_ID)
+        + '&redirect_uri=' + encodeURIComponent('https://pixadvisor.network/pix-muestreo/oauth-callback.html')
+        + '&response_type=token'
+        + '&scope=' + encodeURIComponent(DRIVE_CONFIG.SCOPES)
+        + '&prompt=consent'
+        + '&include_granted_scopes=true';
+      console.log('[Drive] OAuth URL:', authUrl);
+      // Try native bridge first, fall back to window.open
+      if (AndroidBridge.openAuthUrl) {
+        AndroidBridge.openAuthUrl(authUrl);
+      } else if (AndroidBridge.startGoogleAuth) {
+        AndroidBridge.startGoogleAuth(DRIVE_CONFIG.CLIENT_ID);
+      } else {
+        // Last resort: open in new window
+        window.open(authUrl, '_blank');
+      }
       return; // Token will arrive via setTokenFromNative()
     }
     // In regular browser: use GIS popup (existing flow)
@@ -236,7 +251,8 @@ class DriveSync {
     const text = await resp.text();
 
     if (fileName.endsWith('.geojson') || fileName.endsWith('.json')) {
-      return JSON.parse(text);
+      try { return JSON.parse(text); }
+      catch (e) { throw new Error('JSON inválido: ' + e.message); }
     }
     if (fileName.endsWith('.kml')) {
       return this._parseKML(text);
@@ -473,7 +489,9 @@ class DriveSync {
     const parts = base64Data.split(',');
     const encoded = parts.length > 1 ? parts[1] : parts[0];
     if (!encoded) throw new Error('Invalid photo data format');
-    const byteStr = atob(encoded);
+    let byteStr;
+    try { byteStr = atob(encoded); }
+    catch (e) { throw new Error('Foto base64 inválida: ' + e.message); }
     const ab = new ArrayBuffer(byteStr.length);
     const ia = new Uint8Array(ab);
     for (let i = 0; i < byteStr.length; i++) ia[i] = byteStr.charCodeAt(i);
@@ -548,14 +566,27 @@ class DriveSync {
         ? await pixDB.getAllByIndex('tracks', 'fieldId', numericFieldId)
         : [];
 
+      // Include field boundary and area if available
+      let fieldBoundary = null;
+      let fieldArea = null;
+      if (numericFieldId !== null && !isNaN(numericFieldId)) {
+        const fieldObj = await pixDB.get('fields', numericFieldId);
+        if (fieldObj) {
+          fieldBoundary = fieldObj.boundary || null;
+          fieldArea = fieldObj.area || null;
+        }
+      }
+
       const exportData = {
         app: 'PIX Muestreo',
-        version: '2.0',
+        version: '2.1',
         exportDate: new Date().toISOString(),
         client: clientName,
         project: projectName,
         field: fieldName,
         fieldId: fieldId,
+        fieldArea: fieldArea,
+        fieldBoundary: fieldBoundary,
         totalSamples: samples.length,
         samples: samples.map(s => ({
           pointName: s.pointName,
@@ -664,8 +695,8 @@ class DriveSync {
         <td>${s.pointName || '—'}</td>
         <td>${s.zona || '—'}</td>
         <td>${isPrin ? 'Principal' : 'Sub'}</td>
-        <td style="text-align:right;font-family:monospace">${s.lat.toFixed(6)}</td>
-        <td style="text-align:right;font-family:monospace">${s.lng.toFixed(6)}</td>
+        <td style="text-align:right;font-family:monospace">${s.lat != null ? Number(s.lat).toFixed(6) : '—'}</td>
+        <td style="text-align:right;font-family:monospace">${s.lng != null ? Number(s.lng).toFixed(6) : '—'}</td>
         <td style="text-align:center">${acc}</td>
         <td style="text-align:center">${s.depth || '0-20'}</td>
         <td style="text-align:center">${hora}</td>

@@ -159,22 +159,28 @@ class PixMap {
 
   // Add field boundary (polygon)
   addFieldBoundary(geojson, name, color = '#00BFA5') {
-    const layer = L.geoJSON(geojson, {
-      style: {
-        color: color,
-        weight: 2,
-        fillColor: color,
-        fillOpacity: 0.1,
-        dashArray: '5, 5'
+    if (!geojson || !this.map) return null;
+    try {
+      const layer = L.geoJSON(geojson, {
+        style: {
+          color: color,
+          weight: 2,
+          fillColor: color,
+          fillOpacity: 0.1,
+          dashArray: '5, 5'
+        }
+      }).addTo(this.map);
+
+      if (name) {
+        layer.bindTooltip(name, { permanent: true, direction: 'center', className: 'field-label' });
       }
-    }).addTo(this.map);
 
-    if (name) {
-      layer.bindTooltip(name, { permanent: true, direction: 'center', className: 'field-label' });
+      this.fieldLayers.push(layer);
+      return layer;
+    } catch (e) {
+      console.error('[Map] Invalid GeoJSON for boundary:', e.message);
+      return null;
     }
-
-    this.fieldLayers.push(layer);
-    return layer;
   }
 
   // Zone class to color mapping for zonas de manejo

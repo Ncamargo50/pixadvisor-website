@@ -34,16 +34,15 @@ class BarcodeScanner {
         (decodedText, decodedResult) => {
           // Vibrate on success
           if (navigator.vibrate) navigator.vibrate(200);
-
-          this.isScanning = true;
           if (this.onScanSuccess) {
             this.onScanSuccess(decodedText, decodedResult);
           }
         },
-        () => {} // ignore errors during scan
+        () => {} // expected: called on each frame without detection
       );
       this.isScanning = true;
     } catch (err) {
+      this.isScanning = false;
       console.error('Scanner init error:', err);
       throw err;
     }
