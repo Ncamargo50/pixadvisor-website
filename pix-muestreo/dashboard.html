@@ -229,7 +229,7 @@
           </div>
           <div class="panel-body" style="max-height:400px;overflow-y:auto">
             <table>
-              <thead><tr><th>Campo</th><th>Cliente</th><th>Area</th><th>Avance</th><th>Tecnico</th></tr></thead>
+              <thead><tr><th>Campo</th><th>Cliente</th><th>Area</th><th>Avance</th><th>Tecnico</th><th>Accion</th></tr></thead>
               <tbody id="fieldsTable"></tbody>
             </table>
           </div>
@@ -722,8 +722,33 @@ function renderFields(fields) {
         <small style="color:var(--muted)">${f.collected_points || 0}/${f.total_points || '?'} pts</small>
       </td>
       <td><small>${esc(f.technician)}</small></td>
+      <td><button class="btn btn-sm btn-danger" onclick="deleteField('${f.id}', '${esc(f.field_name)}')">Eliminar</button></td>
     </tr>`;
   }).join('');
+}
+
+async function deleteField(id, name) {
+  if (!confirm('Eliminar campo "' + name + '" del dashboard?\nSe borraran todos los datos sincronizados de este campo.')) return;
+  try {
+    const resp = await fetch(SUPA_URL + '/rest/v1/field_syncs?id=eq.' + id, {
+      method: 'DELETE',
+      headers: {
+        'apikey': SUPA_KEY,
+        'Authorization': 'Bearer ' + SUPA_KEY,
+        'Prefer': 'return=representation'
+      }
+    });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const deleted = await resp.json();
+    if (!deleted || deleted.length === 0) {
+      toast('No se pudo eliminar — ejecutar SQL de permisos DELETE en Supabase', 'err');
+      return;
+    }
+    toast('Campo "' + name + '" eliminado');
+    loadData();
+  } catch (e) {
+    toast('Error: ' + e.message, 'err');
+  }
 }
 
 // ── RENDER MAP ──
@@ -1395,7 +1420,20 @@ async function resetTechPassword(id, name) {
 async function deleteTechnician(id, name) {
   if (!confirm('Eliminar tecnico "' + name + '"?\nEsta accion no se puede deshacer.')) return;
   try {
-    await supaDelete('/technicians?id=eq.' + id);
+    const resp = await fetch(SUPA_URL + '/rest/v1/technicians?id=eq.' + id, {
+      method: 'DELETE',
+      headers: {
+        'apikey': SUPA_KEY,
+        'Authorization': 'Bearer ' + SUPA_KEY,
+        'Prefer': 'return=representation'
+      }
+    });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const deleted = await resp.json();
+    if (!deleted || deleted.length === 0) {
+      toast('No se pudo eliminar — verificar permisos RLS en Supabase', 'err');
+      return;
+    }
     toast('Tecnico "' + name + '" eliminado');
     loadTechnicians();
   } catch (e) {
