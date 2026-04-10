@@ -1736,35 +1736,32 @@ class PixApp {
   }
 
   async syncToDrive() {
-    if (!driveSync.isAuthenticated()) {
-      this.toast('Conectá Google Drive primero', 'warning');
-      return;
-    }
-
     const btn = document.getElementById('syncBtn');
-    btn.disabled = true;
-    btn.innerHTML = '<svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg> Sincronizando...';
-
-    this.addSyncLog('Iniciando sincronización...');
-
-    // Drive sync (independent — failure doesn't block Cloud)
-    try {
-      const result = await driveSync.syncAll((done, total) => {
-        const pct = Math.round((done / total) * 100);
-        btn.innerHTML = `<svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg> ${done}/${total} (${pct}%)`;
-      });
-      this.addSyncLog(`✓ ${result.synced} muestras sincronizadas a Drive`);
-      this.toast(`${result.synced} muestras sincronizadas`, 'success');
-    } catch (e) {
-      this.addSyncLog(`✗ Drive: ${e.message}`);
-      console.warn('[Sync] Drive error:', e.message);
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg> Sincronizando...';
     }
 
-    // Cloud sync (ALWAYS runs independently of Drive result)
+    // Show pending count for user feedback
+    const allSamples = await pixDB.getAll('samples');
+    const pending = allSamples.filter(s => s.synced === 0).length;
+    this.addSyncLog(`Iniciando sincronización... (${allSamples.length} muestras, ${pending} pendientes)`);
+
+    if (allSamples.length === 0) {
+      this.addSyncLog('⚠ No hay muestras guardadas en el dispositivo');
+      this.toast('No hay muestras guardadas. Recolecta muestras primero.', 'warning');
+    }
+
+    let driveSynced = false;
+    let cloudSynced = false;
+
+    // 1) Cloud sync — ALWAYS runs first (lighter, no OAuth needed)
     if (pixCloud.isEnabled()) {
       try {
+        if (btn) btn.innerHTML = '<svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg> Cloud...';
         const cloudResult = await pixCloud.syncAll();
         this.addSyncLog(`☁ ${cloudResult.synced} campos sincronizados a Cloud`);
+        if (cloudResult.synced > 0) cloudSynced = true;
       } catch (ce) {
         this.addSyncLog(`☁ Cloud: ${ce.message}`);
       }
@@ -1775,10 +1772,40 @@ class PixApp {
       try { await this._syncBoundariesToCloud(); } catch (e) { console.warn('[Sync] boundaries:', e.message); }
     }
 
+    // 2) Drive sync — only if authenticated (requires Google OAuth)
+    if (driveSync.isAuthenticated()) {
+      try {
+        const result = await driveSync.syncAll((done, total) => {
+          const pct = Math.round((done / total) * 100);
+          if (btn) btn.innerHTML = `<svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg> Drive ${done}/${total} (${pct}%)`;
+        });
+        this.addSyncLog(`✓ ${result.synced} muestras sincronizadas a Drive`);
+        if (result.synced > 0) driveSynced = true;
+      } catch (e) {
+        this.addSyncLog(`✗ Drive: ${e.message}`);
+        console.warn('[Sync] Drive error:', e.message);
+      }
+    } else {
+      this.addSyncLog('📁 Drive: no conectado (solo Cloud)');
+    }
+
     await pixDB.setSetting('lastSyncTime', String(Date.now()));
 
-    btn.disabled = false;
-    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/><path d="M21 3v9h-9"/></svg> Sincronizar con Drive';
+    // Show summary toast
+    if (cloudSynced || driveSynced) {
+      this.toast('Sincronización completada', 'success');
+    } else if (allSamples.length > 0 && pending === 0) {
+      this.toast('Todas las muestras ya están sincronizadas', 'success');
+    } else if (allSamples.length === 0) {
+      // Already showed warning above
+    } else {
+      this.toast('Sync: revisa la conexión a internet', 'warning');
+    }
+
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/><path d="M21 3v9h-9"/></svg> Sincronizar Datos';
+    }
     this.updateSyncStats();
   }
 
@@ -1793,12 +1820,30 @@ class PixApp {
     const btn = document.getElementById('cloudSyncBtn');
     if (btn) { btn.disabled = true; btn.innerHTML = '<svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg> Sincronizando Cloud...'; }
 
+    // Show pending count
+    const allSamples = await pixDB.getAll('samples');
+    this.addSyncLog(`☁ Cloud sync: ${allSamples.length} muestras en dispositivo`);
+
+    if (allSamples.length === 0) {
+      this.toast('No hay muestras guardadas. Recolecta primero.', 'warning');
+      this.addSyncLog('⚠ No hay muestras — nada que sincronizar');
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z"/></svg> Sincronizar con Cloud';
+      }
+      return;
+    }
+
     try {
       const result = await pixCloud.syncAll((done, total) => {
         if (btn) btn.innerHTML = `<svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg> Cloud ${done}/${total}`;
       });
       this.addSyncLog(`☁ ${result.synced} campos sincronizados a Cloud`);
-      this.toast(`${result.synced} campos subidos al Cloud`, 'success');
+      if (result.synced > 0) {
+        this.toast(`${result.synced} campos subidos al Cloud`, 'success');
+      } else {
+        this.toast('Cloud: muestras guardadas localmente, verificando campos...', 'info');
+      }
 
       // Pull orders + register device + sync credentials (each independently)
       try { await this._pullCloudOrders(); } catch (e) { console.warn('[Sync] pullOrders:', e.message); }
@@ -2159,6 +2204,7 @@ ${detailHTML}
 
   addSyncLog(message) {
     const log = document.getElementById('syncLog');
+    if (!log) return;
     // B8 FIX: Use 24h format for consistent time display across locales
     const now = new Date();
     const time = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
