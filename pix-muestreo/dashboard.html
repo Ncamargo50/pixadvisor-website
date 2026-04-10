@@ -168,8 +168,12 @@
 // PIX Muestreo Dashboard — Supabase Direct REST
 // ═══════════════════════════════════════════════════
 
-let SUPA_URL = localStorage.getItem('pix_dash_url') || '';
-let SUPA_KEY = localStorage.getItem('pix_dash_key') || '';
+// Default Supabase credentials (PIX Muestreo project)
+const _DEFAULT_URL = 'https://fnoocboaupjmxpkhdnij.supabase.co';
+const _DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZub29jYm9hdXBqbXhwa2hkbmlqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3NzA3MTYsImV4cCI6MjA5MTM0NjcxNn0.WCoLdveWAwpcwzWpvLFSgQeXeot6X263DTffdEWoCfg';
+
+let SUPA_URL = localStorage.getItem('pix_dash_url') || _DEFAULT_URL;
+let SUPA_KEY = localStorage.getItem('pix_dash_key') || _DEFAULT_KEY;
 let dashMap = null;
 let fieldLayers = [];
 let refreshTimer = null;
