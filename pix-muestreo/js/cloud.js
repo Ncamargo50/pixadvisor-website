@@ -217,6 +217,97 @@ class PixCloud {
     });
     return resp.ok;
   }
+
+  // ═══════════════════════════════════════════════
+  // DEVICE REGISTRATION
+  // ═══════════════════════════════════════════════
+
+  async registerDevice(deviceId, techName, location) {
+    if (!this._enabled || !deviceId) return;
+    try {
+      const ua = navigator.userAgent;
+      const row = {
+        device_id: deviceId,
+        technician_name: techName || 'Sin nombre',
+        app_version: typeof CACHE_NAME !== 'undefined' ? CACHE_NAME : 'unknown',
+        phone_model: this._extractModel(ua),
+        os_version: this._extractOS(ua),
+        sw_cache_version: typeof CACHE_NAME !== 'undefined' ? CACHE_NAME : '',
+        last_seen: new Date().toISOString(),
+        last_sync: new Date().toISOString(),
+        last_location: location || null,
+        active: true
+      };
+      await this._fetch('/devices', {
+        method: 'POST',
+        _prefer: 'resolution=merge-duplicates,return=minimal',
+        body: JSON.stringify(row)
+      });
+      console.log('[Cloud] Device registered:', deviceId.slice(0, 8) + '...');
+    } catch (e) {
+      console.warn('[Cloud] Device registration failed:', e.message);
+    }
+  }
+
+  _extractModel(ua) {
+    const m = ua.match(/;\s*([^;)]+)\s*Build/i) || ua.match(/;\s*([^;)]+)\s*\)/i);
+    return m ? m[1].trim() : (navigator.platform || 'Unknown');
+  }
+
+  _extractOS(ua) {
+    const m = ua.match(/Android\s+([\d.]+)/i);
+    if (m) return 'Android ' + m[1];
+    const i = ua.match(/iPhone OS\s+([\d_]+)/i);
+    if (i) return 'iOS ' + i[1].replace(/_/g, '.');
+    return navigator.platform || 'Unknown';
+  }
+
+  // ═══════════════════════════════════════════════
+  // PULL SERVICE ORDERS
+  // ═══════════════════════════════════════════════
+
+  async pullOrders(techName) {
+    if (!this._enabled || !techName) return [];
+    try {
+      const encoded = encodeURIComponent(techName);
+      const resp = await this._fetch(
+        `/service_orders?assigned_to_name=eq.${encoded}&status=in.(pendiente,asignada,en_progreso)&order=created_at.desc`
+      );
+      const orders = await resp.json();
+      console.log(`[Cloud] Pulled ${orders.length} orders for ${techName}`);
+      return orders;
+    } catch (e) {
+      console.warn('[Cloud] Pull orders failed:', e.message);
+      return [];
+    }
+  }
+
+  async updateOrderStatus(orderId, status) {
+    if (!this._enabled || !orderId) return;
+    const body = { status };
+    if (status === 'en_progreso') body.started_at = new Date().toISOString();
+    if (status === 'completada') body.completed_at = new Date().toISOString();
+    await this._fetch(`/service_orders?id=eq.${orderId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body)
+    });
+    console.log(`[Cloud] Order ${orderId.slice(0, 8)}... → ${status}`);
+  }
+
+  // ═══════════════════════════════════════════════
+  // PULL TECHNICIAN CREDENTIALS
+  // ═══════════════════════════════════════════════
+
+  async pullTechnicians() {
+    if (!this._enabled) return [];
+    try {
+      const resp = await this._fetch('/technicians?active=eq.true&select=username,password_hash,full_name,role,phone,email');
+      return await resp.json();
+    } catch (e) {
+      console.warn('[Cloud] Pull technicians failed:', e.message);
+      return [];
+    }
+  }
 }
 
 const pixCloud = new PixCloud();

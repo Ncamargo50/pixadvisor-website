@@ -140,6 +140,9 @@ class PixApp {
       }
     } catch (e) { console.warn('[Cloud] Init deferred:', e.message); }
 
+    // Register device with Cloud
+    this._registerDevice();
+
     // Load projects
     this.loadProjects();
 
@@ -1742,6 +1745,10 @@ class PixApp {
         } catch (ce) {
           this.addSyncLog(`☁ Cloud: ${ce.message}`);
         }
+
+        // Pull orders + register device after sync
+        await this._pullCloudOrders();
+        await this._registerDevice();
       }
     } catch (e) {
       this.addSyncLog(`✗ Error: ${e.message}`);
@@ -1770,6 +1777,10 @@ class PixApp {
       });
       this.addSyncLog(`☁ ${result.synced} campos sincronizados a Cloud`);
       this.toast(`${result.synced} campos subidos al Cloud`, 'success');
+
+      // Pull orders + register device
+      await this._pullCloudOrders();
+      await this._registerDevice();
     } catch (e) {
       this.addSyncLog(`☁ Cloud error: ${e.message}`);
       this.toast('Error Cloud: ' + e.message, 'error');
@@ -3079,6 +3090,137 @@ ${detailHTML}
       }
       this.deferredInstallPrompt = null;
       this.hideInstallBanner();
+    }
+  }
+
+  // ═══════════════════════════════════════════════
+  // CLOUD: DEVICE REGISTRATION & ORDER PULL
+  // ═══════════════════════════════════════════════
+
+  async _getDeviceId() {
+    let deviceId = await pixDB.getSetting('deviceId');
+    if (!deviceId) {
+      deviceId = (crypto.randomUUID && crypto.randomUUID()) ||
+        'dev-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+      await pixDB.setSetting('deviceId', deviceId);
+    }
+    return deviceId;
+  }
+
+  async _registerDevice() {
+    if (!pixCloud.isEnabled()) return;
+    try {
+      const deviceId = await this._getDeviceId();
+      const techName = await pixDB.getSetting('collectorName') || 'Tecnico';
+      let location = null;
+      if (gpsNav.currentPosition) {
+        location = { lat: gpsNav.currentPosition.lat, lng: gpsNav.currentPosition.lng };
+      }
+      await pixCloud.registerDevice(deviceId, techName, location);
+    } catch (e) {
+      console.warn('[App] Device registration:', e.message);
+    }
+  }
+
+  async _pullCloudOrders() {
+    if (!pixCloud.isEnabled()) return;
+    try {
+      const techName = await pixDB.getSetting('collectorName') || '';
+      if (!techName) return;
+
+      const orders = await pixCloud.pullOrders(techName);
+      if (!orders || orders.length === 0) {
+        this.addSyncLog('☁ Sin ordenes pendientes');
+        return;
+      }
+
+      let imported = 0;
+      for (const order of orders) {
+        // Skip orders already imported
+        const existingProject = (await pixDB.getAll('projects')).find(
+          p => p.cloudOrderId === order.id
+        );
+        if (existingProject) continue;
+
+        // Import order as a new project
+        if (order.field_data && order.field_data.fields) {
+          const project = {
+            id: 'proj-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+            name: order.project || order.title,
+            client: order.client || '',
+            cloudOrderId: order.id,
+            orderTitle: order.title,
+            orderPriority: order.priority,
+            orderDeadline: order.deadline,
+            createdAt: new Date().toISOString()
+          };
+          await pixDB.put('projects', project);
+
+          for (const fieldData of order.field_data.fields) {
+            const field = {
+              id: 'fld-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+              projectId: project.id,
+              name: fieldData.name || 'Campo',
+              area: fieldData.area_ha || null,
+              boundary: fieldData.boundary || null,
+              createdAt: new Date().toISOString()
+            };
+            await pixDB.put('fields', field);
+
+            // Import sampling points from GeoJSON
+            if (fieldData.points && fieldData.points.features) {
+              let pointIdx = 0;
+              for (const feat of fieldData.points.features) {
+                if (feat.geometry && feat.geometry.type === 'Point') {
+                  const coords = feat.geometry.coordinates;
+                  const props = feat.properties || {};
+                  const point = {
+                    id: 'pt-' + Date.now() + '-' + (pointIdx++),
+                    fieldId: field.id,
+                    pointName: props.name || props.pointName || `P${pointIdx}`,
+                    lat: coords[1],
+                    lng: coords[0],
+                    zona: props.zona || props.zone || 1,
+                    depth: props.depth || '0-20',
+                    sampleType: props.sampleType || 'simple',
+                    collected: false
+                  };
+                  await pixDB.put('points', point);
+                }
+              }
+            }
+          }
+
+          // Update order status to 'asignada' if still 'pendiente'
+          if (order.status === 'pendiente') {
+            await pixCloud.updateOrderStatus(order.id, 'asignada');
+          }
+
+          imported++;
+        }
+      }
+
+      if (imported > 0) {
+        this.addSyncLog(`📋 ${imported} orden(es) importada(s) del Cloud`);
+        this.toast(`${imported} nueva(s) orden(es) recibida(s)`, 'success');
+        this.loadProjects();
+      }
+    } catch (e) {
+      console.warn('[App] Pull orders:', e.message);
+      this.addSyncLog(`☁ Error jalando ordenes: ${e.message}`);
+    }
+  }
+
+  async _syncCloudCredentials() {
+    if (!pixCloud.isEnabled()) return;
+    try {
+      const techs = await pixCloud.pullTechnicians();
+      if (techs && techs.length > 0) {
+        await pixDB.setSetting('cloudCredentials', JSON.stringify(techs));
+        console.log(`[Cloud] ${techs.length} credentials synced`);
+      }
+    } catch (e) {
+      console.warn('[App] Credential sync:', e.message);
     }
   }
 }
