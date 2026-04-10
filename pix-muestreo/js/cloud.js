@@ -32,6 +32,11 @@ class PixCloud {
 
   isEnabled() { return this._enabled; }
 
+  getSettings() {
+    if (!this._enabled) return null;
+    return { url: this.url, key: this.key };
+  }
+
   // ═══════════════════════════════════════════════
   // REST API helpers (PostgREST / Supabase)
   // ═══════════════════════════════════════════════

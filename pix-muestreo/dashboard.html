@@ -1392,6 +1392,17 @@ async function resetTechPassword(id, name) {
   }
 }
 
+async function deleteTechnician(id, name) {
+  if (!confirm('Eliminar tecnico "' + name + '"?\nEsta accion no se puede deshacer.')) return;
+  try {
+    await supaDelete('/technicians?id=eq.' + id);
+    toast('Tecnico "' + name + '" eliminado');
+    loadTechnicians();
+  } catch (e) {
+    toast('Error: ' + e.message, 'err');
+  }
+}
+
 // Store technicians for editing
 let _techsCache = [];
 
@@ -1449,6 +1460,7 @@ function renderTechnicians(techs, devices) {
       <td>
         <button class="btn btn-sm btn-secondary" onclick="editTechnician(_techsCache[${idx}])">Editar</button>
         <button class="btn btn-sm btn-danger" onclick="resetTechPassword('${t.id}', '${esc(t.full_name)}')">Reset PW</button>
+        <button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="deleteTechnician('${t.id}', '${esc(t.full_name)}')">Eliminar</button>
       </td>
     </tr>`;
   }).join('');
