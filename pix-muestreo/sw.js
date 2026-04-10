@@ -1,7 +1,7 @@
 // PIX Muestreo - Service Worker for Offline Support
 // IMPORTANT: Keep CACHE_NAME in sync with APP_VERSION in js/cloud.js
-// v43 — Auth dashboard gate, salted hashing, CSP, XSS hardening, custom modals, NaN guards
-const CACHE_NAME = 'pix-muestreo-v43';
+// v44 — APK v3.7.0 release, audit fixes synced
+const CACHE_NAME = 'pix-muestreo-v44';
 const TILE_CACHE = 'pix-tiles-v1';
 
 // Derive base path dynamically — works in both web (/pix-muestreo/) and APK WebView
