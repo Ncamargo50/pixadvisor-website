@@ -231,6 +231,7 @@ class PixDB {
 
   // Get single record by index value
   async getByIndex(store, indexName, value) {
+    this._ensureDB();
     return new Promise((resolve, reject) => {
       const tx = this.db.transaction(store, 'readonly');
       const idx = tx.objectStore(store).index(indexName);
@@ -241,6 +242,7 @@ class PixDB {
   }
 
   async delete(store, id) {
+    this._ensureDB();
     return new Promise((resolve, reject) => {
       const tx = this.db.transaction(store, 'readwrite');
       const req = tx.objectStore(store).delete(id);
@@ -250,6 +252,7 @@ class PixDB {
   }
 
   async clear(store) {
+    this._ensureDB();
     return new Promise((resolve, reject) => {
       const tx = this.db.transaction(store, 'readwrite');
       const req = tx.objectStore(store).clear();
@@ -259,6 +262,7 @@ class PixDB {
   }
 
   async count(store) {
+    this._ensureDB();
     return new Promise((resolve, reject) => {
       const tx = this.db.transaction(store, 'readonly');
       const req = tx.objectStore(store).count();

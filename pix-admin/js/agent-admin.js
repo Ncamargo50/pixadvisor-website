@@ -229,6 +229,8 @@ class PixAdminAgent {
   }
 
   _formatText(text) {
+    // Escape HTML first to prevent XSS, then apply markdown formatting
+    text = escapeHtml(text);
     return text
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/`(.*?)`/g, '<code>$1</code>')
@@ -336,7 +338,7 @@ class PixAdminAgent {
         this._addMessage('Hola Nilton! Soy PIX Agent, tu asistente de agricultura de precisión con acceso a todos los módulos especializados. ¿En qué puedo ayudarte hoy?', 'agent');
       }},
       { keys: ['email', 'correo', 'gmail', 'mail'], fn: () => {
-        this._addMessage('**Monitoreo de Email:**\n- Puedo revisar tu correo `gis.agronomico@gmail.com` para detectar resultados de IBRA\n- También monitoreo `nilton.camargo@pixadvisor.network` para comunicación con clientes\n- Usá `/check-email` para verificar ahora', 'agent');
+        this._addMessage('**Monitoreo de Email:**\n- Puedo revisar tu correo configurado para detectar resultados de IBRA\n- También monitoreo comunicación con clientes\n- Usá `/check-email` para verificar ahora', 'agent');
       }},
       { keys: ['reporte', 'informe', 'report', 'generar informe', 'protocolo', 'pdf', 'documento'], fn: () => this._skillWorkflow(text) },
 
@@ -1706,8 +1708,8 @@ class PixAdminAgent {
     this._addMessage(
       '**Verificación de Email:**\n\n' +
       'Monitoreando:\n' +
-      '- `gis.agronomico@gmail.com` — Resultados IBRA\n' +
-      '- `nilton.camargo@pixadvisor.network` — Comunicación clientes\n\n' +
+      '- Correo configurado — Resultados IBRA\n' +
+      '- Correo de soporte — Comunicación clientes\n\n' +
       'Para activar el monitoreo automático de email, el agente necesita acceso a la API de Gmail. ' +
       'Esto se configura mediante los conectores MCP disponibles en el entorno.\n\n' +
       'Mientras tanto, podés importar manualmente los CSV que recibás de IBRA con `/importar-ibra`.',
@@ -2259,7 +2261,7 @@ class PixAdminAgent {
     try {
       const saved = localStorage.getItem('pix_clients');
       if (saved) clients = JSON.parse(saved);
-    } catch(e) {}
+    } catch(e) { console.warn('[Agent] Error:', e.message); }
 
     if (clients.length === 0) {
       this._addMessage(
@@ -2307,7 +2309,7 @@ class PixAdminAgent {
       try {
         const saved = localStorage.getItem('pix_clients');
         if (saved) clients = JSON.parse(saved);
-      } catch(e) {}
+      } catch(e) { console.warn('[Agent] Error:', e.message); }
 
       // Add or update
       const existing = clients.findIndex(c => c.nombre === app.clientData.nombre);

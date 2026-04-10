@@ -1820,10 +1820,10 @@ class PixApp {
         this.addSyncLog(`☁ Cloud error: ${ce.message}`);
       }
       // Sync credentials FIRST (corrects collectorName), THEN pull orders (matches by name)
-      try { await this._syncCloudCredentials(); } catch (e) { console.warn('[Sync] credentials:', e.message); }
-      try { await this._pullCloudOrders(); } catch (e) { console.warn('[Sync] pullOrders:', e.message); }
+      try { await this._syncCloudCredentials(); } catch (e) { console.warn('[Sync] credentials:', e.message); this.toast('Sync credenciales: ' + (e.message || 'error'), 'warning'); }
+      try { await this._pullCloudOrders(); } catch (e) { console.warn('[Sync] pullOrders:', e.message); this.toast('Sync ordenes: ' + (e.message || 'error'), 'warning'); }
       try { await this._registerDevice(); } catch (e) { console.warn('[Sync] registerDevice:', e.message); }
-      try { await this._syncBoundariesToCloud(); } catch (e) { console.warn('[Sync] boundaries:', e.message); }
+      try { await this._syncBoundariesToCloud(); } catch (e) { console.warn('[Sync] boundaries:', e.message); this.toast('Sync limites: ' + (e.message || 'error'), 'warning'); }
 
       // Mark saved files as synced after Cloud sync succeeds
       try {
@@ -1912,10 +1912,10 @@ class PixApp {
       }
 
       // Sync credentials FIRST (corrects collectorName), THEN pull orders (matches by name)
-      try { await this._syncCloudCredentials(); } catch (e) { console.warn('[Sync] credentials:', e.message); }
-      try { await this._pullCloudOrders(); } catch (e) { console.warn('[Sync] pullOrders:', e.message); }
+      try { await this._syncCloudCredentials(); } catch (e) { console.warn('[Sync] credentials:', e.message); this.toast('Sync credenciales: ' + (e.message || 'error'), 'warning'); }
+      try { await this._pullCloudOrders(); } catch (e) { console.warn('[Sync] pullOrders:', e.message); this.toast('Sync ordenes: ' + (e.message || 'error'), 'warning'); }
       try { await this._registerDevice(); } catch (e) { console.warn('[Sync] registerDevice:', e.message); }
-      try { await this._syncBoundariesToCloud(); } catch (e) { console.warn('[Sync] boundaries:', e.message); }
+      try { await this._syncBoundariesToCloud(); } catch (e) { console.warn('[Sync] boundaries:', e.message); this.toast('Sync limites: ' + (e.message || 'error'), 'warning'); }
       await pixDB.setSetting('lastSyncTime', String(Date.now()));
     } catch (e) {
       this.addSyncLog(`☁ Cloud error: ${e.message}`);
@@ -2047,16 +2047,17 @@ class PixApp {
   }
 
   async loadIbraSettings() {
+    // PII defaults cleared — configure in Settings > IBRA Megalab
     const defaults = {
-      solicitante: 'PIXADVISOR AGRICULTURA DE PRECISAO',
-      responsavel: 'NILTON LUIZ CAMARGO',
-      telefone: '43 999819554',
-      cnpj: '41.196.481/0001-30',
-      endereco: 'RUA ELIEZER MARTINS BANDEIRA 44',
-      municipio: 'IBIPORA',
-      uf: 'PR',
-      cep: '86200536',
-      email: 'nilton.camargo@pixadvisor.network, gis.agronomico@gmail.com'
+      solicitante: '',
+      responsavel: '',
+      telefone: '',
+      cnpj: '',
+      endereco: '',
+      municipio: '',
+      uf: '',
+      cep: '',
+      email: ''
     };
     const ibra = {};
     for (const [k, def] of Object.entries(defaults)) {
@@ -2286,7 +2287,7 @@ class PixApp {
 ${detailHTML}
 
 <div class="footer">
-  Generado por PIX Muestreo v3.4.3 — Pixadvisor Agricultura de Precision — pixadvisor.network — ${new Date().toLocaleString('es')}
+  Generado por PIX Muestreo v3.5.0 — Pixadvisor Agricultura de Precision — pixadvisor.network — ${new Date().toLocaleString('es')}
 </div>
 
 </body></html>`;
@@ -2320,7 +2321,7 @@ ${detailHTML}
     // B8 FIX: Use 24h format for consistent time display across locales
     const now = new Date();
     const time = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
-    log.innerHTML += `<div class="sync-log-entry"><span class="time">${time}</span>${message}</div>`;
+    log.innerHTML += `<div class="sync-log-entry"><span class="time">${time}</span>${escH(message)}</div>`;
     log.scrollTop = log.scrollHeight;
   }
 
@@ -2805,7 +2806,7 @@ h1{font-size:16px;color:#333}h2{font-size:14px;color:#555;margin:16px 0 8px}
       const projects = await pixDB.getAll('projects');
       const backup = {
         ts: new Date().toISOString(),
-        version: '3.4.3',
+        version: '3.5.0',
         unsyncedCount: samples.length,
         projects: projects.map(p => ({ id: p.id, name: p.name, client: p.client })),
         samples: samples.map(s => ({
@@ -3342,10 +3343,10 @@ h1{font-size:16px;color:#333}h2{font-size:14px;color:#555;margin:16px 0 8px}
     popup.style.cssText = 'position:fixed;top:56px;right:8px;z-index:99999;background:#1a2744;border:1px solid rgba(127,214,51,0.2);border-radius:14px;padding:16px;min-width:220px;box-shadow:0 8px 32px rgba(0,0,0,0.5);font-family:Inter,sans-serif;';
     popup.innerHTML = `
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.08)">
-        <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#7FD633,#0d9488);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:16px">${(user.name || 'U')[0].toUpperCase()}</div>
+        <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#7FD633,#0d9488);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:16px">${escH((user.name || 'U')[0].toUpperCase())}</div>
         <div>
-          <div style="color:white;font-size:14px;font-weight:600">${user.name}</div>
-          <div style="color:#94a3b8;font-size:11px">${user.email || ''}</div>
+          <div style="color:white;font-size:14px;font-weight:600">${escH(user.name)}</div>
+          <div style="color:#94a3b8;font-size:11px">${escH(user.email || '')}</div>
           <div style="color:#7FD633;font-size:10px;font-weight:600;text-transform:uppercase">${pixAuth.getRoleLabel(user.role)}</div>
         </div>
       </div>
@@ -4006,7 +4007,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const overlay = document.getElementById('loginOverlay');
     if (overlay) overlay.style.display = 'flex';
     const errEl = document.getElementById('loginError');
-    if (errEl) { errEl.textContent = 'Error de inicio: ' + e.message; errEl.style.display = 'block'; }
+    if (errEl) { errEl.textContent = 'Error al iniciar. Intente recargar la pagina.'; errEl.style.display = 'block'; }
   }
 });
 

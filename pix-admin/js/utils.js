@@ -1,5 +1,7 @@
 // Pixadvisor Shared Utilities
-const PIX_VERSION = '3.1.0';
+const PIX_VERSION = '3.2.0';
+// NOTE: haversineDistance and pointInPolygon below are canonical implementations.
+// Other files (interpolation.js, sampling-engine.js, kriging.js) have local copies for legacy reasons.
 
 /**
  * Escape HTML special characters to prevent XSS

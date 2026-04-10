@@ -6,6 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#0F1B2D">
+    <!-- CSP: 'unsafe-inline' in script-src needed for onclick handlers; TODO refactor to addEventListener in future to remove it -->
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://mt0.google.com https://mt1.google.com https://mt2.google.com https://mt3.google.com; connect-src 'self' https://*.googleapis.com https://accounts.google.com https://pixadvisor.network https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://mt0.google.com https://mt1.google.com https://mt2.google.com https://mt3.google.com https://*.supabase.co; frame-src https://accounts.google.com; font-src 'self' data:; worker-src 'self';">
     <title>PIX Muestreo - Pixadvisor</title>
     
@@ -399,43 +400,43 @@
                     </div>
                     <div class="settings-group">
                         <label class="form-label">Solicitante</label>
-                        <input type="text" class="form-input" id="ibraSolicitante" value="PIXADVISOR AGRICULTURA DE PRECISAO" onchange="app.saveIbraSetting('solicitante',this.value)">
+                        <input type="text" class="form-input" id="ibraSolicitante" value="" placeholder="Nombre empresa" onchange="app.saveIbraSetting('solicitante',this.value)">
                     </div>
                     <div class="settings-group">
                         <label class="form-label">Responsavel pelo envio</label>
-                        <input type="text" class="form-input" id="ibraResponsavel" value="NILTON LUIZ CAMARGO" onchange="app.saveIbraSetting('responsavel',this.value)">
+                        <input type="text" class="form-input" id="ibraResponsavel" value="" placeholder="Responsavel" onchange="app.saveIbraSetting('responsavel',this.value)">
                     </div>
                     <div style="display:flex;gap:8px">
                         <div class="settings-group" style="flex:1">
                             <label class="form-label">Telefone</label>
-                            <input type="text" class="form-input" id="ibraTelefone" value="43 999819554" onchange="app.saveIbraSetting('telefone',this.value)">
+                            <input type="text" class="form-input" id="ibraTelefone" value="" placeholder="Telefone" onchange="app.saveIbraSetting('telefone',this.value)">
                         </div>
                         <div class="settings-group" style="flex:1">
                             <label class="form-label">CPF/CNPJ</label>
-                            <input type="text" class="form-input" id="ibraCnpj" value="41.196.481/0001-30" onchange="app.saveIbraSetting('cnpj',this.value)">
+                            <input type="text" class="form-input" id="ibraCnpj" value="" placeholder="CPF/CNPJ" onchange="app.saveIbraSetting('cnpj',this.value)">
                         </div>
                     </div>
                     <div class="settings-group">
                         <label class="form-label">Endereco</label>
-                        <input type="text" class="form-input" id="ibraEndereco" value="RUA ELIEZER MARTINS BANDEIRA 44" onchange="app.saveIbraSetting('endereco',this.value)">
+                        <input type="text" class="form-input" id="ibraEndereco" value="" placeholder="Endereco" onchange="app.saveIbraSetting('endereco',this.value)">
                     </div>
                     <div style="display:flex;gap:8px">
                         <div class="settings-group" style="flex:1">
                             <label class="form-label">Municipio</label>
-                            <input type="text" class="form-input" id="ibraMunicipio" value="IBIPORA" onchange="app.saveIbraSetting('municipio',this.value)">
+                            <input type="text" class="form-input" id="ibraMunicipio" value="" placeholder="Municipio" onchange="app.saveIbraSetting('municipio',this.value)">
                         </div>
                         <div class="settings-group" style="flex:0 0 60px">
                             <label class="form-label">UF</label>
-                            <input type="text" class="form-input" id="ibraUf" value="PR" onchange="app.saveIbraSetting('uf',this.value)">
+                            <input type="text" class="form-input" id="ibraUf" value="" placeholder="UF" onchange="app.saveIbraSetting('uf',this.value)">
                         </div>
                         <div class="settings-group" style="flex:1">
                             <label class="form-label">CEP</label>
-                            <input type="text" class="form-input" id="ibraCep" value="86200536" onchange="app.saveIbraSetting('cep',this.value)">
+                            <input type="text" class="form-input" id="ibraCep" value="" placeholder="CEP" onchange="app.saveIbraSetting('cep',this.value)">
                         </div>
                     </div>
                     <div class="settings-group">
                         <label class="form-label">E-mail para laudos</label>
-                        <input type="text" class="form-input" id="ibraEmail" value="nilton.camargo@pixadvisor.network, gis.agronomico@gmail.com" onchange="app.saveIbraSetting('email',this.value)">
+                        <input type="text" class="form-input" id="ibraEmail" value="" placeholder="Email para laudos" onchange="app.saveIbraSetting('email',this.value)">
                     </div>
                 </div>
 
@@ -444,7 +445,7 @@
                     <div style="text-align:center;padding:16px">
                         <img src="icons/icon-192.png" alt="Pixadvisor" style="width:80px;height:80px;border-radius:16px;filter:drop-shadow(0 0 16px rgba(127,214,51,0.3));margin-bottom:12px">
                         <div style="font-size:24px;font-weight:700;background:var(--gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent">PIX Muestreo</div>
-                        <div style="font-size:13px;color:var(--text-muted);margin-top:4px">v3.4.1 · Pixadvisor Agricultura de Precisión</div>
+                        <div style="font-size:13px;color:var(--text-muted);margin-top:4px">v3.5.0 · Pixadvisor Agricultura de Precisión</div>
                         <div style="font-size:12px;color:var(--text-muted);margin-top:8px">
                             App de muestreo de suelo georreferenciado.<br>
                             Funciona 100% offline en campo.

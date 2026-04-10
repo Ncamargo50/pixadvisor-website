@@ -64,6 +64,29 @@ class ZonesEngine {
       emergencia: ['SAVI'],
       vegetativo: ['NDVI', 'EVI'],
       tuberizacion: ['NDRE']
+    },
+    chia: {
+      emergencia: ['SAVI', 'MSAVI'],
+      vegetativo: ['NDVI', 'EVI'],
+      floracion: ['NDRE', 'NDVI'],
+      maduracion: ['NDVI']
+    },
+    pimenton: {
+      transplante: ['SAVI'],
+      vegetativo: ['NDVI', 'EVI'],
+      fructificacion: ['NDRE', 'NDVI']
+    },
+    maracuya: {
+      establecimiento: ['SAVI', 'NDVI'],
+      vegetativo: ['NDVI', 'EVI', 'LAI'],
+      floracion: ['NDRE', 'NDVI'],
+      fructificacion: ['NDRE']
+    },
+    palta: {
+      brotacion: ['NDVI', 'EVI'],
+      vegetativo: ['NDVI', 'LAI', 'EVI'],
+      floracion: ['NDRE', 'NDVI'],
+      fructificacion: ['NDRE']
     }
   };
 

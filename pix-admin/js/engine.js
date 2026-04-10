@@ -816,7 +816,7 @@ class InterpretationEngine {
     // Soil interpretation — normalize once, reuse for all calculations
     if (soilData && Object.keys(soilData).length > 0) {
       report.soilInterpretation = this.interpretSoil(soilData, cropId);
-      const normSoil = this.normalizeLabData ? this.normalizeLabData(soilData) : soilData;
+      const normSoil = this.normalizeLabData ? this.normalizeLabData(soilData, options?.unitSystem || 'metric') : soilData;
       report.relationships = this.analyzeRelationships(normSoil);
       report.liming = this.calculateLiming(normSoil, cropId);
       report.gypsum = this.calculateGypsum(normSoil, cropId);

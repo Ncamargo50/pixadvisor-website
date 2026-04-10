@@ -494,6 +494,8 @@ class GPSNavigator {
 
     // Update step: compute Kalman gain
     const measurementVariance = accuracy * accuracy;
+    // Guard: if both variance and measurement variance are zero, return measurement directly (avoids 0/0 NaN)
+    if (this.kalman.variance === 0 && measurementVariance === 0) return { lat: measurement.lat, lng: measurement.lng, accuracy: accuracy };
     const kalmanGain = this.kalman.variance / (this.kalman.variance + measurementVariance);
 
     // Clamp gain: ADAPTIVE based on movement state

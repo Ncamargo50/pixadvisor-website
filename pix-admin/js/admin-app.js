@@ -44,7 +44,7 @@ class PixAdmin {
     this.buildPrescSourceSelector();
     this.setCrop(this.cropId);
     this.updateDashboard();
-    console.log('PIX Admin v3.0 initialized');
+    console.log(`PIX Admin v${typeof PIX_VERSION!=='undefined'?PIX_VERSION:'3.2.0'} initialized`);
   }
 
   // ===== INDEXEDDB PERSISTENCE =====
@@ -2784,7 +2784,7 @@ class PixAdmin {
     html += '</div>';
 
     html += `<div style="margin-top:24px;padding:12px;background:var(--dark-3);border-radius:8px;font-size:11px;color:var(--text-dim)">
-      Protocolo generado por PIX Admin v2.0 PRO MAX — ${new Date().toLocaleString('es')}
+      Protocolo generado por PIX Admin v${typeof PIX_VERSION!=='undefined'?PIX_VERSION:'3.2.0'} — ${new Date().toLocaleString('es')}
     </div></div>`;
 
     document.getElementById('protocolContent').innerHTML = html;

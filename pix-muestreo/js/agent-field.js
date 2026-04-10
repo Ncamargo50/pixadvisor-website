@@ -152,6 +152,9 @@ class PixFieldAgent {
   }
 
   _formatText(text) {
+    // Escape HTML first to prevent XSS
+    text = text.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    // Then apply markdown formatting
     return text
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/`(.*?)`/g, '<code>$1</code>')
@@ -689,7 +692,7 @@ class PixFieldAgent {
     });
 
     // Monitor GPS health
-    setInterval(() => this._gpsHealthCheck(), 30000);
+    this._gpsHealthIntervalId = setInterval(() => this._gpsHealthCheck(), 30000);
   }
 
   _gpsHealthCheck() {
@@ -714,6 +717,18 @@ class PixFieldAgent {
       text += `${i + 1}. \`[${time}]\` ${e.message}\n`;
     });
     this._addMessage(text, 'agent');
+  }
+
+  // Cleanup — clear intervals to prevent memory leaks
+  destroy() {
+    if (this._gpsHealthIntervalId) {
+      clearInterval(this._gpsHealthIntervalId);
+      this._gpsHealthIntervalId = null;
+    }
+    if (this.guidanceInterval) {
+      clearInterval(this.guidanceInterval);
+      this.guidanceInterval = null;
+    }
   }
 
   // ===== VOICE =====

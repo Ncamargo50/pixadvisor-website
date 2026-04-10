@@ -3,6 +3,9 @@
 
 class ReportGenerator {
 
+  // Escape HTML to prevent XSS in report output
+  static _esc(s) { return s == null ? '' : String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
   // ===== COLOR PALETTE =====
   static COLORS = {
     teal: '#7FD633', blue: '#00A4CC', dark: '#0F1B2D', dark2: '#1a2a40', dark3: '#243447',
@@ -514,14 +517,14 @@ class ReportGenerator {
       ${hasClient ? `
       <div class="rpt-client-info">
         <div class="rpt-client-grid">
-          ${cd.nombre ? `<div class="rpt-client-item"><span class="rpt-client-label">Cliente</span><span class="rpt-client-value">${cd.nombre}</span></div>` : ''}
-          ${cd.propiedad ? `<div class="rpt-client-item"><span class="rpt-client-label">Propiedad</span><span class="rpt-client-value">${cd.propiedad}</span></div>` : ''}
-          ${cd.ubicacion ? `<div class="rpt-client-item"><span class="rpt-client-label">Ubicación</span><span class="rpt-client-value">${cd.ubicacion}</span></div>` : ''}
-          ${cd.lote ? `<div class="rpt-client-item"><span class="rpt-client-label">Lote</span><span class="rpt-client-value">${cd.lote}</span></div>` : ''}
-          ${cd.area ? `<div class="rpt-client-item"><span class="rpt-client-label">Área</span><span class="rpt-client-value">${cd.area}</span></div>` : ''}
-          ${cd.responsable ? `<div class="rpt-client-item"><span class="rpt-client-label">Responsable</span><span class="rpt-client-value">${cd.responsable}</span></div>` : ''}
-          ${cd.laboratorio ? `<div class="rpt-client-item"><span class="rpt-client-label">Laboratorio</span><span class="rpt-client-value">${cd.laboratorio}</span></div>` : ''}
-          ${cd.nMuestra ? `<div class="rpt-client-item"><span class="rpt-client-label">N° Muestra</span><span class="rpt-client-value">${cd.nMuestra}</span></div>` : ''}
+          ${cd.nombre ? `<div class="rpt-client-item"><span class="rpt-client-label">Cliente</span><span class="rpt-client-value">${ReportGenerator._esc(cd.nombre)}</span></div>` : ''}
+          ${cd.propiedad ? `<div class="rpt-client-item"><span class="rpt-client-label">Propiedad</span><span class="rpt-client-value">${ReportGenerator._esc(cd.propiedad)}</span></div>` : ''}
+          ${cd.ubicacion ? `<div class="rpt-client-item"><span class="rpt-client-label">Ubicación</span><span class="rpt-client-value">${ReportGenerator._esc(cd.ubicacion)}</span></div>` : ''}
+          ${cd.lote ? `<div class="rpt-client-item"><span class="rpt-client-label">Lote</span><span class="rpt-client-value">${ReportGenerator._esc(cd.lote)}</span></div>` : ''}
+          ${cd.area ? `<div class="rpt-client-item"><span class="rpt-client-label">Área</span><span class="rpt-client-value">${ReportGenerator._esc(cd.area)}</span></div>` : ''}
+          ${cd.responsable ? `<div class="rpt-client-item"><span class="rpt-client-label">Responsable</span><span class="rpt-client-value">${ReportGenerator._esc(cd.responsable)}</span></div>` : ''}
+          ${cd.laboratorio ? `<div class="rpt-client-item"><span class="rpt-client-label">Laboratorio</span><span class="rpt-client-value">${ReportGenerator._esc(cd.laboratorio)}</span></div>` : ''}
+          ${cd.nMuestra ? `<div class="rpt-client-item"><span class="rpt-client-label">N° Muestra</span><span class="rpt-client-value">${ReportGenerator._esc(cd.nMuestra)}</span></div>` : ''}
         </div>
       </div>` : ''}
       <div class="rpt-cover-meta">

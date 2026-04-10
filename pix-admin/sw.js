@@ -1,5 +1,6 @@
 // PIX Admin - Service Worker for PWA
-const CACHE_NAME = 'pix-admin-v9';
+// IMPORTANT: Keep CACHE_NAME in sync with PIX_VERSION in js/utils.js
+const CACHE_NAME = 'pix-admin-v3.2.0';
 
 const STATIC_ASSETS = [
   '/pix-admin/',
@@ -16,6 +17,7 @@ const STATIC_ASSETS = [
   '/pix-admin/js/admin-app.js',
   '/pix-admin/js/agent-admin.js',
   '/pix-admin/js/utils.js',
+  '/pix-admin/js/workers/interpolation-worker.js',
   '/pix-admin/data/ibra-norms.json',
   '/pix-admin/img/Logo.png',
   '/pix-admin/img/LOGO-PIX.png',

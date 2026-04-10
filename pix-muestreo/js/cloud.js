@@ -3,8 +3,8 @@
 // Works alongside Google Drive sync — independent fallback paths
 
 // App version constant — used by registerDevice() for fleet tracking
-// IMPORTANT: CACHE_NAME lives in SW scope and is NOT accessible from main page
-const APP_VERSION = 'pix-muestreo-v42';
+// IMPORTANT: Keep APP_VERSION in sync with CACHE_NAME in sw.js
+const APP_VERSION = 'pix-muestreo-v43';
 
 // Default Supabase credentials (PIX Muestreo project)
 const _CLOUD_DEFAULT_URL = 'https://fnoocboaupjmxpkhdnij.supabase.co';
