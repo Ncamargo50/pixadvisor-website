@@ -855,6 +855,9 @@ function handleGeoFile(event) {
             if (pts.length === 1) {
               features.push({ type: 'Feature', properties: { name }, geometry: { type: 'Point', coordinates: pts[0] } });
             } else if (pts.length > 2) {
+              // Close polygon ring if not already closed (RFC 7946)
+              const first = pts[0], last = pts[pts.length - 1];
+              if (first[0] !== last[0] || first[1] !== last[1]) pts.push([first[0], first[1]]);
               features.push({ type: 'Feature', properties: { name }, geometry: { type: 'Polygon', coordinates: [pts] } });
             }
           }
@@ -909,21 +912,117 @@ function handleGeoFile(event) {
   reader.readAsText(file);
 }
 
+// Transform raw GeoJSON FeatureCollection into APK-compatible field_data
+// APK expects: { fields: [{ name, boundary, points, zones, area_ha }] }
+function transformGeoToFieldData(geoFC) {
+  if (!geoFC || !geoFC.features || geoFC.features.length === 0) return null;
+
+  const polygons = geoFC.features.filter(f => f.geometry && (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon'));
+  const pointFeats = geoFC.features.filter(f => f.geometry && f.geometry.type === 'Point');
+
+  // Helper: check if point is roughly inside polygon bbox (simplified containment)
+  function pointInBBox(pt, poly) {
+    const coords = poly.geometry.type === 'Polygon' ? poly.geometry.coordinates[0] : poly.geometry.coordinates[0][0];
+    let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
+    for (const c of coords) { minLng = Math.min(minLng, c[0]); maxLng = Math.max(maxLng, c[0]); minLat = Math.min(minLat, c[1]); maxLat = Math.max(maxLat, c[1]); }
+    return pt[0] >= minLng && pt[0] <= maxLng && pt[1] >= minLat && pt[1] <= maxLat;
+  }
+
+  // Helper: approx area in ha from polygon coordinates using Shoelace formula
+  function approxAreaHa(coords) {
+    const ring = coords[0] || [];
+    if (ring.length < 3) return 0;
+    let area = 0;
+    for (let i = 0; i < ring.length; i++) {
+      const j = (i + 1) % ring.length;
+      area += ring[i][0] * ring[j][1];
+      area -= ring[j][0] * ring[i][1];
+    }
+    area = Math.abs(area) / 2;
+    // Convert degree² to m² (rough at equator: 1 deg ≈ 111320 m)
+    const midLat = ring.reduce((s, c) => s + c[1], 0) / ring.length;
+    const mPerDegLng = 111320 * Math.cos(midLat * Math.PI / 180);
+    const mPerDegLat = 110540;
+    const areaM2 = area * mPerDegLng * mPerDegLat;
+    return Math.round(areaM2 / 10000 * 100) / 100; // ha with 2 decimals
+  }
+
+  const fields = [];
+
+  if (polygons.length > 0) {
+    // Each polygon is a field; assign nearby points to it
+    const usedPoints = new Set();
+    polygons.forEach((poly, idx) => {
+      const name = poly.properties?.name || poly.properties?.Name || `Campo ${idx + 1}`;
+      const areaHa = poly.properties?.area_ha || approxAreaHa(
+        poly.geometry.type === 'Polygon' ? poly.geometry.coordinates : poly.geometry.coordinates[0]
+      );
+      // Find points that belong to this field (bbox containment)
+      const fieldPoints = [];
+      pointFeats.forEach((pf, pi) => {
+        if (!usedPoints.has(pi) && pointInBBox(pf.geometry.coordinates, poly)) {
+          fieldPoints.push(pf);
+          usedPoints.add(pi);
+        }
+      });
+      const zonesSet = new Set(fieldPoints.map(p => p.properties?.zona || p.properties?.zone || 1));
+      fields.push({
+        name,
+        boundary: poly.geometry,
+        area_ha: areaHa,
+        zones: zonesSet.size || 1,
+        points: { type: 'FeatureCollection', features: fieldPoints }
+      });
+    });
+    // Remaining unassigned points go to last field
+    const remainingPts = pointFeats.filter((_, i) => !usedPoints.has(i));
+    if (remainingPts.length > 0 && fields.length > 0) {
+      fields[fields.length - 1].points.features.push(...remainingPts);
+    }
+  } else if (pointFeats.length > 0) {
+    // No polygons — all points become one field
+    const zonesSet = new Set(pointFeats.map(p => p.properties?.zona || p.properties?.zone || 1));
+    fields.push({
+      name: 'Campo 1',
+      boundary: null,
+      area_ha: 0,
+      zones: zonesSet.size || 1,
+      points: { type: 'FeatureCollection', features: pointFeats }
+    });
+  }
+
+  if (fields.length === 0) return null;
+  return { fields };
+}
+
 async function submitOrder() {
   const title = document.getElementById('orderTitle').value.trim();
   if (!title) { toast('El titulo es obligatorio', 'err'); return; }
 
   const editId = document.getElementById('orderEditId').value;
+
+  // Resolve technician name from dropdown (BUG FIX: APK needs assigned_to_name)
+  const techSelect = document.getElementById('orderTechnician');
+  const techId = techSelect.value || null;
+  const techName = techId && techSelect.selectedIndex > 0
+    ? techSelect.options[techSelect.selectedIndex].text : null;
+
+  // Transform GeoJSON to APK-compatible { fields: [...] } format
+  const fieldData = orderGeoData ? transformGeoToFieldData(orderGeoData) : null;
+
   const body = {
     title: title,
     project: document.getElementById('orderProject').value.trim() || null,
     client: document.getElementById('orderClient').value.trim() || null,
     description: document.getElementById('orderDesc').value.trim() || null,
-    assigned_to: document.getElementById('orderTechnician').value || null,
+    assigned_to: techId,
+    assigned_to_name: techName,
     priority: document.getElementById('orderPriority').value,
     deadline: document.getElementById('orderDeadline').value || null,
     notes: document.getElementById('orderNotes').value.trim() || null,
-    field_data: orderGeoData || null
+    field_data: fieldData,
+    total_fields: fieldData ? fieldData.fields.length : 0,
+    total_points: fieldData ? fieldData.fields.reduce((s, f) => s + (f.points?.features?.length || 0), 0) : 0
   };
 
   const btn = document.getElementById('orderSubmitBtn');
@@ -964,7 +1063,11 @@ async function loadOrders() {
 
 async function updateOrderStatus(id, status) {
   try {
-    await supaPost('/service_orders?id=eq.' + id, { status, updated_at: new Date().toISOString() }, 'PATCH');
+    const body = { status, updated_at: new Date().toISOString() };
+    // Match APK: set timestamps for lifecycle transitions
+    if (status === 'en_progreso') body.started_at = new Date().toISOString();
+    if (status === 'completada') body.completed_at = new Date().toISOString();
+    await supaPost('/service_orders?id=eq.' + id, body, 'PATCH');
     toast('Estado actualizado: ' + status);
     loadOrders();
   } catch (e) {
@@ -986,8 +1089,9 @@ function editOrder(order) {
   if (order.field_data) {
     orderGeoData = order.field_data;
     document.getElementById('orderFileZone').classList.add('has-file');
-    const fc = order.field_data.features?.length || 0;
-    document.getElementById('orderFilePreview').textContent = `Datos cargados: ${fc} features`;
+    const fc = order.field_data.fields?.length || order.field_data.features?.length || 0;
+    const tp = order.field_data.fields ? order.field_data.fields.reduce((s, f) => s + (f.points?.features?.length || 0), 0) : 0;
+    document.getElementById('orderFilePreview').textContent = `Datos cargados: ${fc} campos, ${tp} puntos`;
   }
   const panel = document.getElementById('orderFormPanel');
   panel.classList.add('show');
