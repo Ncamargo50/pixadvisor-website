@@ -1334,10 +1334,20 @@ async function submitTechnician() {
       await supaPost('/technicians?id=eq.' + editId, body, 'PATCH');
       toast('Tecnico actualizado');
     } else {
-      body.active = true;
-      body.created_at = new Date().toISOString();
-      await supaPost('/technicians', body);
-      toast('Tecnico creado');
+      // Check if username exists (maybe soft-deleted with active=false)
+      const existing = await supaFetch('/technicians?username=eq.' + encodeURIComponent(username) + '&select=id,active');
+      if (existing && existing.length > 0) {
+        // Reactivate existing record
+        body.active = true;
+        body.updated_at = new Date().toISOString();
+        await supaPost('/technicians?id=eq.' + existing[0].id, body, 'PATCH');
+        toast('Tecnico reactivado');
+      } else {
+        body.active = true;
+        body.created_at = new Date().toISOString();
+        await supaPost('/technicians', body);
+        toast('Tecnico creado');
+      }
     }
     toggleTechForm(false);
     loadTechnicians();
