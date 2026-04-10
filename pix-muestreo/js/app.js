@@ -130,13 +130,15 @@ class PixApp {
       } catch (e) { console.log('Drive init deferred'); }
     }
 
-    // Init Cloud sync (Supabase)
-    await pixCloud.init();
-    this._updateCloudStatus();
-    if (pixCloud.isEnabled()) {
-      const cloudBtn = document.getElementById('cloudSyncBtn');
-      if (cloudBtn) cloudBtn.style.display = '';
-    }
+    // Init Cloud sync (Supabase) — guarded like Drive
+    try {
+      await pixCloud.init();
+      this._updateCloudStatus();
+      if (pixCloud.isEnabled()) {
+        const cloudBtn = document.getElementById('cloudSyncBtn');
+        if (cloudBtn) cloudBtn.style.display = '';
+      }
+    } catch (e) { console.warn('[Cloud] Init deferred:', e.message); }
 
     // Load projects
     this.loadProjects();
@@ -1820,8 +1822,8 @@ class PixApp {
     const key = await pixDB.getSetting('cloud_key');
     const urlEl = document.getElementById('cloudUrl');
     const keyEl = document.getElementById('cloudKey');
-    if (urlEl && url) urlEl.value = url;
-    if (keyEl && key) keyEl.value = key;
+    if (urlEl) urlEl.value = url || (typeof _CLOUD_DEFAULT_URL !== 'undefined' ? _CLOUD_DEFAULT_URL : '');
+    if (keyEl) keyEl.value = key || (typeof _CLOUD_DEFAULT_KEY !== 'undefined' ? _CLOUD_DEFAULT_KEY : '');
   }
 
   // Export all data as JSON (offline backup)

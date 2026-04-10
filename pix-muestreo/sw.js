@@ -1,6 +1,6 @@
 // PIX Muestreo - Service Worker for Offline Support
-// v31 — Cloud sync (Supabase), dashboard web, multi-technician support
-const CACHE_NAME = 'pix-muestreo-v31';
+// v32 — Cloud defaults hardcoded, auto-connect Supabase
+const CACHE_NAME = 'pix-muestreo-v32';
 const TILE_CACHE = 'pix-tiles-v1';
 
 // Derive base path dynamically — works in both web (/pix-muestreo/) and APK WebView
