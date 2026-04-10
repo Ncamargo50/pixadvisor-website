@@ -1760,10 +1760,11 @@ class PixApp {
       try {
         if (btn) btn.innerHTML = '<svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg> Cloud...';
         const cloudResult = await pixCloud.syncAll();
-        this.addSyncLog(`☁ ${cloudResult.synced} campos sincronizados a Cloud`);
+        this.addSyncLog(`☁ ${cloudResult.synced}/${cloudResult.total} campos sincronizados a Cloud`);
         if (cloudResult.synced > 0) cloudSynced = true;
+        if (cloudResult.lastError) this.addSyncLog(`⚠ ${cloudResult.lastError}`);
       } catch (ce) {
-        this.addSyncLog(`☁ Cloud: ${ce.message}`);
+        this.addSyncLog(`☁ Cloud error: ${ce.message}`);
       }
       // Pull orders + register device + sync credentials (each independently)
       try { await this._pullCloudOrders(); } catch (e) { console.warn('[Sync] pullOrders:', e.message); }
@@ -1847,11 +1848,14 @@ class PixApp {
       const result = await pixCloud.syncAll((done, total) => {
         if (btn) btn.innerHTML = `<svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg> Cloud ${done}/${total}`;
       });
-      this.addSyncLog(`☁ ${result.synced} campos sincronizados a Cloud`);
+      this.addSyncLog(`☁ ${result.synced}/${result.total} campos sincronizados a Cloud`);
+      if (result.lastError) this.addSyncLog(`⚠ ${result.lastError}`);
       if (result.synced > 0) {
         this.toast(`${result.synced} campos subidos al Cloud`, 'success');
+      } else if (result.total > 0) {
+        this.toast('Error al subir campos — revisa el log', 'error');
       } else {
-        this.toast('Cloud: muestras guardadas localmente, verificando campos...', 'info');
+        this.toast('No hay campos con muestras para sincronizar', 'info');
       }
 
       // Pull orders + register device + sync credentials (each independently)

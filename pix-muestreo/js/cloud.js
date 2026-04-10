@@ -112,7 +112,9 @@ class PixCloud {
     };
 
     // Upsert: insert or update by (project, field_name)
-    await this._fetch('/field_syncs', {
+    // CRITICAL: on_conflict tells PostgREST which unique constraint to use
+    // Without it, duplicate project+field_name returns 409 instead of merging
+    await this._fetch('/field_syncs?on_conflict=project,field_name', {
       method: 'POST',
       _prefer: 'resolution=merge-duplicates,return=representation',
       body: JSON.stringify(row)
@@ -176,10 +178,12 @@ class PixCloud {
         if (onProgress) onProgress(synced, total);
       } catch (e) {
         console.warn(`[Cloud] Failed to sync field ${field.name}:`, e.message);
+        // Store last error for caller to surface to user
+        this._lastSyncError = `${field.name}: ${e.message}`;
       }
     }
 
-    return { synced, total };
+    return { synced, total, lastError: this._lastSyncError || null };
     } finally { this._syncing = false; }
   }
 
