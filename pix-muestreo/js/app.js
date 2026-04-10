@@ -636,6 +636,7 @@ class PixApp {
 
   updateAccuracyDisplay(accuracy) {
     const el = document.getElementById('navAccuracy');
+    if (!el) return;
     const rounded = Math.round(accuracy);
     el.textContent = `Precisión GPS: ±${rounded}m`;
     el.className = 'nav-accuracy ' + (rounded <= 5 ? 'good' : rounded <= 15 ? 'medium' : 'poor');
@@ -896,7 +897,11 @@ class PixApp {
   async scanBarcode() {
     document.getElementById('scannerOverlay').classList.add('active');
     try {
-      await barcodeScanner.init('scannerViewfinder', (code) => {
+      await barcodeScanner.init('scannerViewfinder', async (code) => {
+        // Stop scanner FIRST to release camera before UI updates
+        // This prevents the "scanner still active" race condition
+        try { await barcodeScanner.stop(); } catch (e) { /* ignore stop errors */ }
+
         // Parse the scanned code (detect IBRA Megalab format)
         const parsed = BarcodeScanner.parseIBRA(code);
         this.collectForm.barcode = code;
@@ -905,12 +910,12 @@ class PixApp {
         // Update barcode display
         const barcodeValue = document.getElementById('barcodeValue');
         const barcodeDisplay = document.getElementById('barcodeDisplay');
-        barcodeDisplay.classList.add('scanned');
+        if (barcodeDisplay) barcodeDisplay.classList.add('scanned');
 
         if (parsed.isIBRA && parsed.sampleId) {
           // Show IBRA parsed info
-          barcodeValue.innerHTML = `
-            <span class="ibra-badge">IBRA</span> ${parsed.sampleId}
+          if (barcodeValue) barcodeValue.innerHTML = `
+            <span class="ibra-badge">IBRA</span> ${escH(parsed.sampleId)}
           `;
 
           // Show details below the barcode display
@@ -950,13 +955,13 @@ class PixApp {
           this.toast(`IBRA Megalab: ${parsed.sampleId}`, 'success');
         } else {
           // Generic barcode/QR
-          barcodeValue.textContent = code;
+          if (barcodeValue) barcodeValue.textContent = code;
           const detailsEl = document.getElementById('ibraDetails');
           if (detailsEl) detailsEl.style.display = 'none';
           this.toast(`Código: ${code}`, 'success');
         }
 
-        this.closeScannerOverlay();
+        document.getElementById('scannerOverlay').classList.remove('active');
       });
     } catch (e) {
       this.toast('Error al iniciar cámara', 'error');
@@ -965,8 +970,9 @@ class PixApp {
   }
 
   async closeScannerOverlay() {
-    await barcodeScanner.stop();
-    document.getElementById('scannerOverlay').classList.remove('active');
+    try { await barcodeScanner.stop(); } catch (e) { /* ignore stop errors */ }
+    const overlay = document.getElementById('scannerOverlay');
+    if (overlay) overlay.classList.remove('active');
   }
 
   // Take photo
@@ -1741,6 +1747,7 @@ class PixApp {
 
     this.addSyncLog('Iniciando sincronización...');
 
+    // Drive sync (independent — failure doesn't block Cloud)
     try {
       const result = await driveSync.syncAll((done, total) => {
         const pct = Math.round((done / total) * 100);
@@ -1748,27 +1755,27 @@ class PixApp {
       });
       this.addSyncLog(`✓ ${result.synced} muestras sincronizadas a Drive`);
       this.toast(`${result.synced} muestras sincronizadas`, 'success');
-
-      // Auto-sync to Cloud after Drive sync succeeds
-      if (pixCloud.isEnabled()) {
-        try {
-          const cloudResult = await pixCloud.syncAll();
-          this.addSyncLog(`☁ ${cloudResult.synced} campos sincronizados a Cloud`);
-        } catch (ce) {
-          this.addSyncLog(`☁ Cloud: ${ce.message}`);
-        }
-
-        // Pull orders + register device + sync credentials (each independently)
-        try { await this._pullCloudOrders(); } catch (e) { console.warn('[Sync] pullOrders:', e.message); }
-        try { await this._registerDevice(); } catch (e) { console.warn('[Sync] registerDevice:', e.message); }
-        try { await this._syncCloudCredentials(); } catch (e) { console.warn('[Sync] credentials:', e.message); }
-        try { await this._syncBoundariesToCloud(); } catch (e) { console.warn('[Sync] boundaries:', e.message); }
-      }
-      await pixDB.setSetting('lastSyncTime', String(Date.now()));
     } catch (e) {
-      this.addSyncLog(`✗ Error: ${e.message}`);
-      this.toast('Error al sincronizar', 'error');
+      this.addSyncLog(`✗ Drive: ${e.message}`);
+      console.warn('[Sync] Drive error:', e.message);
     }
+
+    // Cloud sync (ALWAYS runs independently of Drive result)
+    if (pixCloud.isEnabled()) {
+      try {
+        const cloudResult = await pixCloud.syncAll();
+        this.addSyncLog(`☁ ${cloudResult.synced} campos sincronizados a Cloud`);
+      } catch (ce) {
+        this.addSyncLog(`☁ Cloud: ${ce.message}`);
+      }
+      // Pull orders + register device + sync credentials (each independently)
+      try { await this._pullCloudOrders(); } catch (e) { console.warn('[Sync] pullOrders:', e.message); }
+      try { await this._registerDevice(); } catch (e) { console.warn('[Sync] registerDevice:', e.message); }
+      try { await this._syncCloudCredentials(); } catch (e) { console.warn('[Sync] credentials:', e.message); }
+      try { await this._syncBoundariesToCloud(); } catch (e) { console.warn('[Sync] boundaries:', e.message); }
+    }
+
+    await pixDB.setSetting('lastSyncTime', String(Date.now()));
 
     btn.disabled = false;
     btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/><path d="M21 3v9h-9"/></svg> Sincronizar con Drive';
@@ -2374,8 +2381,10 @@ h1{font-size:16px;color:#333}h2{font-size:14px;color:#555;margin:16px 0 8px}
     try {
       // Sync to Cloud first (lighter)
       if (pixCloud.isEnabled()) {
-        const result = await pixCloud.syncAll();
-        this.addSyncLog(`☁ Auto-sync: ${result.synced} campos`);
+        try {
+          const result = await pixCloud.syncAll();
+          this.addSyncLog(`☁ Auto-sync: ${result.synced} campos`);
+        } catch (e) { console.warn('[AutoSync] Cloud:', e.message); }
         // Upload pending boundaries + auxiliary syncs (each independently guarded)
         try { await this._syncBoundariesToCloud(); } catch (e) { /* silent */ }
         try { await this._registerDevice(); } catch (e) { /* silent */ }
@@ -2393,8 +2402,9 @@ h1{font-size:16px;color:#333}h2{font-size:14px;color:#555;margin:16px 0 8px}
       this.toast('Auto-sync completado', 'success');
     } catch (e) {
       console.warn('[AutoSync] Error:', e.message);
+    } finally {
+      this._autoSyncing = false;
     }
-    this._autoSyncing = false;
   }
 
   // ═══════════════════════════════════════════════
@@ -2923,18 +2933,21 @@ h1{font-size:16px;color:#333}h2{font-size:14px;color:#555;margin:16px 0 8px}
     document.getElementById('scannerOverlay').classList.add('active');
     try {
       await barcodeScanner.init('scannerViewfinder', async (code) => {
+        // Stop scanner FIRST to release camera before DB operations
+        try { await barcodeScanner.stop(); } catch (e) { /* ignore stop errors */ }
+
         const parsed = BarcodeScanner.parseIBRA(code);
         const display = document.getElementById('zoneBarcodeValue');
         const details = document.getElementById('zoneIbraDetails');
 
         if (parsed.isIBRA && parsed.sampleId) {
-          display.innerHTML = `<span class="ibra-badge">IBRA</span> ${parsed.sampleId}`;
+          if (display) display.innerHTML = `<span class="ibra-badge">IBRA</span> ${escH(parsed.sampleId)}`;
           if (details) {
             details.textContent = BarcodeScanner.formatIBRADisplay(parsed);
             details.style.display = 'block';
           }
         } else {
-          display.textContent = code;
+          if (display) display.textContent = code;
           if (details) details.style.display = 'none';
         }
 
@@ -2954,7 +2967,7 @@ h1{font-size:16px;color:#333}h2{font-size:14px;color:#555;margin:16px 0 8px}
           this.toast(`QR IBRA asociado a ${zoneSamples.length} muestras de Zona ${zona}`, 'success');
         }
 
-        this.closeScannerOverlay();
+        document.getElementById('scannerOverlay').classList.remove('active');
       });
     } catch (e) {
       this.toast('Error al iniciar cámara', 'error');

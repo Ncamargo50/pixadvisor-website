@@ -459,10 +459,11 @@
                 <th>Estado</th>
                 <th>Ultima Ubicacion</th>
                 <th>Ultima Conexion</th>
+                <th>Acciones</th>
               </tr>
             </thead>
             <tbody id="devicesTableBody">
-              <tr><td colspan="8" style="text-align:center;color:var(--muted);padding:30px">Cargando dispositivos...</td></tr>
+              <tr><td colspan="9" style="text-align:center;color:var(--muted);padding:30px">Cargando dispositivos...</td></tr>
             </tbody>
           </table>
         </div>
@@ -587,10 +588,11 @@ function showDashboard() {
   // Restore active tab from localStorage
   showTab(activeTab);
 
-  // Auto-refresh every 30s
+  // Auto-refresh every 30s (all tabs)
   if (refreshTimer) clearInterval(refreshTimer);
   refreshTimer = setInterval(() => {
     if (activeTab === 'tabPanel') loadData();
+    else if (activeTab === 'tabOrdenes') loadOrders();
     else if (activeTab === 'tabDispositivos') loadDevices();
     else if (activeTab === 'tabTecnicos') loadTechnicians();
   }, 30000);
@@ -722,7 +724,7 @@ function renderFields(fields) {
         <small style="color:var(--muted)">${f.collected_points || 0}/${f.total_points || '?'} pts</small>
       </td>
       <td><small>${esc(f.technician)}</small></td>
-      <td><button class="btn btn-sm btn-danger" onclick="deleteField('${f.id}', '${esc(f.field_name)}')">Eliminar</button></td>
+      <td><button class="btn btn-sm btn-danger" onclick="deleteField('${f.id}', '${escJS(f.field_name)}')">Eliminar</button></td>
     </tr>`;
   }).join('');
 }
@@ -1247,7 +1249,7 @@ function renderOrders(orders) {
       <td onclick="event.stopPropagation()">
         ${statusSelect}
         <button class="btn btn-sm btn-secondary" style="margin-left:4px" onclick="editOrder(_ordersCache[${idx}])">Editar</button>
-        <button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="deleteOrder('${o.id}', '${esc(o.title)}')">Eliminar</button>
+        <button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="deleteOrder('${o.id}', '${escJS(o.title)}')">Eliminar</button>
       </td>
     </tr>
     <tr class="order-detail" id="detail-${o.id}">
@@ -1334,10 +1336,10 @@ async function submitTechnician() {
       await supaPost('/technicians?id=eq.' + editId, body, 'PATCH');
       toast('Tecnico actualizado');
     } else {
-      // Check if username exists (maybe soft-deleted with active=false)
-      const existing = await supaFetch('/technicians?username=eq.' + encodeURIComponent(username) + '&select=id,active');
+      // Check if username exists as soft-deleted (active=false) — reactivate it
+      const existing = await supaFetch('/technicians?username=eq.' + encodeURIComponent(username) + '&active=eq.false&select=id');
       if (existing && existing.length > 0) {
-        // Reactivate existing record
+        // Reactivate soft-deleted record
         body.active = true;
         body.updated_at = new Date().toISOString();
         await supaPost('/technicians?id=eq.' + existing[0].id, body, 'PATCH');
@@ -1481,8 +1483,8 @@ function renderTechnicians(techs, devices) {
       <td><small style="color:var(--muted)">${deviceInfo}</small></td>
       <td>
         <button class="btn btn-sm btn-secondary" onclick="editTechnician(_techsCache[${idx}])">Editar</button>
-        <button class="btn btn-sm btn-danger" onclick="resetTechPassword('${t.id}', '${esc(t.full_name)}')">Reset PW</button>
-        <button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="deleteTechnician('${t.id}', '${esc(t.full_name)}')">Eliminar</button>
+        <button class="btn btn-sm btn-danger" onclick="resetTechPassword('${t.id}', '${escJS(t.full_name)}')">Reset PW</button>
+        <button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="deleteTechnician('${t.id}', '${escJS(t.full_name)}')">Eliminar</button>
       </td>
     </tr>`;
   }).join('');
@@ -1494,14 +1496,14 @@ function renderTechnicians(techs, devices) {
 
 async function loadDevices() {
   try {
-    const devices = await supaFetch('/devices?select=*&order=last_seen.desc');
+    const devices = await supaFetch('/devices?select=*&active=eq.true&order=last_seen.desc');
     renderDevices(devices);
     document.getElementById('devicesRefreshInfo').textContent =
       'Actualizado: ' + new Date().toLocaleTimeString('es') + ' — auto-refresh cada 30s';
   } catch (e) {
     console.error('[Devices] Load error:', e);
     document.getElementById('devicesTableBody').innerHTML =
-      `<tr><td colspan="8" style="text-align:center;color:var(--red);padding:20px">Error: ${esc(e.message)}</td></tr>`;
+      `<tr><td colspan="9" style="text-align:center;color:var(--red);padding:20px">Error: ${esc(e.message)}</td></tr>`;
   }
 }
 
@@ -1509,7 +1511,7 @@ function renderDevices(devices) {
   const tbody = document.getElementById('devicesTableBody');
 
   if (!devices || devices.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:30px">No hay dispositivos registrados</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:30px">No hay dispositivos registrados</td></tr>';
     return;
   }
 
@@ -1539,17 +1541,31 @@ function renderDevices(devices) {
       loc = `${d.last_lat.toFixed(4)}, ${d.last_lng.toFixed(4)}`;
     }
 
+    const techLabel = esc(d.technician_name || d.technician || '—');
+
     return `<tr>
       <td title="${esc(devId)}"><code style="font-size:11px">${esc(shortId)}</code></td>
-      <td>${esc(d.technician_name || d.technician || '—')}</td>
+      <td>${techLabel}</td>
       <td>${esc(d.phone_model || '—')}</td>
       <td>${esc(d.app_version || '—')}</td>
       <td>${esc(d.sw_cache_version || '—')}</td>
       <td><span class="online-dot ${dotClass}"></span><span class="badge ${statusBadge}">${statusText}</span> <small style="color:var(--muted)">${ago}</small></td>
       <td><small>${loc}</small></td>
       <td>${lastSeen ? lastSeen.toLocaleString('es') : '—'}</td>
+      <td><button class="btn btn-sm btn-danger" onclick="deleteDevice('${d.id}', '${escJS(techLabel)}')">Eliminar</button></td>
     </tr>`;
   }).join('');
+}
+
+async function deleteDevice(id, label) {
+  if (!confirm('Eliminar dispositivo "' + label + '"?')) return;
+  try {
+    await supaPost('/devices?id=eq.' + id, { active: false }, 'PATCH');
+    toast('Dispositivo eliminado');
+    loadDevices();
+  } catch (e) {
+    toast('Error: ' + e.message, 'err');
+  }
 }
 
 // ═══════════════════════════════════════════════════
@@ -1557,6 +1573,8 @@ function renderDevices(devices) {
 // ═══════════════════════════════════════════════════
 
 function esc(s) { return s == null ? '' : String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+// JS-safe escaper for use inside onclick="fn('${escJS(val)}')" — prevents XSS via quote injection
+function escJS(s) { return s == null ? '' : String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"').replace(/</g,'\\x3c').replace(/>/g,'\\x3e').replace(/\n/g,'\\n'); }
 
 function timeAgo(date) {
   const ms = Date.now() - date.getTime();

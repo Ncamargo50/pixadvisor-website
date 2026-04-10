@@ -2,6 +2,10 @@
 // Uses direct REST API (PostgREST) — no external library needed
 // Works alongside Google Drive sync — independent fallback paths
 
+// App version constant — used by registerDevice() for fleet tracking
+// IMPORTANT: CACHE_NAME lives in SW scope and is NOT accessible from main page
+const APP_VERSION = 'pix-muestreo-v40';
+
 // Default Supabase credentials (PIX Muestreo project)
 const _CLOUD_DEFAULT_URL = 'https://fnoocboaupjmxpkhdnij.supabase.co';
 const _CLOUD_DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZub29jYm9hdXBqbXhwa2hkbmlqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3NzA3MTYsImV4cCI6MjA5MTM0NjcxNn0.WCoLdveWAwpcwzWpvLFSgQeXeot6X263DTffdEWoCfg';
@@ -234,10 +238,10 @@ class PixCloud {
       const row = {
         device_id: deviceId,
         technician_name: techName || 'Sin nombre',
-        app_version: typeof CACHE_NAME !== 'undefined' ? CACHE_NAME : 'unknown',
+        app_version: APP_VERSION,
         phone_model: this._extractModel(ua),
         os_version: this._extractOS(ua),
-        sw_cache_version: typeof CACHE_NAME !== 'undefined' ? CACHE_NAME : '',
+        sw_cache_version: APP_VERSION,
         last_seen: new Date().toISOString(),
         last_sync: new Date().toISOString(),
         last_location: location || null,
