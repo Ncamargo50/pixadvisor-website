@@ -23,6 +23,12 @@
   .dot-on { background: var(--green); box-shadow: 0 0 6px var(--green); }
   .dot-off { background: var(--red); }
 
+  /* Tab navigation */
+  .nav-tabs { display: flex; gap: 0; background: var(--bg2); border-bottom: 1px solid rgba(255,255,255,0.06); padding: 0 20px; position: sticky; top: 65px; z-index: 99; }
+  .nav-tab { padding: 12px 20px; font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer; border: none; background: none; border-bottom: 2px solid transparent; transition: all 0.2s; }
+  .nav-tab:hover { color: var(--text); }
+  .nav-tab.active { color: var(--green); border-bottom-color: var(--green); }
+
   .setup-panel { max-width: 480px; margin: 60px auto; padding: 32px; background: var(--bg2); border-radius: 16px; border: 1px solid rgba(127,214,51,0.12); }
   .setup-panel h2 { font-size: 20px; margin-bottom: 8px; }
   .setup-panel p { color: var(--muted); font-size: 13px; margin-bottom: 20px; line-height: 1.6; }
@@ -55,9 +61,11 @@
 
   .badge { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; }
   .badge-green { background: rgba(127,214,51,0.15); color: var(--green); }
+  .badge-green-solid { background: var(--green); color: var(--bg); }
   .badge-yellow { background: rgba(245,158,11,0.15); color: var(--yellow); }
   .badge-red { background: rgba(239,68,68,0.15); color: var(--red); }
   .badge-teal { background: rgba(13,148,136,0.15); color: var(--teal); }
+  .badge-muted { background: rgba(100,116,139,0.15); color: var(--muted); }
 
   .progress-bar { height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
   .progress-fill { height: 100%; border-radius: 3px; transition: width 0.5s; }
@@ -68,6 +76,72 @@
   .activity-text strong { color: var(--green); }
 
   .refresh-bar { text-align: center; padding: 8px; font-size: 11px; color: var(--muted); }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* Forms */
+  .form-panel { background: var(--bg3); border-radius: 12px; padding: 20px; margin-bottom: 16px; display: none; }
+  .form-panel.show { display: block; animation: slideDown 0.25s ease-out; }
+  @keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  .form-group { display: flex; flex-direction: column; gap: 4px; }
+  .form-group.full { grid-column: 1 / -1; }
+  .form-group label { font-size: 12px; color: var(--muted); font-weight: 500; }
+  .form-group input, .form-group select, .form-group textarea {
+    padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
+    background: var(--bg); color: var(--text); font-size: 13px; outline: none;
+    font-family: inherit;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--green); }
+  .form-group textarea { resize: vertical; min-height: 60px; }
+  .form-actions { display: flex; gap: 10px; margin-top: 16px; }
+  @media (max-width: 768px) { .form-row { grid-template-columns: 1fr; } }
+
+  /* Buttons */
+  .btn { padding: 10px 20px; border-radius: 8px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; font-family: inherit; }
+  .btn:hover { opacity: 0.85; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-primary { background: linear-gradient(135deg, var(--green), var(--teal)); color: var(--bg); }
+  .btn-secondary { background: var(--bg3); color: var(--text); border: 1px solid rgba(255,255,255,0.1); }
+  .btn-danger { background: rgba(239,68,68,0.15); color: var(--red); }
+  .btn-sm { padding: 5px 12px; font-size: 11px; border-radius: 6px; }
+
+  /* Section header bar */
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; gap: 12px; flex-wrap: wrap; }
+  .section-header h2 { font-size: 16px; font-weight: 700; }
+
+  /* File upload zone */
+  .file-zone { border: 2px dashed rgba(127,214,51,0.3); border-radius: 10px; padding: 20px; text-align: center; cursor: pointer; transition: border-color 0.2s; }
+  .file-zone:hover { border-color: var(--green); }
+  .file-zone.has-file { border-color: var(--green); background: rgba(127,214,51,0.05); }
+  .file-preview { font-size: 12px; color: var(--green); margin-top: 8px; }
+  .file-zone input[type="file"] { display: none; }
+
+  /* Status dropdown */
+  .status-select { padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: var(--bg); color: var(--text); font-size: 11px; cursor: pointer; outline: none; }
+  .status-select:focus { border-color: var(--green); }
+
+  /* Order detail row */
+  .order-detail { display: none; background: var(--bg3); }
+  .order-detail.show { display: table-row; }
+  .order-detail td { padding: 16px; }
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 12px; }
+  .detail-grid .label { color: var(--muted); font-weight: 500; }
+
+  /* Online/offline dot */
+  .online-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+  .online-dot.on { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .online-dot.off { background: var(--red); }
+
+  /* Toast notification */
+  .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 10px; font-size: 13px; font-weight: 600; z-index: 9999; opacity: 0; transform: translateY(10px); transition: all 0.3s; pointer-events: none; }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast-ok { background: rgba(127,214,51,0.9); color: var(--bg); }
+  .toast-err { background: rgba(239,68,68,0.9); color: #fff; }
+
+  /* Responsive table wrapper */
+  .table-wrap { overflow-x: auto; }
 </style>
 </head>
 <body>
@@ -81,6 +155,14 @@
     <span class="dot dot-off" id="connDot"></span>
     <span id="connText">Desconectado</span>
   </div>
+</div>
+
+<!-- TAB NAVIGATION -->
+<div class="nav-tabs" id="navTabs" style="display:none">
+  <button class="nav-tab active" data-tab="tabPanel" onclick="showTab('tabPanel')">📊 Panel</button>
+  <button class="nav-tab" data-tab="tabOrdenes" onclick="showTab('tabOrdenes')">📋 Ordenes</button>
+  <button class="nav-tab" data-tab="tabTecnicos" onclick="showTab('tabTecnicos')">👥 Tecnicos</button>
+  <button class="nav-tab" data-tab="tabDispositivos" onclick="showTab('tabDispositivos')">📱 Dispositivos</button>
 </div>
 
 <!-- SETUP PANEL (shown if no credentials) -->
@@ -98,77 +180,305 @@
 
 <!-- DASHBOARD (shown when connected) -->
 <div id="dashboard" style="display:none">
-  <div class="container">
 
-    <!-- STATS -->
-    <div class="stats" id="statsGrid">
-      <div class="stat-card"><div class="stat-value" id="statTechs">0</div><div class="stat-label">Tecnicos</div></div>
-      <div class="stat-card"><div class="stat-value" id="statFields">0</div><div class="stat-label">Campos</div></div>
-      <div class="stat-card"><div class="stat-value" id="statSamples">0</div><div class="stat-label">Muestras</div></div>
-      <div class="stat-card"><div class="stat-value" id="statProgress">0%</div><div class="stat-label">Avance</div></div>
-    </div>
+  <!-- ═══ TAB: PANEL (existing dashboard) ═══ -->
+  <div id="tabPanel" class="tab-content active">
+    <div class="container">
 
-    <!-- MAP (full width) -->
-    <div class="panel" style="margin-bottom:20px">
-      <div class="panel-title">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/></svg>
-        Mapa de Campos
+      <!-- STATS -->
+      <div class="stats" id="statsGrid">
+        <div class="stat-card"><div class="stat-value" id="statTechs">0</div><div class="stat-label">Tecnicos</div></div>
+        <div class="stat-card"><div class="stat-value" id="statFields">0</div><div class="stat-label">Campos</div></div>
+        <div class="stat-card"><div class="stat-value" id="statSamples">0</div><div class="stat-label">Muestras</div></div>
+        <div class="stat-card"><div class="stat-value" id="statProgress">0%</div><div class="stat-label">Avance</div></div>
       </div>
-      <div id="dashMap"></div>
-    </div>
 
-    <!-- TECHNICIANS + FIELDS -->
-    <div class="grid" style="grid-template-columns: 1fr 2fr">
-      <div class="panel">
+      <!-- MAP (full width) -->
+      <div class="panel" style="margin-bottom:20px">
         <div class="panel-title">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
-          Tecnicos
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/></svg>
+          Mapa de Campos
         </div>
-        <div class="panel-body">
-          <table>
-            <thead><tr><th>Nombre</th><th>Muestras</th><th>Campos</th><th>Ultima sync</th></tr></thead>
-            <tbody id="techTable"></tbody>
-          </table>
+        <div id="dashMap"></div>
+      </div>
+
+      <!-- TECHNICIANS + FIELDS -->
+      <div class="grid" style="grid-template-columns: 1fr 2fr">
+        <div class="panel">
+          <div class="panel-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+            Tecnicos
+          </div>
+          <div class="panel-body">
+            <table>
+              <thead><tr><th>Nombre</th><th>Muestras</th><th>Campos</th><th>Ultima sync</th></tr></thead>
+              <tbody id="techTable"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+            Campos
+          </div>
+          <div class="panel-body" style="max-height:400px;overflow-y:auto">
+            <table>
+              <thead><tr><th>Campo</th><th>Cliente</th><th>Area</th><th>Avance</th><th>Tecnico</th></tr></thead>
+              <tbody id="fieldsTable"></tbody>
+            </table>
+          </div>
         </div>
       </div>
 
-      <div class="panel">
+      <!-- ACTIVITY (full width) -->
+      <div class="panel" style="margin-bottom:20px">
         <div class="panel-title">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
-          Campos
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Actividad Reciente
         </div>
-        <div class="panel-body" style="max-height:400px;overflow-y:auto">
-          <table>
-            <thead><tr><th>Campo</th><th>Cliente</th><th>Area</th><th>Avance</th><th>Tecnico</th></tr></thead>
-            <tbody id="fieldsTable"></tbody>
-          </table>
+        <div class="panel-body" style="max-height:300px;overflow-y:auto" id="activityList">
+          <div style="color:var(--muted);font-size:13px;padding:20px;text-align:center">Cargando...</div>
         </div>
       </div>
-    </div>
 
-    <!-- ACTIVITY (full width) -->
-    <div class="panel" style="margin-bottom:20px">
-      <div class="panel-title">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-        Actividad Reciente
-      </div>
-      <div class="panel-body" style="max-height:300px;overflow-y:auto" id="activityList">
-        <div style="color:var(--muted);font-size:13px;padding:20px;text-align:center">Cargando...</div>
-      </div>
+      <div class="refresh-bar" id="refreshBar">Auto-refresh cada 30s</div>
     </div>
-
-    <div class="refresh-bar" id="refreshBar">Auto-refresh cada 30s</div>
   </div>
+
+  <!-- ═══ TAB: ORDENES (Service Orders) ═══ -->
+  <div id="tabOrdenes" class="tab-content">
+    <div class="container">
+
+      <div class="section-header">
+        <h2>Ordenes de Servicio</h2>
+        <button class="btn btn-primary" onclick="toggleOrderForm()">+ Nueva Orden</button>
+      </div>
+
+      <!-- New Order Form -->
+      <div class="form-panel" id="orderFormPanel">
+        <h3 style="font-size:14px;margin-bottom:14px" id="orderFormTitle">Nueva Orden de Servicio</h3>
+        <input type="hidden" id="orderEditId" value="">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Titulo *</label>
+            <input type="text" id="orderTitle" placeholder="Ej: Muestreo Finca La Esperanza">
+          </div>
+          <div class="form-group">
+            <label>Proyecto</label>
+            <input type="text" id="orderProject" placeholder="Nombre del proyecto">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Cliente</label>
+            <input type="text" id="orderClient" placeholder="Nombre del cliente">
+          </div>
+          <div class="form-group">
+            <label>Asignar a Tecnico</label>
+            <select id="orderTechnician">
+              <option value="">-- Seleccionar --</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Prioridad</label>
+            <select id="orderPriority">
+              <option value="normal">Normal</option>
+              <option value="baja">Baja</option>
+              <option value="alta">Alta</option>
+              <option value="urgente">Urgente</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Fecha limite</label>
+            <input type="date" id="orderDeadline">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group full">
+            <label>Descripcion</label>
+            <textarea id="orderDesc" rows="2" placeholder="Descripcion detallada de la orden..."></textarea>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group full">
+            <label>Archivo GeoJSON / KML (opcional)</label>
+            <div class="file-zone" id="orderFileZone" onclick="document.getElementById('orderFile').click()">
+              <input type="file" id="orderFile" accept=".geojson,.json,.kml" onchange="handleGeoFile(event)">
+              <div style="color:var(--muted);font-size:13px">Arrastra o haz clic para subir un archivo .geojson, .json o .kml</div>
+              <div class="file-preview" id="orderFilePreview"></div>
+            </div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group full">
+            <label>Notas</label>
+            <textarea id="orderNotes" rows="2" placeholder="Notas adicionales..."></textarea>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" id="orderSubmitBtn" onclick="submitOrder()">Crear Orden</button>
+          <button class="btn btn-secondary" onclick="toggleOrderForm()">Cancelar</button>
+        </div>
+      </div>
+
+      <!-- Orders Table -->
+      <div class="panel">
+        <div class="panel-body table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Titulo</th>
+                <th>Proyecto</th>
+                <th>Cliente</th>
+                <th>Tecnico</th>
+                <th>Estado</th>
+                <th>Prioridad</th>
+                <th>Fecha Limite</th>
+                <th>Creada</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="ordersTableBody">
+              <tr><td colspan="9" style="text-align:center;color:var(--muted);padding:30px">Cargando ordenes...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══ TAB: TECNICOS (Technician Management) ═══ -->
+  <div id="tabTecnicos" class="tab-content">
+    <div class="container">
+
+      <div class="section-header">
+        <h2>Gestion de Tecnicos</h2>
+        <button class="btn btn-primary" onclick="toggleTechForm()">+ Nuevo Tecnico</button>
+      </div>
+
+      <!-- New Technician Form -->
+      <div class="form-panel" id="techFormPanel">
+        <h3 style="font-size:14px;margin-bottom:14px" id="techFormTitle">Nuevo Tecnico</h3>
+        <input type="hidden" id="techEditId" value="">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Nombre Completo *</label>
+            <input type="text" id="techFullName" placeholder="Nombre y apellido">
+          </div>
+          <div class="form-group">
+            <label>Username *</label>
+            <input type="text" id="techUsername" placeholder="usuario123">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label id="techPasswordLabel">Password *</label>
+            <input type="password" id="techPassword" placeholder="Contrasena segura">
+          </div>
+          <div class="form-group">
+            <label>Rol</label>
+            <select id="techRole">
+              <option value="tecnico">Tecnico</option>
+              <option value="supervisor">Supervisor</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Telefono</label>
+            <input type="text" id="techPhone" placeholder="+591 ...">
+          </div>
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="techEmail" placeholder="tecnico@email.com">
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" id="techSubmitBtn" onclick="submitTechnician()">Crear Tecnico</button>
+          <button class="btn btn-secondary" onclick="toggleTechForm()">Cancelar</button>
+        </div>
+      </div>
+
+      <!-- Technicians Table -->
+      <div class="panel">
+        <div class="panel-body table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Username</th>
+                <th>Rol</th>
+                <th>Telefono</th>
+                <th>Email</th>
+                <th>Activo</th>
+                <th>Ultimo Login</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="techsTableBody">
+              <tr><td colspan="8" style="text-align:center;color:var(--muted);padding:30px">Cargando tecnicos...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══ TAB: DISPOSITIVOS (Device Management) ═══ -->
+  <div id="tabDispositivos" class="tab-content">
+    <div class="container">
+
+      <div class="section-header">
+        <h2>Dispositivos Registrados</h2>
+        <span style="font-size:12px;color:var(--muted)" id="devicesRefreshInfo">Auto-refresh cada 30s</span>
+      </div>
+
+      <!-- Devices Table -->
+      <div class="panel">
+        <div class="panel-body table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Device ID</th>
+                <th>Tecnico</th>
+                <th>Modelo</th>
+                <th>App Version</th>
+                <th>SW Cache</th>
+                <th>Estado</th>
+                <th>Ultima Ubicacion</th>
+                <th>Ultima Conexion</th>
+              </tr>
+            </thead>
+            <tbody id="devicesTableBody">
+              <tr><td colspan="8" style="text-align:center;color:var(--muted);padding:30px">Cargando dispositivos...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
 </div>
+
+<!-- Toast Notification -->
+<div class="toast" id="toast"></div>
 
 <!-- SCRIPTS -->
 <script src="lib/leaflet.js"></script>
 <script>
 // ═══════════════════════════════════════════════════
 // PIX Muestreo Dashboard — Supabase Direct REST
+// Full Admin Panel with Tabs
 // ═══════════════════════════════════════════════════
 
-// Default Supabase credentials (PIX Muestreo project)
+// ── SUPABASE CONFIG ──
 const _DEFAULT_URL = 'https://fnoocboaupjmxpkhdnij.supabase.co';
 const _DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZub29jYm9hdXBqbXhwa2hkbmlqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3NzA3MTYsImV4cCI6MjA5MTM0NjcxNn0.WCoLdveWAwpcwzWpvLFSgQeXeot6X263DTffdEWoCfg';
 
@@ -177,6 +487,39 @@ let SUPA_KEY = localStorage.getItem('pix_dash_key') || _DEFAULT_KEY;
 let dashMap = null;
 let fieldLayers = [];
 let refreshTimer = null;
+let activeTab = localStorage.getItem('pix_dash_tab') || 'tabPanel';
+let orderGeoData = null; // Holds parsed GeoJSON for new order
+
+// ═══════════════════════════════════════════════════
+// TAB MANAGEMENT
+// ═══════════════════════════════════════════════════
+
+function showTab(tabId) {
+  activeTab = tabId;
+  localStorage.setItem('pix_dash_tab', tabId);
+
+  // Update tab buttons
+  document.querySelectorAll('.nav-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tabId);
+  });
+
+  // Update tab content
+  document.querySelectorAll('.tab-content').forEach(el => {
+    el.classList.toggle('active', el.id === tabId);
+  });
+
+  // Load data for the active tab
+  if (tabId === 'tabPanel') {
+    loadData();
+    if (dashMap) setTimeout(() => dashMap.invalidateSize(), 100);
+  } else if (tabId === 'tabOrdenes') {
+    loadOrders();
+  } else if (tabId === 'tabTecnicos') {
+    loadTechnicians();
+  } else if (tabId === 'tabDispositivos') {
+    loadDevices();
+  }
+}
 
 // ── INIT ──
 window.addEventListener('DOMContentLoaded', () => {
@@ -223,6 +566,7 @@ async function connectSupabase() {
 function showDashboard() {
   document.getElementById('dashboard').style.display = 'block';
   document.getElementById('setupPanel').style.display = 'none';
+  document.getElementById('navTabs').style.display = 'flex';
 
   // Init map
   if (!dashMap) {
@@ -232,17 +576,23 @@ function showDashboard() {
     }).addTo(dashMap);
   }
 
-  // Initial load
-  loadData();
+  // Restore active tab from localStorage
+  showTab(activeTab);
 
   // Auto-refresh every 30s
   if (refreshTimer) clearInterval(refreshTimer);
-  refreshTimer = setInterval(loadData, 30000);
+  refreshTimer = setInterval(() => {
+    if (activeTab === 'tabPanel') loadData();
+    else if (activeTab === 'tabDispositivos') loadDevices();
+  }, 30000);
 
   setConnected(true);
 }
 
-// ── FETCH HELPER ──
+// ═══════════════════════════════════════════════════
+// FETCH HELPERS
+// ═══════════════════════════════════════════════════
+
 async function supaFetch(path) {
   const resp = await fetch(SUPA_URL + '/rest/v1' + path, {
     headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }
@@ -251,7 +601,25 @@ async function supaFetch(path) {
   return resp.json();
 }
 
-// ── LOAD ALL DATA ──
+async function supaPost(path, body, method = 'POST') {
+  const resp = await fetch(SUPA_URL + '/rest/v1' + path, {
+    method,
+    headers: {
+      'apikey': SUPA_KEY,
+      'Authorization': 'Bearer ' + SUPA_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation'
+    },
+    body: JSON.stringify(body)
+  });
+  if (!resp.ok) throw new Error('HTTP ' + resp.status + ': ' + await resp.text());
+  return resp.json();
+}
+
+// ═══════════════════════════════════════════════════
+// PANEL TAB — Existing Dashboard Functions
+// ═══════════════════════════════════════════════════
+
 async function loadData() {
   try {
     const [fields, activities] = await Promise.all([
@@ -289,7 +657,7 @@ function renderStats(fields) {
   document.getElementById('statProgress').textContent = pct + '%';
 }
 
-// ── RENDER TECHNICIANS TABLE ──
+// ── RENDER TECHNICIANS TABLE (Panel tab) ──
 function renderTechs(fields) {
   const techMap = {};
   for (const f of fields) {
@@ -413,8 +781,541 @@ function renderActivity(activities) {
   }).join('');
 }
 
-// ── HELPERS ──
-function esc(s) { return s == null ? '' : String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+// ═══════════════════════════════════════════════════
+// ORDENES TAB — Service Orders
+// ═══════════════════════════════════════════════════
+
+function toggleOrderForm(reset) {
+  const panel = document.getElementById('orderFormPanel');
+  const isOpen = panel.classList.contains('show');
+  if (isOpen || reset === false) {
+    panel.classList.remove('show');
+    clearOrderForm();
+  } else {
+    panel.classList.add('show');
+    populateOrderTechDropdown();
+  }
+}
+
+function clearOrderForm() {
+  document.getElementById('orderEditId').value = '';
+  document.getElementById('orderTitle').value = '';
+  document.getElementById('orderProject').value = '';
+  document.getElementById('orderClient').value = '';
+  document.getElementById('orderDesc').value = '';
+  document.getElementById('orderTechnician').value = '';
+  document.getElementById('orderPriority').value = 'normal';
+  document.getElementById('orderDeadline').value = '';
+  document.getElementById('orderNotes').value = '';
+  document.getElementById('orderFile').value = '';
+  document.getElementById('orderFilePreview').textContent = '';
+  document.getElementById('orderFileZone').classList.remove('has-file');
+  document.getElementById('orderFormTitle').textContent = 'Nueva Orden de Servicio';
+  document.getElementById('orderSubmitBtn').textContent = 'Crear Orden';
+  orderGeoData = null;
+}
+
+async function populateOrderTechDropdown() {
+  try {
+    const techs = await supaFetch('/technicians?select=id,full_name&active=eq.true&order=full_name.asc');
+    const sel = document.getElementById('orderTechnician');
+    const currentVal = sel.value;
+    sel.innerHTML = '<option value="">-- Seleccionar --</option>' +
+      techs.map(t => `<option value="${esc(t.id)}">${esc(t.full_name)}</option>`).join('');
+    if (currentVal) sel.value = currentVal;
+  } catch (e) {
+    console.warn('[Orders] Could not load technicians for dropdown:', e.message);
+  }
+}
+
+function handleGeoFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      let data;
+      const text = e.target.result;
+
+      if (file.name.endsWith('.kml')) {
+        // Basic KML parsing: extract coordinates
+        const parser = new DOMParser();
+        const kml = parser.parseFromString(text, 'text/xml');
+        const placemarks = kml.querySelectorAll('Placemark');
+        const features = [];
+        placemarks.forEach(pm => {
+          const name = pm.querySelector('name')?.textContent || '';
+          const coords = pm.querySelector('coordinates');
+          if (coords) {
+            const pts = coords.textContent.trim().split(/\s+/).map(c => {
+              const [lng, lat, alt] = c.split(',').map(Number);
+              return [lng, lat];
+            }).filter(c => !isNaN(c[0]) && !isNaN(c[1]));
+            if (pts.length === 1) {
+              features.push({ type: 'Feature', properties: { name }, geometry: { type: 'Point', coordinates: pts[0] } });
+            } else if (pts.length > 2) {
+              features.push({ type: 'Feature', properties: { name }, geometry: { type: 'Polygon', coordinates: [pts] } });
+            }
+          }
+        });
+        data = { type: 'FeatureCollection', features };
+      } else {
+        data = JSON.parse(text);
+      }
+
+      // Validate GeoJSON structure
+      if (!data || !data.features) {
+        if (data.type === 'Feature') {
+          data = { type: 'FeatureCollection', features: [data] };
+        } else {
+          throw new Error('No es un GeoJSON valido');
+        }
+      }
+
+      orderGeoData = data;
+
+      // Compute stats
+      let points = 0, polygons = 0, totalArea = 0;
+      for (const feat of data.features) {
+        const gType = feat.geometry?.type;
+        if (gType === 'Point' || gType === 'MultiPoint') points++;
+        else if (gType === 'Polygon' || gType === 'MultiPolygon') {
+          polygons++;
+          if (feat.properties?.area_ha) totalArea += parseFloat(feat.properties.area_ha);
+        }
+      }
+
+      const zone = document.getElementById('orderFileZone');
+      zone.classList.add('has-file');
+      const preview = document.getElementById('orderFilePreview');
+      let info = `${file.name} — ${data.features.length} features`;
+      if (polygons > 0) info += `, ${polygons} poligonos`;
+      if (points > 0) info += `, ${points} puntos`;
+      if (totalArea > 0) info += `, ${totalArea.toFixed(1)} ha`;
+      preview.textContent = info;
+
+    } catch (err) {
+      orderGeoData = null;
+      document.getElementById('orderFileZone').classList.remove('has-file');
+      document.getElementById('orderFilePreview').textContent = 'Error: ' + err.message;
+      document.getElementById('orderFilePreview').style.color = 'var(--red)';
+      setTimeout(() => {
+        document.getElementById('orderFilePreview').style.color = '';
+        document.getElementById('orderFilePreview').textContent = '';
+      }, 3000);
+    }
+  };
+  reader.readAsText(file);
+}
+
+async function submitOrder() {
+  const title = document.getElementById('orderTitle').value.trim();
+  if (!title) { toast('El titulo es obligatorio', 'err'); return; }
+
+  const editId = document.getElementById('orderEditId').value;
+  const body = {
+    title: title,
+    project: document.getElementById('orderProject').value.trim() || null,
+    client: document.getElementById('orderClient').value.trim() || null,
+    description: document.getElementById('orderDesc').value.trim() || null,
+    assigned_to: document.getElementById('orderTechnician').value || null,
+    priority: document.getElementById('orderPriority').value,
+    deadline: document.getElementById('orderDeadline').value || null,
+    notes: document.getElementById('orderNotes').value.trim() || null,
+    field_data: orderGeoData || null
+  };
+
+  const btn = document.getElementById('orderSubmitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Guardando...';
+
+  try {
+    if (editId) {
+      body.updated_at = new Date().toISOString();
+      await supaPost('/service_orders?id=eq.' + editId, body, 'PATCH');
+      toast('Orden actualizada');
+    } else {
+      body.status = 'pendiente';
+      body.created_at = new Date().toISOString();
+      await supaPost('/service_orders', body);
+      toast('Orden creada');
+    }
+    toggleOrderForm(false);
+    loadOrders();
+  } catch (e) {
+    toast('Error: ' + e.message, 'err');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = editId ? 'Actualizar Orden' : 'Crear Orden';
+  }
+}
+
+async function loadOrders() {
+  try {
+    const orders = await supaFetch('/service_orders?select=*&order=created_at.desc');
+    renderOrders(orders);
+  } catch (e) {
+    console.error('[Orders] Load error:', e);
+    document.getElementById('ordersTableBody').innerHTML =
+      `<tr><td colspan="9" style="text-align:center;color:var(--red);padding:20px">Error: ${esc(e.message)}</td></tr>`;
+  }
+}
+
+async function updateOrderStatus(id, status) {
+  try {
+    await supaPost('/service_orders?id=eq.' + id, { status, updated_at: new Date().toISOString() }, 'PATCH');
+    toast('Estado actualizado: ' + status);
+    loadOrders();
+  } catch (e) {
+    toast('Error: ' + e.message, 'err');
+  }
+}
+
+function editOrder(order) {
+  document.getElementById('orderEditId').value = order.id;
+  document.getElementById('orderTitle').value = order.title || '';
+  document.getElementById('orderProject').value = order.project || '';
+  document.getElementById('orderClient').value = order.client || '';
+  document.getElementById('orderDesc').value = order.description || '';
+  document.getElementById('orderPriority').value = order.priority || 'normal';
+  document.getElementById('orderDeadline').value = order.deadline || '';
+  document.getElementById('orderNotes').value = order.notes || '';
+  document.getElementById('orderFormTitle').textContent = 'Editar Orden';
+  document.getElementById('orderSubmitBtn').textContent = 'Actualizar Orden';
+  if (order.field_data) {
+    orderGeoData = order.field_data;
+    document.getElementById('orderFileZone').classList.add('has-file');
+    const fc = order.field_data.features?.length || 0;
+    document.getElementById('orderFilePreview').textContent = `Datos cargados: ${fc} features`;
+  }
+  const panel = document.getElementById('orderFormPanel');
+  panel.classList.add('show');
+  populateOrderTechDropdown().then(() => {
+    document.getElementById('orderTechnician').value = order.assigned_to || '';
+  });
+  panel.scrollIntoView({ behavior: 'smooth' });
+}
+
+function toggleOrderDetail(id) {
+  const row = document.getElementById('detail-' + id);
+  if (row) row.classList.toggle('show');
+}
+
+// Store orders for editing
+let _ordersCache = [];
+
+function renderOrders(orders) {
+  _ordersCache = orders;
+  const tbody = document.getElementById('ordersTableBody');
+
+  if (!orders || orders.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:30px">No hay ordenes de servicio</td></tr>';
+    return;
+  }
+
+  const statusMap = {
+    pendiente: 'badge-yellow',
+    asignada: 'badge-teal',
+    en_progreso: 'badge-green',
+    completada: 'badge-green-solid',
+    cancelada: 'badge-red'
+  };
+  const priorityMap = {
+    baja: 'badge-muted',
+    normal: 'badge-teal',
+    alta: 'badge-yellow',
+    urgente: 'badge-red'
+  };
+  const statusOptions = ['pendiente', 'asignada', 'en_progreso', 'completada', 'cancelada'];
+
+  tbody.innerHTML = orders.map((o, idx) => {
+    const sBadge = statusMap[o.status] || 'badge-muted';
+    const pBadge = priorityMap[o.priority] || 'badge-teal';
+    const created = o.created_at ? new Date(o.created_at).toLocaleDateString('es') : '—';
+    const deadline = o.deadline ? new Date(o.deadline).toLocaleDateString('es') : '—';
+    const hasGeo = o.field_data && o.field_data.features ? ' 🗺️' : '';
+
+    const statusSelect = `<select class="status-select" onchange="updateOrderStatus('${o.id}', this.value)">`
+      + statusOptions.map(s => `<option value="${s}"${s === o.status ? ' selected' : ''}>${s}</option>`).join('')
+      + '</select>';
+
+    // Detail row
+    const desc = esc(o.description || 'Sin descripcion');
+    const notes = esc(o.notes || '—');
+    const geoInfo = o.field_data?.features ? `${o.field_data.features.length} features cargadas` : 'Sin datos GeoJSON';
+
+    return `<tr style="cursor:pointer" onclick="toggleOrderDetail('${o.id}')">
+      <td><strong>${esc(o.title)}</strong>${hasGeo}</td>
+      <td>${esc(o.project || '—')}</td>
+      <td>${esc(o.client || '—')}</td>
+      <td>${esc(o.technician_name || o.assigned_to || '—')}</td>
+      <td><span class="badge ${sBadge}">${o.status}</span></td>
+      <td><span class="badge ${pBadge}">${o.priority || 'normal'}</span></td>
+      <td>${deadline}</td>
+      <td>${created}</td>
+      <td onclick="event.stopPropagation()">
+        ${statusSelect}
+        <button class="btn btn-sm btn-secondary" style="margin-left:4px" onclick="editOrder(_ordersCache[${idx}])">Editar</button>
+      </td>
+    </tr>
+    <tr class="order-detail" id="detail-${o.id}">
+      <td colspan="9">
+        <div class="detail-grid">
+          <div><span class="label">Descripcion:</span><br>${desc}</div>
+          <div><span class="label">Notas:</span><br>${notes}</div>
+          <div><span class="label">GeoJSON:</span><br>${geoInfo}</div>
+          <div><span class="label">Actualizada:</span><br>${o.updated_at ? new Date(o.updated_at).toLocaleString('es') : '—'}</div>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════
+// TECNICOS TAB — Technician Management
+// ═══════════════════════════════════════════════════
+
+function toggleTechForm(reset) {
+  const panel = document.getElementById('techFormPanel');
+  const isOpen = panel.classList.contains('show');
+  if (isOpen || reset === false) {
+    panel.classList.remove('show');
+    clearTechForm();
+  } else {
+    panel.classList.add('show');
+  }
+}
+
+function clearTechForm() {
+  document.getElementById('techEditId').value = '';
+  document.getElementById('techFullName').value = '';
+  document.getElementById('techUsername').value = '';
+  document.getElementById('techPassword').value = '';
+  document.getElementById('techPhone').value = '';
+  document.getElementById('techEmail').value = '';
+  document.getElementById('techRole').value = 'tecnico';
+  document.getElementById('techFormTitle').textContent = 'Nuevo Tecnico';
+  document.getElementById('techSubmitBtn').textContent = 'Crear Tecnico';
+  document.getElementById('techPasswordLabel').textContent = 'Password *';
+  document.getElementById('techPassword').required = true;
+}
+
+async function sha256(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function submitTechnician() {
+  const fullName = document.getElementById('techFullName').value.trim();
+  const username = document.getElementById('techUsername').value.trim();
+  const password = document.getElementById('techPassword').value;
+  const editId = document.getElementById('techEditId').value;
+
+  if (!fullName || !username) {
+    toast('Nombre y username son obligatorios', 'err');
+    return;
+  }
+  if (!editId && !password) {
+    toast('El password es obligatorio para nuevos tecnicos', 'err');
+    return;
+  }
+
+  const body = {
+    full_name: fullName,
+    username: username,
+    phone: document.getElementById('techPhone').value.trim() || null,
+    email: document.getElementById('techEmail').value.trim() || null,
+    role: document.getElementById('techRole').value
+  };
+
+  if (password) {
+    body.password_hash = await sha256(password);
+  }
+
+  const btn = document.getElementById('techSubmitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Guardando...';
+
+  try {
+    if (editId) {
+      body.updated_at = new Date().toISOString();
+      await supaPost('/technicians?id=eq.' + editId, body, 'PATCH');
+      toast('Tecnico actualizado');
+    } else {
+      body.active = true;
+      body.created_at = new Date().toISOString();
+      await supaPost('/technicians', body);
+      toast('Tecnico creado');
+    }
+    toggleTechForm(false);
+    loadTechnicians();
+  } catch (e) {
+    toast('Error: ' + e.message, 'err');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = editId ? 'Actualizar Tecnico' : 'Crear Tecnico';
+  }
+}
+
+async function loadTechnicians() {
+  try {
+    const techs = await supaFetch('/technicians?select=*&order=created_at.desc');
+    renderTechnicians(techs);
+  } catch (e) {
+    console.error('[Technicians] Load error:', e);
+    document.getElementById('techsTableBody').innerHTML =
+      `<tr><td colspan="8" style="text-align:center;color:var(--red);padding:20px">Error: ${esc(e.message)}</td></tr>`;
+  }
+}
+
+async function toggleTechnicianActive(id, currentActive) {
+  try {
+    await supaPost('/technicians?id=eq.' + id, { active: !currentActive, updated_at: new Date().toISOString() }, 'PATCH');
+    toast(currentActive ? 'Tecnico desactivado' : 'Tecnico activado');
+    loadTechnicians();
+  } catch (e) {
+    toast('Error: ' + e.message, 'err');
+  }
+}
+
+function editTechnician(tech) {
+  document.getElementById('techEditId').value = tech.id;
+  document.getElementById('techFullName').value = tech.full_name || '';
+  document.getElementById('techUsername').value = tech.username || '';
+  document.getElementById('techPassword').value = '';
+  document.getElementById('techPhone').value = tech.phone || '';
+  document.getElementById('techEmail').value = tech.email || '';
+  document.getElementById('techRole').value = tech.role || 'tecnico';
+  document.getElementById('techFormTitle').textContent = 'Editar Tecnico';
+  document.getElementById('techSubmitBtn').textContent = 'Actualizar Tecnico';
+  document.getElementById('techPasswordLabel').textContent = 'Password (dejar vacio para no cambiar)';
+  document.getElementById('techPassword').required = false;
+  const panel = document.getElementById('techFormPanel');
+  panel.classList.add('show');
+  panel.scrollIntoView({ behavior: 'smooth' });
+}
+
+async function resetTechPassword(id, name) {
+  const newPw = prompt('Nueva contrasena para ' + name + ':');
+  if (!newPw || !newPw.trim()) return;
+
+  try {
+    const hash = await sha256(newPw.trim());
+    await supaPost('/technicians?id=eq.' + id, { password_hash: hash, updated_at: new Date().toISOString() }, 'PATCH');
+    toast('Contrasena actualizada para ' + name);
+  } catch (e) {
+    toast('Error: ' + e.message, 'err');
+  }
+}
+
+// Store technicians for editing
+let _techsCache = [];
+
+function renderTechnicians(techs) {
+  _techsCache = techs;
+  const tbody = document.getElementById('techsTableBody');
+
+  if (!techs || techs.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:30px">No hay tecnicos registrados</td></tr>';
+    return;
+  }
+
+  const roleMap = { admin: 'badge-red', supervisor: 'badge-yellow', tecnico: 'badge-teal' };
+
+  tbody.innerHTML = techs.map((t, idx) => {
+    const rBadge = roleMap[t.role] || 'badge-teal';
+    const lastLogin = t.last_login ? timeAgo(new Date(t.last_login)) : 'Nunca';
+    const activeClass = t.active ? 'badge-green' : 'badge-red';
+    const activeText = t.active ? 'Activo' : 'Inactivo';
+
+    return `<tr>
+      <td><strong>${esc(t.full_name)}</strong></td>
+      <td>${esc(t.username)}</td>
+      <td><span class="badge ${rBadge}">${t.role || 'tecnico'}</span></td>
+      <td>${esc(t.phone || '—')}</td>
+      <td>${esc(t.email || '—')}</td>
+      <td>
+        <span class="badge ${activeClass}" style="cursor:pointer" onclick="toggleTechnicianActive('${t.id}', ${t.active})" title="Clic para cambiar">${activeText}</span>
+      </td>
+      <td><span class="badge badge-muted">${lastLogin}</span></td>
+      <td>
+        <button class="btn btn-sm btn-secondary" onclick="editTechnician(_techsCache[${idx}])">Editar</button>
+        <button class="btn btn-sm btn-danger" onclick="resetTechPassword('${t.id}', '${esc(t.full_name)}')">Reset PW</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════
+// DISPOSITIVOS TAB — Device Management
+// ═══════════════════════════════════════════════════
+
+async function loadDevices() {
+  try {
+    const devices = await supaFetch('/devices?select=*&order=last_seen.desc');
+    renderDevices(devices);
+    document.getElementById('devicesRefreshInfo').textContent =
+      'Actualizado: ' + new Date().toLocaleTimeString('es') + ' — auto-refresh cada 30s';
+  } catch (e) {
+    console.error('[Devices] Load error:', e);
+    document.getElementById('devicesTableBody').innerHTML =
+      `<tr><td colspan="8" style="text-align:center;color:var(--red);padding:20px">Error: ${esc(e.message)}</td></tr>`;
+  }
+}
+
+function renderDevices(devices) {
+  const tbody = document.getElementById('devicesTableBody');
+
+  if (!devices || devices.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:30px">No hay dispositivos registrados</td></tr>';
+    return;
+  }
+
+  const ONE_HOUR = 3600000;
+
+  tbody.innerHTML = devices.map(d => {
+    const lastSeen = d.last_seen ? new Date(d.last_seen) : null;
+    const isOnline = lastSeen && (Date.now() - lastSeen.getTime()) < ONE_HOUR;
+    const dotClass = isOnline ? 'on' : 'off';
+    const statusText = isOnline ? 'Online' : 'Offline';
+    const statusBadge = isOnline ? 'badge-green' : 'badge-red';
+    const ago = lastSeen ? timeAgo(lastSeen) : 'Nunca';
+
+    // Truncate device_id for display
+    const devId = d.device_id || d.id || '—';
+    const shortId = devId.length > 12 ? devId.substring(0, 12) + '...' : devId;
+
+    // Format location
+    let loc = '—';
+    if (d.last_location) {
+      if (typeof d.last_location === 'object' && d.last_location.lat) {
+        loc = `${d.last_location.lat.toFixed(4)}, ${d.last_location.lng.toFixed(4)}`;
+      } else if (typeof d.last_location === 'string') {
+        loc = d.last_location;
+      }
+    } else if (d.last_lat && d.last_lng) {
+      loc = `${d.last_lat.toFixed(4)}, ${d.last_lng.toFixed(4)}`;
+    }
+
+    return `<tr>
+      <td title="${esc(devId)}"><code style="font-size:11px">${esc(shortId)}</code></td>
+      <td>${esc(d.technician_name || d.technician || '—')}</td>
+      <td>${esc(d.phone_model || '—')}</td>
+      <td>${esc(d.app_version || '—')}</td>
+      <td>${esc(d.sw_cache_version || '—')}</td>
+      <td><span class="online-dot ${dotClass}"></span><span class="badge ${statusBadge}">${statusText}</span> <small style="color:var(--muted)">${ago}</small></td>
+      <td><small>${loc}</small></td>
+      <td>${lastSeen ? lastSeen.toLocaleString('es') : '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════
+
+function esc(s) { return s == null ? '' : String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 function timeAgo(date) {
   const ms = Date.now() - date.getTime();
@@ -430,6 +1331,13 @@ function setConnected(ok) {
   // Show export button when connected
   const eb = document.getElementById('exportBtn');
   if (eb) eb.style.display = ok ? '' : 'none';
+}
+
+function toast(msg, type) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast ' + (type === 'err' ? 'toast-err' : 'toast-ok') + ' show';
+  setTimeout(() => { el.classList.remove('show'); }, 3000);
 }
 
 // ═══════════════════════════════════════════════════
