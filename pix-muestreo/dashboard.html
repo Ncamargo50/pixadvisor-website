@@ -1138,7 +1138,7 @@ function renderOrders(orders) {
     const pBadge = priorityMap[o.priority] || 'badge-teal';
     const created = o.created_at ? new Date(o.created_at).toLocaleDateString('es') : '—';
     const deadline = o.deadline ? new Date(o.deadline).toLocaleDateString('es') : '—';
-    const hasGeo = o.field_data && o.field_data.features ? ' 🗺️' : '';
+    const hasGeo = o.field_data && (o.field_data.fields || o.field_data.features) ? ' 🗺️' : '';
 
     const statusSelect = `<select class="status-select" onchange="updateOrderStatus('${o.id}', this.value)">`
       + statusOptions.map(s => `<option value="${s}"${s === o.status ? ' selected' : ''}>${s}</option>`).join('')
@@ -1147,13 +1147,14 @@ function renderOrders(orders) {
     // Detail row
     const desc = esc(o.description || 'Sin descripcion');
     const notes = esc(o.notes || '—');
-    const geoInfo = o.field_data?.features ? `${o.field_data.features.length} features cargadas` : 'Sin datos GeoJSON';
+    const geoFields = o.field_data?.fields || o.field_data?.features || [];
+    const geoInfo = geoFields.length ? `${geoFields.length} campos cargados` : 'Sin datos GeoJSON';
 
     return `<tr style="cursor:pointer" onclick="toggleOrderDetail('${o.id}')">
       <td><strong>${esc(o.title)}</strong>${hasGeo}</td>
       <td>${esc(o.project || '—')}</td>
       <td>${esc(o.client || '—')}</td>
-      <td>${esc(o.technician_name || o.assigned_to || '—')}</td>
+      <td>${esc(o.assigned_to_name || o.assigned_to || '—')}</td>
       <td><span class="badge ${sBadge}">${o.status}</span></td>
       <td><span class="badge ${pBadge}">${o.priority || 'normal'}</span></td>
       <td>${deadline}</td>
@@ -1419,7 +1420,7 @@ function renderDevices(devices) {
 // HELPERS
 // ═══════════════════════════════════════════════════
 
-function esc(s) { return s == null ? '' : String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function esc(s) { return s == null ? '' : String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
 function timeAgo(date) {
   const ms = Date.now() - date.getTime();

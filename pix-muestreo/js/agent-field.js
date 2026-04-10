@@ -553,7 +553,7 @@ class PixFieldAgent {
   // ===== GPS STATUS =====
 
   _showGPSStatus() {
-    const gps = window.gpsManager;
+    const gps = typeof gpsNav !== 'undefined' ? gpsNav : null;
     if (!gps) {
       this._addMessage('GPS Manager no disponible. Verificá que la app esté correctamente cargada.', 'agent');
       return;
@@ -561,8 +561,8 @@ class PixFieldAgent {
 
     const pos = gps.currentPosition;
     const accuracy = pos ? pos.accuracy : null;
-    const warmedUp = gps.warmedUp || false;
-    const stabilized = gps.stabilized || false;
+    const warmedUp = gps.isWarmedUp || false;
+    const stabilized = gps.isStabilized || false;
     const canCollect = gps.canCollect ? gps.canCollect() : false;
 
     let qualityIcon = '🔴';
@@ -582,7 +582,7 @@ class PixFieldAgent {
     msg += `Puede colectar: **${canCollect ? 'SÍ' : 'NO — esperá estabilización'}**\n`;
 
     if (pos) {
-      msg += `\nCoord: ${pos.latitude.toFixed(6)}, ${pos.longitude.toFixed(6)}`;
+      msg += `\nCoord: ${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}`;
     }
 
     if (!canCollect && pos) {
@@ -693,7 +693,7 @@ class PixFieldAgent {
   }
 
   _gpsHealthCheck() {
-    const gps = window.gpsManager;
+    const gps = typeof gpsNav !== 'undefined' ? gpsNav : null;
     if (!gps) return;
 
     // Alert if GPS lost
