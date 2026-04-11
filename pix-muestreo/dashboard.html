@@ -1162,17 +1162,29 @@ function transformGeoToFieldData(geoFC) {
   const fields = [];
 
   if (polygons.length > 0) {
-    // Each polygon is a field; assign nearby points to it
+    // Each polygon is a field; assign points by zona property first, then bbox fallback
     const usedPoints = new Set();
+    // Check if polygons have zona properties (management zones GeoJSON)
+    const hasZonaProp = polygons.some(p => p.properties?.zona != null || p.properties?.zone != null);
+
     polygons.forEach((poly, idx) => {
       const name = poly.properties?.name || poly.properties?.Name || `Campo ${idx + 1}`;
+      const polyZona = poly.properties?.zona ?? poly.properties?.zone ?? null;
       const areaHa = poly.properties?.area_ha || approxAreaHa(
         poly.geometry.type === 'Polygon' ? poly.geometry.coordinates : poly.geometry.coordinates[0]
       );
-      // Find points that belong to this field (bbox containment)
       const fieldPoints = [];
       pointFeats.forEach((pf, pi) => {
-        if (!usedPoints.has(pi) && pointInBBox(pf.geometry.coordinates, poly)) {
+        if (usedPoints.has(pi)) return;
+        const ptZona = pf.properties?.zona ?? pf.properties?.zone ?? null;
+        // Priority: match by zona property when both polygon and point have it
+        if (hasZonaProp && polyZona != null && ptZona != null) {
+          if (String(ptZona) === String(polyZona)) {
+            fieldPoints.push(pf);
+            usedPoints.add(pi);
+          }
+        } else if (pointInBBox(pf.geometry.coordinates, poly)) {
+          // Fallback: bbox containment when no zona properties
           fieldPoints.push(pf);
           usedPoints.add(pi);
         }

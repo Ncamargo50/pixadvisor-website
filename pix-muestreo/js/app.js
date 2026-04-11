@@ -1607,15 +1607,22 @@ class PixApp {
             boundary: { type: 'FeatureCollection', features: [poly] }
           });
 
-          // Assign points: if only 1 polygon use all, otherwise do point-in-polygon
+          // Assign points: zona property match first, then point-in-polygon fallback
           let fieldPoints;
           if (polygons.length === 1) {
             fieldPoints = points.map((p, idx) => ({ ...p, _idx: idx }));
           } else {
+            const polyZona = poly.properties?.zona ?? poly.properties?.zone ?? null;
             fieldPoints = points
               .map((p, idx) => ({ ...p, _idx: idx }))
-              .filter(p => !assignedPointIndices.has(p._idx) &&
-                this.pointInPolygon(p.geometry.coordinates, poly.geometry));
+              .filter(p => {
+                if (assignedPointIndices.has(p._idx)) return false;
+                const ptZona = p.properties?.zona ?? p.properties?.zone ?? null;
+                // Priority: match by zona property when both have it
+                if (polyZona != null && ptZona != null) return String(ptZona) === String(polyZona);
+                // Fallback: geometric point-in-polygon
+                return this.pointInPolygon(p.geometry.coordinates, poly.geometry);
+              });
           }
 
           for (let j = 0; j < fieldPoints.length; j++) {
@@ -3710,11 +3717,11 @@ h1{font-size:16px;color:#333}h2{font-size:14px;color:#555;margin:16px 0 8px}
       let globalPointIdx = 0; // Global counter to avoid ID collisions across fields
 
       for (const order of orders) {
-        // Skip orders already imported
+        // Skip orders already imported locally
         if (importedOrderIds.has(order.id)) continue;
 
-        // Import order as a new project
-        if (order.field_data && order.field_data.fields) {
+        // Import order as a new project (even without field_data)
+        try {
           const project = {
             name: order.project || order.title,
             client: order.client || '',
@@ -3724,10 +3731,13 @@ h1{font-size:16px;color:#333}h2{font-size:14px;color:#555;margin:16px 0 8px}
             orderDeadline: order.deadline,
             createdAt: new Date().toISOString()
           };
-          // Use add() for auto-increment integer IDs (not put() with string IDs)
           const projectId = await pixDB.add('projects', project);
 
-          for (const fieldData of order.field_data.fields) {
+          // Import fields and points if field_data is available
+          const fields = order.field_data?.fields || [];
+          let globalPointIdx = 0;
+
+          for (const fieldData of fields) {
             const field = {
               projectId: projectId,
               name: fieldData.name || 'Campo',
@@ -3754,7 +3764,7 @@ h1{font-size:16px;color:#333}h2{font-size:14px;color:#555;margin:16px 0 8px}
                     lng: coords[0],
                     zona: props.zona || props.zone || 1,
                     depth: props.depth || '0-20',
-                    sampleType: props.sampleType || 'simple',
+                    sampleType: props.sampleType || (props.tipo === 'submuestra' ? 'sub' : 'simple'),
                     status: 'pending',
                     createdAt: new Date().toISOString()
                   };
@@ -3764,12 +3774,16 @@ h1{font-size:16px;color:#333}h2{font-size:14px;color:#555;margin:16px 0 8px}
             }
           }
 
-          // Update order status to 'asignada' if still 'pendiente'
+          // Update order status to 'asignada'
           if (order.status === 'pendiente') {
             await pixCloud.updateOrderStatus(order.id, 'asignada');
           }
 
           imported++;
+          this.addSyncLog(`📋 Orden: ${order.title} (${fields.length} campos, ${globalPointIdx} puntos)`);
+        } catch (orderErr) {
+          console.error('[App] Import order failed:', order.id, orderErr);
+          this.addSyncLog(`⚠ Error importando orden: ${order.title} — ${orderErr.message}`);
         }
       }
 
