@@ -1589,11 +1589,48 @@ class PixApp {
       }
     });
 
-    // M14 FIX: Track assigned points to prevent duplicates across polygons
-    const assignedPointIndices = new Set();
+    // Detect management zones: polygons with 'zona' property → merge into 1 field
+    const hasZonas = polygons.length > 1 && polygons.some(p => p.properties?.zona != null || p.properties?.zone != null);
 
-    // If we have polygons, create fields from them (with DB error handling)
-    if (polygons.length > 0) {
+    if (hasZonas) {
+      // MANAGEMENT ZONES MODE: 1 field with colored zones + all points
+      try {
+        const totalArea = polygons.reduce((s, p) => s + this.calculateArea(p.geometry), 0);
+        const zonasMetadata = polygons.map((p, i) => ({
+          name: p.properties?.name || p.properties?.Name || `Zona ${i + 1}`,
+          clase: p.properties?.clase || p.properties?.class || '',
+          zona: p.properties?.zona ?? p.properties?.zone ?? (i + 1),
+          color: p.properties?.color || p.properties?.fill || null
+        }));
+
+        const fieldId = await pixDB.add('fields', {
+          projectId,
+          name: projectName,
+          area: totalArea,
+          boundary: { type: 'FeatureCollection', features: polygons },
+          zonasMetadata: zonasMetadata,
+          zones: polygons.length
+        });
+
+        // All points go to this single field
+        for (let j = 0; j < points.length; j++) {
+          const pt = points[j];
+          await pixDB.add('points', {
+            fieldId,
+            name: pt.properties?.name || pt.properties?.Name || pt.properties?.id || `P${j + 1}`,
+            lat: pt.geometry.coordinates[1],
+            lng: pt.geometry.coordinates[0],
+            zona: pt.properties?.zona ?? pt.properties?.zone ?? 1,
+            status: 'pending',
+            properties: pt.properties
+          });
+        }
+      } catch (e) {
+        console.error('Error importing management zones:', e);
+      }
+    } else if (polygons.length > 0) {
+      // SEPARATE FIELDS MODE: each polygon is its own field
+      const assignedPointIndices = new Set();
       for (let i = 0; i < polygons.length; i++) {
         const poly = polygons[i];
         const fieldName = poly.properties?.name || poly.properties?.Name || `Campo ${i + 1}`;
@@ -1607,7 +1644,6 @@ class PixApp {
             boundary: { type: 'FeatureCollection', features: [poly] }
           });
 
-          // Assign points: zona property match first, then point-in-polygon fallback
           let fieldPoints;
           if (polygons.length === 1) {
             fieldPoints = points.map((p, idx) => ({ ...p, _idx: idx }));
@@ -1618,9 +1654,7 @@ class PixApp {
               .filter(p => {
                 if (assignedPointIndices.has(p._idx)) return false;
                 const ptZona = p.properties?.zona ?? p.properties?.zone ?? null;
-                // Priority: match by zona property when both have it
                 if (polyZona != null && ptZona != null) return String(ptZona) === String(polyZona);
-                // Fallback: geometric point-in-polygon
                 return this.pointInPolygon(p.geometry.coordinates, poly.geometry);
               });
           }
@@ -3737,38 +3771,120 @@ h1{font-size:16px;color:#333}h2{font-size:14px;color:#555;margin:16px 0 8px}
           const fields = order.field_data?.fields || [];
           let globalPointIdx = 0;
 
-          for (const fieldData of fields) {
-            const field = {
-              projectId: projectId,
-              name: fieldData.name || 'Campo',
-              area: fieldData.area_ha || null,
-              boundary: fieldData.boundary || null,
-              zones: fieldData.zones || 1,
-              createdAt: new Date().toISOString()
-            };
-            const fieldId = await pixDB.add('fields', field);
+          // Detect management zones: multiple fields with zona property → merge into 1
+          // Check field-level zona OR point-level zona properties
+          const hasZonas = fields.length > 1 && fields.some(f =>
+            f.zona != null || f.zone != null ||
+            (f.points?.features || []).some(p => p.properties?.zona != null || p.properties?.zone != null)
+          );
 
-            // Import sampling points from GeoJSON
-            if (fieldData.points && fieldData.points.features) {
-              let localIdx = 0;
-              for (const feat of fieldData.points.features) {
-                if (feat.geometry && feat.geometry.type === 'Point') {
-                  const coords = feat.geometry.coordinates;
-                  const props = feat.properties || {};
-                  localIdx++;
-                  globalPointIdx++;
-                  const point = {
-                    fieldId: fieldId,
-                    name: props.name || props.pointName || `P${localIdx}`,
-                    lat: coords[1],
-                    lng: coords[0],
-                    zona: props.zona || props.zone || 1,
-                    depth: props.depth || '0-20',
-                    sampleType: props.sampleType || (props.tipo === 'submuestra' ? 'sub' : 'simple'),
-                    status: 'pending',
-                    createdAt: new Date().toISOString()
-                  };
-                  await pixDB.add('points', point);
+          if (hasZonas) {
+            // MANAGEMENT ZONES MODE: merge all fields into 1 field with colored zones
+            const totalArea = fields.reduce((s, f) => s + (f.area_ha || 0), 0);
+            const zonasMetadata = fields.map((f, i) => {
+              // Extract clase/zona from field-level, point-level, or name parsing
+              const firstPt = (f.points?.features || [])[0]?.properties || {};
+              const nameClase = (f.name || '').match(/Alta|Media|Baja/i)?.[0] || '';
+              return {
+                name: f.name || `Zona ${i + 1}`,
+                clase: f.clase || f.class || firstPt.clase || firstPt.class || nameClase,
+                zona: f.zona ?? f.zone ?? firstPt.zona ?? firstPt.zone ?? (i + 1),
+                color: f.color || firstPt['marker-color'] || null
+              };
+            });
+
+            // Build boundary FeatureCollection from all zone boundaries
+            // IMPORTANT: order must match zonasMetadata array
+            const boundaryFeatures = [];
+            fields.forEach((f, i) => {
+              if (!f.boundary) return;
+              if (f.boundary.type === 'Feature') {
+                boundaryFeatures.push(f.boundary);
+              } else if (f.boundary.type === 'Polygon' || f.boundary.type === 'MultiPolygon') {
+                // Wrap raw geometry in Feature with zone properties
+                boundaryFeatures.push({
+                  type: 'Feature',
+                  geometry: f.boundary,
+                  properties: { name: f.name, zona: f.zona ?? (i + 1), clase: f.clase || '' }
+                });
+              } else if (f.boundary.type === 'FeatureCollection' && f.boundary.features) {
+                boundaryFeatures.push(...f.boundary.features);
+              }
+            });
+
+            const mergedBoundary = boundaryFeatures.length > 0
+              ? { type: 'FeatureCollection', features: boundaryFeatures }
+              : null;
+
+            const fieldId = await pixDB.add('fields', {
+              projectId: projectId,
+              name: order.project || order.title || 'Campo',
+              area: totalArea || null,
+              boundary: mergedBoundary,
+              zonasMetadata: zonasMetadata,
+              zones: fields.length,
+              createdAt: new Date().toISOString()
+            });
+
+            // Import ALL points from ALL fields into this single field
+            for (const fieldData of fields) {
+              if (fieldData.points && fieldData.points.features) {
+                for (const feat of fieldData.points.features) {
+                  if (feat.geometry && feat.geometry.type === 'Point') {
+                    const coords = feat.geometry.coordinates;
+                    const props = feat.properties || {};
+                    globalPointIdx++;
+                    await pixDB.add('points', {
+                      fieldId: fieldId,
+                      name: props.name || props.pointName || `P${globalPointIdx}`,
+                      lat: coords[1],
+                      lng: coords[0],
+                      zona: props.zona || props.zone || fieldData.zona || 1,
+                      depth: props.depth || '0-20',
+                      sampleType: props.sampleType || (props.tipo === 'submuestra' ? 'sub' : 'simple'),
+                      status: 'pending',
+                      properties: props,
+                      createdAt: new Date().toISOString()
+                    });
+                  }
+                }
+              }
+            }
+          } else {
+            // SEPARATE FIELDS MODE: each field is independent (original behavior)
+            for (const fieldData of fields) {
+              const field = {
+                projectId: projectId,
+                name: fieldData.name || 'Campo',
+                area: fieldData.area_ha || null,
+                boundary: fieldData.boundary || null,
+                zones: fieldData.zones || 1,
+                createdAt: new Date().toISOString()
+              };
+              const fieldId = await pixDB.add('fields', field);
+
+              // Import sampling points from GeoJSON
+              if (fieldData.points && fieldData.points.features) {
+                let localIdx = 0;
+                for (const feat of fieldData.points.features) {
+                  if (feat.geometry && feat.geometry.type === 'Point') {
+                    const coords = feat.geometry.coordinates;
+                    const props = feat.properties || {};
+                    localIdx++;
+                    globalPointIdx++;
+                    const point = {
+                      fieldId: fieldId,
+                      name: props.name || props.pointName || `P${localIdx}`,
+                      lat: coords[1],
+                      lng: coords[0],
+                      zona: props.zona || props.zone || 1,
+                      depth: props.depth || '0-20',
+                      sampleType: props.sampleType || (props.tipo === 'submuestra' ? 'sub' : 'simple'),
+                      status: 'pending',
+                      createdAt: new Date().toISOString()
+                    };
+                    await pixDB.add('points', point);
+                  }
                 }
               }
             }

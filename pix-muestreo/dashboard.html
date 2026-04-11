@@ -1195,6 +1195,9 @@ function transformGeoToFieldData(geoFC) {
         boundary: poly.geometry,
         area_ha: areaHa,
         zones: zonesSet.size || 1,
+        zona: polyZona,
+        clase: poly.properties?.clase || poly.properties?.class || '',
+        color: poly.properties?.color || poly.properties?.fill || null,
         points: { type: 'FeatureCollection', features: fieldPoints }
       });
     });

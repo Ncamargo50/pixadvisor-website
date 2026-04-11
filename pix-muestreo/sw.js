@@ -1,7 +1,7 @@
 // PIX Muestreo - Service Worker for Offline Support
 // IMPORTANT: Keep CACHE_NAME in sync with APP_VERSION in js/cloud.js
-// v49 — cloud orders also create local serviceOrders for Ordenes tab
-const CACHE_NAME = 'pix-muestreo-v49';
+// v50 — management zones: cloud orders merge fields with zona into 1 lote
+const CACHE_NAME = 'pix-muestreo-v50';
 const TILE_CACHE = 'pix-tiles-v1';
 
 // Derive base path dynamically — works in both web (/pix-muestreo/) and APK WebView
