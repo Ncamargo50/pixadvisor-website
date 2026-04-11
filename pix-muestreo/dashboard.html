@@ -1303,7 +1303,14 @@ async function updateOrderStatus(id, status) {
 async function deleteOrder(id, title) {
   if (!await pixConfirm('Eliminar la orden "' + title + '"?')) return;
   try {
-    await supaPost('/service_orders?id=eq.' + id, { status: 'cancelada', updated_at: new Date().toISOString() }, 'PATCH');
+    // Try real DELETE first (requires RLS DELETE policy)
+    await supaDelete('/service_orders?id=eq.' + id);
+    // Verify it was actually deleted (RLS may silently skip)
+    const check = await supaFetch('/service_orders?id=eq.' + id + '&select=id');
+    if (check.length > 0) {
+      // DELETE policy not applied — fallback to status change
+      await supaPost('/service_orders?id=eq.' + id, { status: 'cancelada', updated_at: new Date().toISOString() }, 'PATCH');
+    }
     toast('Orden eliminada: ' + title);
     loadOrders();
   } catch (e) {
