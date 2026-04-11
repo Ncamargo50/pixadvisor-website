@@ -440,7 +440,7 @@ class PixAdmin {
 
       <div style="text-align:center;padding:24px 0;color:var(--text-muted);font-size:12px">
         <img src="icons/icon-192.png" alt="PIX" style="width:40px;height:40px;border-radius:12px;margin-bottom:8px;display:block;margin:0 auto 8px">
-        PIX Muestreo v3.5.0<br>
+        PIX Muestreo v3.8.0<br>
         Pixadvisor — Agricultura de Precision
       </div>`;
 

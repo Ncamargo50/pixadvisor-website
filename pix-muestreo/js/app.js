@@ -2110,7 +2110,7 @@ class PixApp {
         if (zones[z]) zones[z].samples.push(s);
       }
 
-      const sortedZones = Object.keys(zones).sort((a, b) => a - b);
+      const sortedZones = Object.keys(zones).sort((a, b) => { const na = parseFloat(a), nb = parseFloat(b); return (!isNaN(na) && !isNaN(nb)) ? na - nb : String(a).localeCompare(String(b)); });
 
       // Summary table
       zonesHTML += `
@@ -2287,7 +2287,7 @@ class PixApp {
 ${detailHTML}
 
 <div class="footer">
-  Generado por PIX Muestreo v3.5.0 — Pixadvisor Agricultura de Precision — pixadvisor.network — ${new Date().toLocaleString('es')}
+  Generado por PIX Muestreo v3.8.0 — Pixadvisor Agricultura de Precision — pixadvisor.network — ${new Date().toLocaleString('es')}
 </div>
 
 </body></html>`;
@@ -2432,6 +2432,7 @@ ${detailHTML}
       this.addSyncLog(`📄 IBRA guardado: ${fileName}`);
     } catch (e) {
       console.warn('[AutoSave] IBRA report error:', e.message);
+      this.toast('Error generando reporte IBRA: ' + e.message, 'warning');
     }
 
     // 2. Auto-save track report → Download + IndexedDB backup
@@ -2453,6 +2454,7 @@ ${detailHTML}
       }
     } catch (e) {
       console.warn('[AutoSave] Track report error:', e.message);
+      this.toast('Error guardando trayecto: ' + e.message, 'warning');
     }
 
     // 3. Auto-save field boundary as GeoJSON → Download + IndexedDB backup
@@ -2471,6 +2473,7 @@ ${detailHTML}
         this.addSyncLog(`📐 Perimetro guardado: ${fileName}`);
       } catch (e) {
         console.warn('[AutoSave] Boundary save error:', e.message);
+        this.toast('Error guardando perimetro: ' + e.message, 'warning');
       }
     }
 
@@ -2481,11 +2484,16 @@ ${detailHTML}
   _downloadBlob(content, fileName, mimeType) {
     const blob = new Blob([content], { type: mimeType });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } finally {
+      URL.revokeObjectURL(url);
+    }
   }
 
   // Build track GeoJSON with daily trajectory
@@ -2538,7 +2546,7 @@ ${detailHTML}
         if (s.zoneIbraSampleId) zoneMap[z].ibraId = s.zoneIbraSampleId;
       }
 
-      const sortedZones = Object.keys(zoneMap).sort((a, b) => a - b);
+      const sortedZones = Object.keys(zoneMap).sort((a, b) => { const na = parseFloat(a), nb = parseFloat(b); return (!isNaN(na) && !isNaN(nb)) ? na - nb : String(a).localeCompare(String(b)); });
 
       for (const z of sortedZones) {
         const zd = zoneMap[z];
@@ -3356,16 +3364,17 @@ h1{font-size:16px;color:#333}h2{font-size:14px;color:#555;margin:16px 0 8px}
       </button>
     `;
 
-    // Close when clicking outside
+    document.body.appendChild(popup);
+
+    // Close when clicking outside (use requestAnimationFrame to avoid same-tick trigger)
     const closeHandler = (e) => {
-      if (!popup.contains(e.target) && !document.getElementById('userPill').contains(e.target)) {
+      const pill = document.getElementById('userPill');
+      if (!popup.contains(e.target) && (!pill || !pill.contains(e.target))) {
         popup.remove();
-        document.removeEventListener('click', closeHandler);
+        document.removeEventListener('click', closeHandler, true);
       }
     };
-    setTimeout(() => document.addEventListener('click', closeHandler), 100);
-
-    document.body.appendChild(popup);
+    requestAnimationFrame(() => document.addEventListener('click', closeHandler, true));
   }
 
   // Navigate to next pending

@@ -610,7 +610,10 @@ class GPSNavigator {
   // ═══════════════════════════════════════════════════════════
 
   canCollect(requiredAccuracy = 5) {
-    return this.isWarmedUp && this.accuracy !== null && this.accuracy <= requiredAccuracy;
+    if (!this.isWarmedUp || this.accuracy === null) return false;
+    if (this.accuracy <= requiredAccuracy) return true;
+    // Allow degraded warmup (forced after 45s timeout) so technician isn't stuck
+    return this._warmupDegraded && this.accuracy < 50;
   }
 
   getCollectionStatus(requiredAccuracy = 5) {

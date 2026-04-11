@@ -538,16 +538,40 @@ async function _sha256(str) {
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+let _authAttempts = 0;
+let _authLockUntil = 0;
+
 async function dashAuthLogin() {
+  // Rate limiting: 5 attempts then 60s lockout (doubles each time)
+  if (Date.now() < _authLockUntil) {
+    const secs = Math.ceil((_authLockUntil - Date.now()) / 1000);
+    document.getElementById('dashAuthError').textContent = `Demasiados intentos. Espere ${secs}s`;
+    document.getElementById('dashAuthError').style.display = 'block';
+    return;
+  }
   const pass = document.getElementById('dashAuthPass').value;
+  if (!pass || pass.length < 4) {
+    document.getElementById('dashAuthError').textContent = 'Clave muy corta';
+    document.getElementById('dashAuthError').style.display = 'block';
+    return;
+  }
   const hash = await _sha256(pass);
   if (hash === DASH_AUTH_HASH) {
+    _authAttempts = 0;
     sessionStorage.setItem('pix_dash_auth', 'true');
     document.getElementById('dashAuthOverlay').style.display = 'none';
     initDashboard();
   } else {
-    document.getElementById('dashAuthError').style.display = 'block';
+    _authAttempts++;
     document.getElementById('dashAuthPass').value = '';
+    if (_authAttempts >= 5) {
+      const lockSecs = 60 * Math.pow(2, Math.floor(_authAttempts / 5) - 1);
+      _authLockUntil = Date.now() + lockSecs * 1000;
+      document.getElementById('dashAuthError').textContent = `Bloqueado por ${lockSecs}s (demasiados intentos)`;
+    } else {
+      document.getElementById('dashAuthError').textContent = `Clave incorrecta (${5 - _authAttempts} intentos restantes)`;
+    }
+    document.getElementById('dashAuthError').style.display = 'block';
   }
 }
 
