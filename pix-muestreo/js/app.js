@@ -3774,7 +3774,26 @@ h1{font-size:16px;color:#333}h2{font-size:14px;color:#555;margin:16px 0 8px}
             }
           }
 
-          // Update order status to 'asignada'
+          // Also create local serviceOrder so it appears in "Ordenes" tab
+          try {
+            await pixDB.add('serviceOrders', {
+              projectId: projectId,
+              fieldId: null,
+              clientName: order.client || '',
+              technicianId: pixAuth.getUserId() || null,
+              serviceType: 'muestreo_suelo',
+              priority: order.priority || 'media',
+              status: 'pendiente',
+              dueDate: order.deadline || null,
+              notes: order.title + (order.description ? ' — ' + order.description : ''),
+              cloudOrderId: order.id,
+              createdBy: 'cloud'
+            });
+          } catch (soErr) {
+            console.warn('[App] serviceOrder create:', soErr.message);
+          }
+
+          // Update cloud order status to 'asignada'
           if (order.status === 'pendiente') {
             await pixCloud.updateOrderStatus(order.id, 'asignada');
           }

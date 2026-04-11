@@ -1,7 +1,7 @@
 // PIX Muestreo - Service Worker for Offline Support
 // IMPORTANT: Keep CACHE_NAME in sync with APP_VERSION in js/cloud.js
-// v48 — zona-based point assignment, WhatsApp intent fix
-const CACHE_NAME = 'pix-muestreo-v48';
+// v49 — cloud orders also create local serviceOrders for Ordenes tab
+const CACHE_NAME = 'pix-muestreo-v49';
 const TILE_CACHE = 'pix-tiles-v1';
 
 // Derive base path dynamically — works in both web (/pix-muestreo/) and APK WebView
