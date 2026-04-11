@@ -5,117 +5,238 @@
 
 const pixReport = (() => {
 
-  // ─── QR Code Generator (pure JS, SVG output) ───────────────
-  // Minimal QR encoder: alphanumeric mode, ECC-L, versions 1-10
-  const QR = (() => {
-    // Generate QR code as SVG string
-    function toSVG(text, size = 120) {
-      const modules = encode(text);
-      if (!modules) return '';
-      const n = modules.length;
-      const cellSize = size / n;
-      let rects = '';
-      for (let y = 0; y < n; y++) {
-        for (let x = 0; x < n; x++) {
-          if (modules[y][x]) {
-            rects += `<rect x="${x * cellSize}" y="${y * cellSize}" width="${cellSize}" height="${cellSize}" fill="#000"/>`;
+  // ─── QR Code Generator (uses qrcode-generator library) ─────
+  const QR = {
+    toSVG(text, size = 120) {
+      // Use qrcode-generator library (loaded as global `qrcode`)
+      if (typeof qrcode === 'undefined') return '';
+      try {
+        const qr = qrcode(0, 'L'); // auto version, low ECC
+        qr.addData(text);
+        qr.make();
+        const count = qr.getModuleCount();
+        const cellSize = size / count;
+        let rects = '';
+        for (let y = 0; y < count; y++) {
+          for (let x = 0; x < count; x++) {
+            if (qr.isDark(y, x)) {
+              rects += `<rect x="${x * cellSize}" y="${y * cellSize}" width="${cellSize}" height="${cellSize}" fill="#000"/>`;
+            }
           }
         }
+        return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}"><rect width="${size}" height="${size}" fill="#fff"/>${rects}</svg>`;
+      } catch (e) {
+        console.warn('[ReportPro] QR generation failed:', e.message);
+        return '';
       }
-      return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}"><rect width="${size}" height="${size}" fill="#fff"/>${rects}</svg>`;
-    }
-
-    // Minimal QR encoder (byte mode, ECC-L)
-    function encode(text) {
-      // Use the library if available, fallback to simple grid
-      if (typeof QRCode !== 'undefined') {
-        try {
-          const qr = new QRCode({ content: text, width: 120, height: 120 });
-          return null; // not matrix based
-        } catch (e) {}
-      }
-      // Fallback: generate a data-matrix-like pattern (visual placeholder)
-      // For real QR, we rely on html5-qrcode library already loaded
-      return _generateModules(text);
-    }
-
-    function _generateModules(text) {
-      // Simple polynomial-based QR approximation for display
-      // Uses a basic BCH approach for short URLs
-      const size = 25; // QR version 2
-      const m = Array.from({ length: size }, () => Array(size).fill(false));
-
-      // Finder patterns (top-left, top-right, bottom-left)
-      _addFinder(m, 0, 0);
-      _addFinder(m, size - 7, 0);
-      _addFinder(m, 0, size - 7);
-
-      // Timing patterns
-      for (let i = 8; i < size - 8; i++) {
-        m[6][i] = i % 2 === 0;
-        m[i][6] = i % 2 === 0;
-      }
-
-      // Data: hash text into pattern
-      let hash = 0;
-      for (let i = 0; i < text.length; i++) {
-        hash = ((hash << 5) - hash + text.charCodeAt(i)) | 0;
-      }
-
-      // Fill data area with deterministic pattern from hash
-      let seed = Math.abs(hash);
-      for (let y = 0; y < size; y++) {
-        for (let x = 0; x < size; x++) {
-          if (m[y][x]) continue; // skip finder/timing
-          if (_inFinder(x, y, size)) continue;
-          if (x === 6 || y === 6) continue;
-          seed = (seed * 1103515245 + 12345) & 0x7fffffff;
-          m[y][x] = (seed >> 16) & 1 ? true : false;
-        }
-      }
-      return m;
-    }
-
-    function _addFinder(m, startX, startY) {
-      for (let dy = 0; dy < 7; dy++) {
-        for (let dx = 0; dx < 7; dx++) {
-          const border = dy === 0 || dy === 6 || dx === 0 || dx === 6;
-          const inner = dy >= 2 && dy <= 4 && dx >= 2 && dx <= 4;
-          m[startY + dy][startX + dx] = border || inner;
-        }
+    },
+    toDataURL(text, size = 200) {
+      if (typeof qrcode === 'undefined') return '';
+      try {
+        const qr = qrcode(0, 'L');
+        qr.addData(text);
+        qr.make();
+        return qr.createDataURL(4, 8); // cellSize=4, margin=8
+      } catch (e) {
+        return '';
       }
     }
+  };
 
-    function _inFinder(x, y, size) {
-      // Check if point is in finder pattern area (including separator)
-      if (x <= 7 && y <= 7) return true;
-      if (x >= size - 8 && y <= 7) return true;
-      if (x <= 7 && y >= size - 8) return true;
-      return false;
-    }
-
-    return { toSVG };
-  })();
-
-  // ─── Map Screenshot Capture ────────────────────────────────
-  async function captureMapImage() {
-    const mapEl = document.getElementById('map');
-    if (!mapEl || typeof html2canvas === 'undefined') return null;
+  // ─── Canvas Map Renderer (no CORS, no tiles needed) ────────
+  // Draws zone polygons + sample points on a clean canvas
+  function renderMapCanvas(fields, allSamples, width = 600, height = 400) {
     try {
-      const canvas = await html2canvas(mapEl, {
-        useCORS: true,
-        allowTaint: true,
-        scale: 2,
-        backgroundColor: '#1a1a2e',
-        logging: false,
-        width: mapEl.offsetWidth,
-        height: mapEl.offsetHeight
+      const canvas = document.createElement('canvas');
+      canvas.width = width * 2; // 2x for retina
+      canvas.height = height * 2;
+      const ctx = canvas.getContext('2d');
+      ctx.scale(2, 2);
+
+      // Background
+      ctx.fillStyle = '#f0f4f0';
+      ctx.fillRect(0, 0, width, height);
+
+      // Collect all coordinates for bounding box
+      const allCoords = [];
+      const zonePolygons = [];
+      const samplePoints = [];
+
+      for (const field of fields) {
+        // Extract zone polygons from boundary
+        if (field.boundary) {
+          const features = field.boundary.type === 'FeatureCollection'
+            ? field.boundary.features || []
+            : [field.boundary];
+          features.forEach((f, i) => {
+            const geom = f.geometry || f;
+            if (geom.type === 'Polygon' || geom.type === 'MultiPolygon') {
+              const rings = geom.type === 'Polygon' ? [geom.coordinates[0]] : geom.coordinates.map(c => c[0]);
+              const meta = (field.zonasMetadata && field.zonasMetadata[i]) || {};
+              const clase = meta.clase || f.properties?.clase || '';
+              rings.forEach(ring => {
+                ring.forEach(c => allCoords.push(c));
+                zonePolygons.push({ ring, clase, name: meta.name || f.properties?.name || '' });
+              });
+            }
+          });
+        }
+
+        // Collect sample points
+        const fieldSamples = allSamples.filter(s => s.fieldId === field.id && s.lat && s.lng);
+        fieldSamples.forEach(s => {
+          allCoords.push([s.lng, s.lat]);
+          samplePoints.push(s);
+        });
+      }
+
+      if (allCoords.length === 0) return null;
+
+      // Calculate bounds with padding
+      let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
+      allCoords.forEach(([lng, lat]) => {
+        minLng = Math.min(minLng, lng); maxLng = Math.max(maxLng, lng);
+        minLat = Math.min(minLat, lat); maxLat = Math.max(maxLat, lat);
       });
-      return canvas.toDataURL('image/jpeg', 0.85);
+      const pad = 0.15; // 15% padding
+      const dLng = (maxLng - minLng) || 0.001;
+      const dLat = (maxLat - minLat) || 0.001;
+      minLng -= dLng * pad; maxLng += dLng * pad;
+      minLat -= dLat * pad; maxLat += dLat * pad;
+
+      // Projection: lng/lat → canvas x/y (flip Y)
+      const scaleX = width / (maxLng - minLng);
+      const scaleY = height / (maxLat - minLat);
+      const scale = Math.min(scaleX, scaleY);
+      const offX = (width - (maxLng - minLng) * scale) / 2;
+      const offY = (height - (maxLat - minLat) * scale) / 2;
+      const toX = lng => offX + (lng - minLng) * scale;
+      const toY = lat => offY + (maxLat - lat) * scale; // flip Y
+
+      // Draw grid lines
+      ctx.strokeStyle = '#ddd';
+      ctx.lineWidth = 0.5;
+      for (let i = 0; i <= 4; i++) {
+        const x = width * i / 4;
+        const y = height * i / 4;
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+      }
+
+      // Zone colors
+      const zoneColors = { 'Alta': '#4CAF50', 'Media': '#FFC107', 'Baja': '#F44336' };
+      const zoneColorsDark = { 'Alta': '#2E7D32', 'Media': '#F9A825', 'Baja': '#C62828' };
+
+      // Draw zone polygons
+      for (const zone of zonePolygons) {
+        const color = zoneColors[zone.clase] || '#607D8B';
+        const dark = zoneColorsDark[zone.clase] || '#455A64';
+
+        // Fill
+        ctx.beginPath();
+        zone.ring.forEach((c, i) => {
+          const x = toX(c[0]), y = toY(c[1]);
+          i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        });
+        ctx.closePath();
+        ctx.fillStyle = color + '55'; // 33% opacity
+        ctx.fill();
+
+        // Stroke
+        ctx.strokeStyle = dark;
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+
+        // Zone label at centroid
+        if (zone.name) {
+          const cx = zone.ring.reduce((s, c) => s + c[0], 0) / zone.ring.length;
+          const cy = zone.ring.reduce((s, c) => s + c[1], 0) / zone.ring.length;
+          ctx.fillStyle = '#fff';
+          ctx.font = 'bold 13px Arial';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          // Text shadow
+          ctx.strokeStyle = dark;
+          ctx.lineWidth = 3;
+          ctx.strokeText(zone.name, toX(cx), toY(cy));
+          ctx.fillText(zone.name, toX(cx), toY(cy));
+        }
+      }
+
+      // Draw sample points
+      for (const s of samplePoints) {
+        const x = toX(s.lng), y = toY(s.lat);
+        const isPrin = (s.pointType || s.tipo) === 'principal';
+        const isCollected = s.status === 'collected';
+        const r = isPrin ? 7 : 4;
+
+        // Point circle
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fillStyle = isCollected ? '#4CAF50' : (isPrin ? '#F44336' : '#FF9800');
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Label for principal points
+        if (isPrin && s.pointName) {
+          ctx.fillStyle = '#333';
+          ctx.font = 'bold 10px Arial';
+          ctx.textAlign = 'left';
+          ctx.fillText(s.pointName, x + r + 3, y + 3);
+        }
+      }
+
+      // North arrow
+      ctx.fillStyle = '#333';
+      ctx.font = 'bold 14px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('N', width - 25, 20);
+      ctx.beginPath();
+      ctx.moveTo(width - 25, 24);
+      ctx.lineTo(width - 21, 36);
+      ctx.lineTo(width - 29, 36);
+      ctx.closePath();
+      ctx.fill();
+
+      // Legend
+      const legend = [['Alta', '#4CAF50'], ['Media', '#FFC107'], ['Baja', '#F44336']];
+      let ly = height - 50;
+      ctx.font = 'bold 10px Arial';
+      ctx.textAlign = 'left';
+      for (const [name, color] of legend) {
+        ctx.fillStyle = color;
+        ctx.fillRect(10, ly, 12, 12);
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(10, ly, 12, 12);
+        ctx.fillStyle = '#333';
+        ctx.fillText(name, 26, ly + 10);
+        ly += 16;
+      }
+
+      // Scale bar (approximate)
+      const midLat = (minLat + maxLat) / 2;
+      const metersPerDeg = 111320 * Math.cos(midLat * Math.PI / 180);
+      const pixelsPerMeter = scale / metersPerDeg * (maxLng - minLng) / (maxLng - minLng);
+      // Not used for exact distance, just a visual reference
+
+      // Border
+      ctx.strokeStyle = '#999';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(0, 0, width, height);
+
+      return canvas.toDataURL('image/png');
     } catch (e) {
-      console.warn('[ReportPro] Map capture failed:', e.message);
+      console.warn('[ReportPro] Canvas map render failed:', e.message);
       return null;
     }
+  }
+
+  // Legacy function name for compatibility
+  async function captureMapImage() {
+    return null; // Replaced by renderMapCanvas
   }
 
   // ─── Photo Gallery Builder ─────────────────────────────────
@@ -527,12 +648,12 @@ ${buildPhotoGallery(photoSamples)}
     const collector = await pixDB.getSetting('collectorName') || '';
     const today = new Date().toISOString().slice(0, 10);
 
-    // Capture map screenshot if visible
+    // Render map from zone/point data (no CORS issues, works offline)
     let mapImage = null;
     try {
-      mapImage = await captureMapImage();
+      mapImage = renderMapCanvas(fields, allSamples, 600, 380);
     } catch (e) {
-      console.warn('[ReportPro] Map capture skipped:', e.message);
+      console.warn('[ReportPro] Map render skipped:', e.message);
     }
 
     // Load tracks
@@ -628,7 +749,7 @@ ${buildPhotoGallery(photoSamples)}
     buildProReport,
     generatePDF,
     shareReport,
-    captureMapImage,
+    renderMapCanvas,
     QR
   };
 

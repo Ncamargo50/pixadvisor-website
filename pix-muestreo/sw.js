@@ -1,7 +1,7 @@
 // PIX Muestreo - Service Worker for Offline Support
 // IMPORTANT: Keep CACHE_NAME in sync with APP_VERSION in js/cloud.js
-// v51 — professional PDF reports + QR trazabilidad + WhatsApp share
-const CACHE_NAME = 'pix-muestreo-v51';
+// v52 — fix: canvas map renderer (no CORS) + real QR code generator
+const CACHE_NAME = 'pix-muestreo-v52';
 const TILE_CACHE = 'pix-tiles-v1';
 
 // Derive base path dynamically — works in both web (/pix-muestreo/) and APK WebView
@@ -32,6 +32,7 @@ const STATIC_ASSETS = [
   BASE + 'js/agent-field.js',
   BASE + 'js/report-pro.js',
   BASE + 'lib/html2pdf.bundle.min.js',
+  BASE + 'lib/qrcode-gen.min.js',
   // Icons
   BASE + 'icons/icon-192.png',
   BASE + 'icons/icon-512.png',
