@@ -1,7 +1,7 @@
 // PIX Muestreo - Service Worker for Offline Support
 // IMPORTANT: Keep CACHE_NAME in sync with APP_VERSION in js/cloud.js
-// v45 — field reliability fixes: download leak, GPS gate, zone sort, auth rate-limit, toasts
-const CACHE_NAME = 'pix-muestreo-v45';
+// v46 — default master key on fresh install
+const CACHE_NAME = 'pix-muestreo-v46';
 const TILE_CACHE = 'pix-tiles-v1';
 
 // Derive base path dynamically — works in both web (/pix-muestreo/) and APK WebView

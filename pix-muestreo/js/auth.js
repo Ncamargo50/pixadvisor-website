@@ -8,9 +8,17 @@ class PixAuth {
 
   // Restore session from localStorage
   async init() {
-    // Load master key hash from IndexedDB (user-configurable, no hardcoded secrets)
+    // Load master key hash from IndexedDB (user-configurable)
     try {
       this._masterHash = await pixDB.getSetting('master_key_hash');
+      // Default master key for fresh installs: "pixadvisor2026!"
+      if (!this._masterHash) {
+        const defaultKey = 'pixadvisor2026!';
+        const hash = await this.hashPasswordSalted(defaultKey);
+        await pixDB.setSetting('master_key_hash', hash);
+        this._masterHash = hash;
+        console.log('[Auth] Default master key initialized');
+      }
     } catch (e) {
       console.warn('[Auth] Could not load master key setting:', e.message);
     }
