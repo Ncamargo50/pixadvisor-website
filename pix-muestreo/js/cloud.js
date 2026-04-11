@@ -4,7 +4,7 @@
 
 // App version constant — used by registerDevice() for fleet tracking
 // IMPORTANT: Keep APP_VERSION in sync with CACHE_NAME in sw.js
-const APP_VERSION = 'pix-muestreo-v46';
+const APP_VERSION = 'pix-muestreo-v47';
 
 // Default Supabase credentials (PIX Muestreo project)
 const _CLOUD_DEFAULT_URL = 'https://fnoocboaupjmxpkhdnij.supabase.co';
@@ -296,10 +296,18 @@ class PixCloud {
     if (!this._enabled || !techName) return [];
     try {
       const encoded = encodeURIComponent(techName);
-      const resp = await this._fetch(
+      // Try exact match first
+      let resp = await this._fetch(
         `/service_orders?assigned_to_name=eq.${encoded}&status=in.(pendiente,asignada,en_progreso)&order=created_at.desc`
       );
-      const orders = await resp.json();
+      let orders = await resp.json();
+      // Fallback: case-insensitive partial match (ilike)
+      if (orders.length === 0) {
+        resp = await this._fetch(
+          `/service_orders?assigned_to_name=ilike.*${encoded}*&status=in.(pendiente,asignada,en_progreso)&order=created_at.desc`
+        );
+        orders = await resp.json();
+      }
       console.log(`[Cloud] Pulled ${orders.length} orders for ${techName}`);
       return orders;
     } catch (e) {

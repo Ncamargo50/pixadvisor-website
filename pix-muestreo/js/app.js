@@ -3794,7 +3794,14 @@ h1{font-size:16px;color:#333}h2{font-size:14px;color:#555;margin:16px 0 8px}
 
         // Auto-match collectorName to exact full_name from cloud
         // This ensures pullOrders() eq. filter matches exactly
-        const currentName = (await pixDB.getSetting('collectorName') || '').trim();
+        let currentName = (await pixDB.getSetting('collectorName') || '').trim();
+        // If collectorName empty, try to set from logged-in user
+        if (!currentName && pixAuth.currentUser?.name) {
+          currentName = pixAuth.currentUser.name;
+          await pixDB.setSetting('collectorName', currentName);
+          document.querySelectorAll('#collectorName').forEach(inp => inp.value = currentName);
+          this.addSyncLog(`👤 Nombre tecnico: ${currentName}`);
+        }
         if (currentName) {
           const lower = currentName.toLowerCase();
           const exactMatch = techs.find(t => (t.full_name || '').toLowerCase() === lower);
@@ -4167,6 +4174,12 @@ async function pixAuthLogin() {
   try {
     const user = await pixAuth.login(email, pass);
     if (user) {
+      // Auto-set collectorName on login so orders sync works immediately
+      const currentCollector = await pixDB.getSetting('collectorName');
+      if (!currentCollector && user.name) {
+        await pixDB.setSetting('collectorName', user.name);
+        document.querySelectorAll('#collectorName').forEach(inp => inp.value = user.name);
+      }
       loginError.style.display = 'none';
       if (appIsInstalled) {
         showApp();
