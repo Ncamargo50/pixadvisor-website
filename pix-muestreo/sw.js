@@ -1,7 +1,7 @@
 // PIX Muestreo - Service Worker for Offline Support
 // IMPORTANT: Keep CACHE_NAME in sync with APP_VERSION in js/cloud.js
-// v50 — management zones: cloud orders merge fields with zona into 1 lote
-const CACHE_NAME = 'pix-muestreo-v50';
+// v51 — professional PDF reports + QR trazabilidad + WhatsApp share
+const CACHE_NAME = 'pix-muestreo-v51';
 const TILE_CACHE = 'pix-tiles-v1';
 
 // Derive base path dynamically — works in both web (/pix-muestreo/) and APK WebView
@@ -30,6 +30,8 @@ const STATIC_ASSETS = [
   BASE + 'js/orders.js',
   BASE + 'js/admin.js',
   BASE + 'js/agent-field.js',
+  BASE + 'js/report-pro.js',
+  BASE + 'lib/html2pdf.bundle.min.js',
   // Icons
   BASE + 'icons/icon-192.png',
   BASE + 'icons/icon-512.png',

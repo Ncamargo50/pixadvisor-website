@@ -79,8 +79,8 @@
         <div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:14px;padding:16px;margin-bottom:16px;">
             <div style="color:#f87171;font-weight:700;font-size:13px;margin-bottom:8px;">📦 Descargar APK directa</div>
             <p style="color:#94a3b8;font-size:12px;margin:0 0 10px;">Si la instalacion PWA no funciona, descarga el APK nativo:</p>
-            <a href="downloads/pix-muestreo-v3.10.0.apk" download style="display:block;width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#ef4444,#dc2626);color:white;font-size:14px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;text-decoration:none;text-align:center;box-sizing:border-box;">
-                Descargar PIX Muestreo v3.10.0
+            <a href="downloads/pix-muestreo-v3.11.0.apk" download style="display:block;width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#ef4444,#dc2626);color:white;font-size:14px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;text-decoration:none;text-align:center;box-sizing:border-box;">
+                Descargar PIX Muestreo v3.11.0
             </a>
             <p style="color:#64748b;font-size:11px;margin:8px 0 0;">Requiere habilitar "Fuentes desconocidas" en Ajustes</p>
         </div>
@@ -260,6 +260,17 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8M16 17H8M10 9H8"/></svg>
                     Reporte IBRA — Ficha de Envio
                 </button>
+
+                <div style="display:flex;gap:8px;margin-top:8px">
+                    <button class="sync-btn" style="flex:1;background:linear-gradient(135deg,#7B1FA2,#E040FB)" onclick="pixReport.generateAndShare(app,'download')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6M9 15l3 3 3-3"/></svg>
+                        PDF Profesional
+                    </button>
+                    <button class="sync-btn" style="flex:1;background:linear-gradient(135deg,#25D366,#128C7E)" onclick="pixReport.generateAndShare(app,'share')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98"/></svg>
+                        Compartir
+                    </button>
+                </div>
 
                 <div class="section-title" style="margin-top:24px;font-size:14px;display:flex;align-items:center;gap:8px">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
@@ -788,6 +799,8 @@
 <script src="js/sync.js"></script>
 <script src="js/cloud.js"></script>
 <script src="js/admin.js"></script>
+<script src="lib/html2pdf.bundle.min.js"></script>
+<script src="js/report-pro.js"></script>
 <script src="js/app.js"></script>
 <script src="js/agent-field.js"></script>
 </body>
