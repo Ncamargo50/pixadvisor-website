@@ -1186,6 +1186,10 @@ class PixApp {
     // Auto-update cloud order status: asignada → en_progreso on first sample
     this._autoUpdateOrderStatus(this.currentField.id, 'en_progreso').catch(() => {});
 
+    // ═══ AUTO-COMPLETE: check if ALL points in field are done ═══
+    this._checkAndCompleteOrder(this.currentField).catch(e =>
+      console.warn('[App] Auto-complete check:', e.message));
+
     // Check if current zone is complete → show QR modal only on principal point
     const currentZone = this._detectZone(this.currentPoint);
     const zoneComplete = await this._checkZoneComplete(currentZone);
@@ -4383,6 +4387,80 @@ ${detailHTML}
       }
     } catch (e) {
       console.warn('[App] Auto order complete check:', e.message);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // AUTO-COMPLETE ORDER: checks field completion after EVERY sample
+  // Updates BOTH local IndexedDB order AND cloud order
+  // ═══════════════════════════════════════════════════════════════
+  async _checkAndCompleteOrder(field) {
+    if (!field) return;
+    try {
+      // Check if ALL points in this field are collected
+      const allPoints = await pixDB.getAllByIndex('points', 'fieldId', field.id);
+      if (allPoints.length === 0) return;
+      const allCollected = allPoints.every(p => p.status === 'collected');
+      if (!allCollected) return;
+
+      console.log(`[App] Field "${field.name}" 100% complete — checking orders...`);
+
+      // Also check all OTHER fields in the same project
+      const project = await pixDB.get('projects', field.projectId);
+      if (!project) return;
+
+      const allFields = await pixDB.getAllByIndex('fields', 'projectId', project.id);
+      let allFieldsDone = true;
+      for (const f of allFields) {
+        const pts = await pixDB.getAllByIndex('points', 'fieldId', f.id);
+        if (pts.length === 0 || !pts.every(p => p.status === 'collected')) {
+          allFieldsDone = false;
+          break;
+        }
+      }
+
+      if (!allFieldsDone) {
+        console.log('[App] Not all fields complete yet, skipping auto-complete');
+        return;
+      }
+
+      // ═══ UPDATE LOCAL SERVICE ORDER ═══
+      const allOrders = await pixDB.getAll('serviceOrders');
+      const matchingOrders = allOrders.filter(o =>
+        (o.projectId === project.id || o.fieldId === field.id) &&
+        o.status !== 'completada' && o.status !== 'cancelada'
+      );
+
+      for (const order of matchingOrders) {
+        order.status = 'completada';
+        order.completedAt = new Date().toISOString();
+        order.updatedAt = new Date().toISOString();
+        await pixDB.put('serviceOrders', order);
+        console.log(`[App] Local order ${order.id} → completada`);
+
+        // Sync to cloud if linked
+        if (pixCloud.isEnabled() && order.cloudOrderId) {
+          try {
+            await pixCloud.updateOrderStatus(order.cloudOrderId, 'completada');
+          } catch (e) { console.warn('[App] Cloud order complete:', e.message); }
+        }
+      }
+
+      // ═══ UPDATE CLOUD ORDER VIA PROJECT LINK ═══
+      if (pixCloud.isEnabled() && project.cloudOrderId && project._cloudStatus !== 'completada') {
+        try {
+          await pixCloud.updateOrderStatus(project.cloudOrderId, 'completada');
+          project._cloudStatus = 'completada';
+          await pixDB.put('projects', project);
+        } catch (e) { console.warn('[App] Cloud project order:', e.message); }
+      }
+
+      if (matchingOrders.length > 0) {
+        this.toast('Orden de servicio completada automaticamente!', 'success');
+        this.addSyncLog(`✅ Orden completada: ${project.name} — todos los campos muestreados`);
+      }
+    } catch (e) {
+      console.warn('[App] _checkAndCompleteOrder:', e.message);
     }
   }
 }

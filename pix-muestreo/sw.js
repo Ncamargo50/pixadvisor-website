@@ -1,7 +1,7 @@
 // PIX Muestreo - Service Worker for Offline Support
 // IMPORTANT: Keep CACHE_NAME in sync with APP_VERSION in js/cloud.js
-// v53 — fix: device heartbeat GPS location for dashboard tracking
-const CACHE_NAME = 'pix-muestreo-v54';
+// v55 — fix: auto-complete service order when all samples collected
+const CACHE_NAME = 'pix-muestreo-v55';
 const TILE_CACHE = 'pix-tiles-v1';
 
 // Derive base path dynamically — works in both web (/pix-muestreo/) and APK WebView
