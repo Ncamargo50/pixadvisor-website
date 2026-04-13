@@ -490,11 +490,14 @@ class PixApp {
     // Show map view FIRST so the map container exists
     this.showView('map');
     // Wait for map to initialize, then load field
+    let mapRetries = 0;
     const waitForMap = () => {
       if (pixMap.map) {
-        this.loadFieldOnMap(this.currentField);
-      } else {
+        if (this.currentField) this.loadFieldOnMap(this.currentField);
+      } else if (mapRetries++ < 20) {
         setTimeout(waitForMap, 150);
+      } else {
+        console.warn('[App] Map failed to initialize after 3s');
       }
     };
     setTimeout(waitForMap, 200);
@@ -2324,11 +2327,11 @@ class PixApp {
 <div class="section">
   <div class="section-title">2. CLIENTE / PROPRIEDADE</div>
   <div class="info-grid">
-    <div class="label">Cliente</div><div class="value" style="font-weight:700;font-size:14px">${project.client || '—'}</div>
-    <div class="label">Hacienda</div><div class="value" style="font-weight:700;font-size:14px">${project.name}</div>
-    <div class="label">Campo/Lote</div><div class="value">${fields.map(f => f.name + (f.area ? ' (' + f.area.toFixed(1) + ' ha)' : '')).join(', ')}</div>
+    <div class="label">Cliente</div><div class="value" style="font-weight:700;font-size:14px">${escH(project.client || '—')}</div>
+    <div class="label">Hacienda</div><div class="value" style="font-weight:700;font-size:14px">${escH(project.name)}</div>
+    <div class="label">Campo/Lote</div><div class="value">${fields.map(f => escH(f.name) + (f.area ? ' (' + f.area.toFixed(1) + ' ha)' : '')).join(', ')}</div>
     <div class="label">Fecha colecta</div><div class="value">${today}</div>
-    <div class="label">Tecnico</div><div class="value">${collector}</div>
+    <div class="label">Tecnico</div><div class="value">${escH(collector)}</div>
     <div class="label">Total puntos GPS</div><div class="value">${totalPuntos} puntos georreferenciados</div>
   </div>
 </div>
@@ -3403,6 +3406,7 @@ ${detailHTML}
 
   // Check if all points in a zone are collected
   async _checkZoneComplete(zona) {
+    if (!this.currentField) return false;
     const points = await pixDB.getAllByIndex('points', 'fieldId', this.currentField.id);
     const zonePoints = points.filter(p => String(this._detectZone(p)) === String(zona));
     return zonePoints.length > 0 && zonePoints.every(p => p.status === 'collected');
@@ -4644,17 +4648,23 @@ function showInstallScreen() {
   }
 }
 
+let _showAppCalled = false; // Guard: prevent duplicate intervals on multiple showApp() calls
 function showApp() {
   const loginOv = document.getElementById('loginOverlay');
   const installOv = document.getElementById('installOverlay');
   if (loginOv) loginOv.style.display = 'none';
   if (installOv) installOv.style.display = 'none';
   try {
-    app.init();
-    app.applyRolePermissions();
+    app.init().then(() => {
+      app.applyRolePermissions();
+    }).catch(e => console.error('[showApp] init error:', e));
   } catch (e) {
     console.error('[showApp] Error during init:', e);
   }
+
+  // Guard: only register intervals ONCE (showApp can be called from multiple paths)
+  if (_showAppCalled) return;
+  _showAppCalled = true;
 
   // Background user sync from API (primary) or Drive (fallback) — non-blocking
   setTimeout(async () => {

@@ -4,7 +4,7 @@
 
 // App version constant — used by registerDevice() for fleet tracking
 // IMPORTANT: Keep APP_VERSION in sync with CACHE_NAME in sw.js
-const APP_VERSION = 'pix-muestreo-v55';
+const APP_VERSION = 'pix-muestreo-v56';
 
 // Default Supabase credentials (PIX Muestreo project)
 const _CLOUD_DEFAULT_URL = 'https://fnoocboaupjmxpkhdnij.supabase.co';
@@ -236,13 +236,18 @@ class PixCloud {
     this._enabled = !!(cleanUrl && cleanKey);
   }
 
-  // Test connection
+  // Test connection — returns true/false, throws only if not configured
   async testConnection() {
     if (!this._enabled) throw new Error('Configura URL y Key primero');
-    const resp = await this._fetch('/field_syncs?select=count&limit=0', {
-      method: 'HEAD'
-    });
-    return resp.ok;
+    try {
+      const resp = await this._fetch('/field_syncs?limit=0', {
+        method: 'HEAD'
+      });
+      return resp.ok;
+    } catch (e) {
+      console.warn('[Cloud] Test connection failed:', e.message);
+      return false;
+    }
   }
 
   // ═══════════════════════════════════════════════
@@ -265,12 +270,12 @@ class PixCloud {
         last_location: location || null,
         active: true
       };
-      await this._fetch('/devices', {
+      await this._fetch('/devices?on_conflict=device_id', {
         method: 'POST',
         _prefer: 'resolution=merge-duplicates,return=minimal',
         body: JSON.stringify(row)
       });
-      console.log('[Cloud] Device registered:', deviceId.slice(0, 8) + '...');
+      console.log('[Cloud] Device registered:', String(deviceId).slice(0, 8) + '...');
     } catch (e) {
       console.warn('[Cloud] Device registration failed:', e.message);
     }
@@ -300,7 +305,7 @@ class PixCloud {
       // 1. Try by technician ID (most reliable)
       if (techId) {
         const resp = await this._fetch(
-          `/service_orders?assigned_to=eq.${techId}&status=in.(pendiente,asignada,en_progreso)&order=created_at.desc`
+          `/service_orders?assigned_to=eq.${encodeURIComponent(techId)}&status=in.(pendiente,asignada,en_progreso)&order=created_at.desc`
         );
         orders = await resp.json();
       }
@@ -333,11 +338,11 @@ class PixCloud {
     const body = { status };
     if (status === 'en_progreso') body.started_at = new Date().toISOString();
     if (status === 'completada') body.completed_at = new Date().toISOString();
-    await this._fetch(`/service_orders?id=eq.${orderId}`, {
+    await this._fetch(`/service_orders?id=eq.${encodeURIComponent(orderId)}`, {
       method: 'PATCH',
       body: JSON.stringify(body)
     });
-    console.log(`[Cloud] Order ${orderId.slice(0, 8)}... → ${status}`);
+    console.log(`[Cloud] Order ${String(orderId).slice(0, 8)}... → ${status}`);
   }
 
   // Check status of specific order IDs in cloud (for sync cancellations)

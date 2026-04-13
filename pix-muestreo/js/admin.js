@@ -33,7 +33,11 @@ class PixAdmin {
 
   async switchSection(section) {
     this.currentSection = section;
-    document.querySelectorAll('.admin-tab').forEach(t => t.classList.toggle('active', t.textContent.trim().toLowerCase().includes(section.substring(0, 4))));
+    document.querySelectorAll('.admin-tab').forEach(t => {
+      // Match by onclick attribute which contains the section id directly
+      const onclk = t.getAttribute('onclick') || '';
+      t.classList.toggle('active', onclk.includes(`'${section}'`));
+    });
 
     const content = document.getElementById('adminSectionContent');
     if (!content) return;

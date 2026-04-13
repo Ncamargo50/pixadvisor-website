@@ -105,6 +105,8 @@
   .btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .btn-primary { background: linear-gradient(135deg, var(--green), var(--teal)); color: var(--bg); }
   .btn-secondary { background: var(--bg3); color: var(--text); border: 1px solid rgba(255,255,255,0.1); }
+  .btn-outline { background: transparent; color: var(--green); border: 1px solid var(--green); }
+  .btn-outline:hover { background: rgba(16,185,129,0.1); }
   .btn-danger { background: rgba(239,68,68,0.15); color: var(--red); }
   .btn-sm { padding: 5px 12px; font-size: 11px; border-radius: 6px; }
 
@@ -145,6 +147,7 @@
   .toast.show { opacity: 1; transform: translateY(0); }
   .toast-ok { background: rgba(127,214,51,0.9); color: var(--bg); }
   .toast-err { background: rgba(239,68,68,0.9); color: #fff; }
+  .toast-warn { background: rgba(245,158,11,0.9); color: #fff; }
 
   /* Responsive table wrapper */
   .table-wrap { overflow-x: auto; }
@@ -1055,7 +1058,7 @@ function renderBoundaries(boundaries) {
   }
   tbody.innerHTML = boundaries.map((b, i) => {
     const date = b.synced_at ? new Date(b.synced_at).toLocaleDateString('es') : '—';
-    const area = b.area_ha ? b.area_ha.toFixed(2) : '—';
+    const area = b.area_ha ? Number(b.area_ha).toFixed(2) : '—';
     return `<tr>
       <td><strong>${esc(b.field_name)}</strong></td>
       <td>${esc(b.project)}</td>
@@ -1667,7 +1670,7 @@ async function loadTechnicians() {
   } catch (e) {
     console.error('[Technicians] Load error:', e);
     document.getElementById('techsTableBody').innerHTML =
-      `<tr><td colspan="8" style="text-align:center;color:var(--red);padding:20px">Error: ${esc(e.message)}</td></tr>`;
+      `<tr><td colspan="9" style="text-align:center;color:var(--red);padding:20px">Error: ${esc(e.message)}</td></tr>`;
   }
 }
 
@@ -1890,7 +1893,10 @@ function setConnected(ok) {
 function toast(msg, type) {
   const el = document.getElementById('toast');
   el.textContent = msg;
-  el.className = 'toast ' + (type === 'err' ? 'toast-err' : 'toast-ok') + ' show';
+  const cls = type === 'err' || type === 'error' ? 'toast-err'
+            : type === 'warning' ? 'toast-warn'
+            : 'toast-ok';
+  el.className = 'toast ' + cls + ' show';
   setTimeout(() => { el.classList.remove('show'); }, 3000);
 }
 
@@ -2256,19 +2262,25 @@ function genSummary(field) {
 function genCSV(field) {
   const samples = field.samples || [];
   const header = 'Punto,Zona,Latitud,Longitud,Precision_m,Profundidad,Codigo_Barras,Tipo,Colector,Fecha_Hora,Notas';
+  // RFC 4180: fields containing commas, quotes, or newlines must be quoted
+  const csvField = (v) => {
+    const s = String(v ?? '');
+    return (s.includes(',') || s.includes('"') || s.includes('\n'))
+      ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
   const rows = samples.map(s => {
     return [
-      s.pointName || '',
-      s.zona || '',
+      csvField(s.pointName),
+      csvField(s.zona),
       s.lat || '',
       s.lng || '',
       s.accuracy || '',
-      s.depth || '0-20',
-      s.barcode || '',
-      s.sampleType || '',
-      s.collector || '',
+      csvField(s.depth || '0-20'),
+      csvField(s.barcode),
+      csvField(s.sampleType),
+      csvField(s.collector),
       s.collectedAt || '',
-      (s.notes || '').replace(/,/g, ';').replace(/\n/g, ' ')
+      csvField(s.notes)
     ].join(',');
   });
   return header + '\n' + rows.join('\n');

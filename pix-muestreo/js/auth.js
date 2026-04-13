@@ -406,6 +406,8 @@ class PixAuth {
           const localTime = new Date(local.updatedAt || 0).getTime();
 
           if (remoteTime > localTime) {
+            // Capture old state BEFORE overwriting
+            const wasActive = local.active;
             // Remote is newer → update local
             local.name = remote.name;
             local.email = remote.email;
@@ -417,7 +419,7 @@ class PixAuth {
             await pixDB.putUser(local);
             updated++;
 
-            if (!remote.active && local.active) deactivated++;
+            if (!remote.active && wasActive) deactivated++;
           }
         }
       }

@@ -1,7 +1,7 @@
 // PIX Muestreo - Service Worker for Offline Support
 // IMPORTANT: Keep CACHE_NAME in sync with APP_VERSION in js/cloud.js
-// v55 — fix: auto-complete service order when all samples collected
-const CACHE_NAME = 'pix-muestreo-v55';
+// v56 — fix: comprehensive audit bug fixes
+const CACHE_NAME = 'pix-muestreo-v56';
 const TILE_CACHE = 'pix-tiles-v1';
 
 // Derive base path dynamically — works in both web (/pix-muestreo/) and APK WebView
@@ -144,7 +144,10 @@ self.addEventListener('fetch', event => {
       return response;
     }).catch(() => {
       return caches.match(event.request).then(cached => {
-        return cached || caches.match(BASE + 'index.html');
+        // Only serve index.html fallback for navigation requests (not JS/CSS/images)
+        if (cached) return cached;
+        if (event.request.mode === 'navigate') return caches.match(BASE + 'index.html');
+        return new Response('', { status: 404 });
       });
     })
   );
