@@ -77,10 +77,11 @@ class PixAuth {
     // Try by email index first
     let user = await pixDB.getByIndex('users', 'email', emailLower);
 
-    // Fallback: search by name (case-insensitive)
+    // Fallback: search by username, then by name (case-insensitive)
     if (!user) {
       const allUsers = await pixDB.getAll('users');
-      user = allUsers.find(u => u.name.toLowerCase() === emailLower || u.email.toLowerCase() === emailLower);
+      user = allUsers.find(u => (u.username || '').toLowerCase() === emailLower)
+          || allUsers.find(u => (u.name || '').toLowerCase() === emailLower || (u.email || '').toLowerCase() === emailLower);
     }
 
     if (!user) return null;
@@ -98,6 +99,7 @@ class PixAuth {
   logout() {
     this.currentUser = null;
     localStorage.removeItem('pix_user_id');
+    localStorage.removeItem('pix_master_ts');
     location.reload();
   }
 

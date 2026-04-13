@@ -168,6 +168,9 @@
         </button>
         <div class="nav-group-items">
           <button class="nav-sub-link" data-view="interpretation" onclick="admin.showView('interpretation')">Informe Completo</button>
+          <button class="nav-sub-link" data-view="client-report" onclick="admin.showView('client-report')">
+            <span style="display:flex;align-items:center;gap:6px">Reporte Cliente<span class="nav-pro-badge" style="background:#e91e63;color:#fff;font-size:9px;padding:1px 5px;border-radius:4px">PRO</span></span>
+          </button>
           <button class="nav-sub-link" data-view="report-protocol" onclick="admin.showView('report-protocol')">Protocolo Aplicación</button>
           <button class="nav-sub-link" data-view="report-financial" onclick="admin.showView('report-financial')">Estudio Financiero</button>
           <button class="nav-sub-link" data-view="report-export" onclick="admin.showView('report-export')">Exportar Mapas</button>
@@ -206,7 +209,7 @@
       </button>
     </div>
     <div style="padding:4px 16px 12px;font-size:10px;color:var(--text-dim)">
-      PIX Admin v3.2.0 &middot; <a href="https://pixadvisor.network" target="_blank" style="color:var(--teal)">pixadvisor.network</a>
+      PIX Admin v3.3.0 &middot; <a href="https://pixadvisor.network" target="_blank" style="color:var(--teal)">pixadvisor.network</a>
     </div>
   </aside>
 
@@ -713,13 +716,62 @@
 
       <!-- ===== SAMPLES / LAB ===== -->
       <div id="view-samples" class="view">
+        <!-- Cloud Sync Bar -->
+        <div class="card" style="margin-bottom:16px;background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%)">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+            <div>
+              <div style="font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#00bfa5" stroke-width="2" width="20" height="20"><path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z"/></svg>
+                Supabase Cloud Sync
+              </div>
+              <div style="font-size:12px;color:var(--text-dim);margin-top:4px" id="cloudSyncStatus">Sin sincronizar</div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-sm" onclick="admin.pullCloudData()" style="background:#00bfa5;color:#000;font-weight:600">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                Sync Cloud
+              </button>
+              <button class="btn btn-sm btn-primary" onclick="admin.importLabFile()">Importar Lab CSV</button>
+              <button class="btn btn-sm btn-secondary" onclick="admin.importSamplesJSON()">Importar JSON</button>
+              <button class="btn btn-sm btn-outline" onclick="admin.loadDemoSamples()">Demo</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cloud Fields Selector -->
+        <div class="card" id="cloudFieldsCard" style="margin-bottom:16px;display:none">
+          <div class="card-header">
+            <div><div class="card-title">Campos Sincronizados desde Cloud</div><div class="card-subtitle">Seleccioná un lote para cargar muestras y vincular lab</div></div>
+          </div>
+          <div id="cloudFieldsList"></div>
+        </div>
+
+        <!-- Pipeline Actions -->
+        <div class="card" id="pipelineCard" style="margin-bottom:16px;display:none">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+            <div>
+              <div style="font-size:14px;font-weight:700" id="pipelineLoteName">—</div>
+              <div style="font-size:12px;color:var(--text-dim)" id="pipelineStats">—</div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-sm" onclick="admin.runFullPipeline()" style="background:linear-gradient(135deg,#7FD633,#00bfa5);color:#000;font-weight:700" id="btnPipeline" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                Pipeline Completo
+              </button>
+              <button class="btn btn-sm" onclick="admin.generateClientReport()" style="background:#e91e63;color:#fff;font-weight:600" id="btnReport" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
+                Reporte Profesional
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Samples Table -->
         <div class="card">
           <div class="card-header">
             <div><div class="card-title">Muestras y Resultados de Laboratorio</div><div class="card-subtitle">Datos georreferenciados con resultados</div></div>
             <div style="display:flex;gap:8px">
-              <button class="btn btn-sm btn-outline" onclick="admin.loadDemoSamples()">Demo GPS</button>
-              <button class="btn btn-sm btn-primary" onclick="admin.importSamplesJSON()">Importar JSON</button>
-              <button class="btn btn-sm btn-secondary" onclick="admin.importLabCSV()">Importar Lab CSV</button>
+              <button class="btn btn-sm btn-outline" onclick="admin.clearAllSamples()">Limpiar Todo</button>
             </div>
           </div>
           <div id="samplesTable"></div>
@@ -1504,6 +1556,51 @@
         </div>
       </div>
 
+      <!-- ===== CLIENT REPORT PRO ===== -->
+      <div id="view-client-report" class="view">
+        <div class="card" style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%)">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px">
+            <div>
+              <div style="font-size:18px;font-weight:700;display:flex;align-items:center;gap:10px">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#e91e63" stroke-width="2" width="24" height="24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8M16 17H8M10 9H8"/></svg>
+                Reporte Profesional para Cliente
+              </div>
+              <div style="font-size:13px;color:var(--text-dim);margin-top:6px">PDF multi-página: zonas, análisis de suelo, mapas de fertilidad, prescripción VRT y costos</div>
+            </div>
+            <button class="btn" onclick="admin.generateClientReport()" style="background:linear-gradient(135deg,#e91e63,#ff5722);color:#fff;font-weight:700;padding:10px 24px;font-size:14px">
+              Generar Reporte PDF
+            </button>
+          </div>
+        </div>
+        <div class="grid-2" style="margin-top:16px">
+          <div class="card">
+            <div class="card-title">Datos del Cliente</div>
+            <div class="card-subtitle">Estos datos aparecerán en el reporte</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">
+              <div class="form-group"><label>Nombre / Razón Social</label><input class="form-input" id="rptClientName" placeholder="Nombre del cliente"></div>
+              <div class="form-group"><label>Propiedad / Hacienda</label><input class="form-input" id="rptProperty" placeholder="Nombre de la hacienda"></div>
+              <div class="form-group"><label>Lote / Campo</label><input class="form-input" id="rptFieldName" placeholder="Lote o campo"></div>
+              <div class="form-group"><label>Ubicación</label><input class="form-input" id="rptLocation" placeholder="Municipio, Estado"></div>
+              <div class="form-group"><label>Área (ha)</label><input class="form-input" id="rptArea" type="number" step="0.01" placeholder="Área en hectáreas"></div>
+              <div class="form-group"><label>Responsable Técnico</label><input class="form-input" id="rptTechnician" placeholder="Ing. Agrónomo" value="Nilton Luiz Camargo"></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Estado del Pipeline</div>
+            <div class="card-subtitle">Requisitos para generar el reporte completo</div>
+            <div style="margin-top:12px" id="rptPipelineStatus">
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <div class="rpt-check" id="rptChkSamples"><span style="color:var(--danger)">&#x2717;</span> Muestras georreferenciadas cargadas</div>
+                <div class="rpt-check" id="rptChkLab"><span style="color:var(--danger)">&#x2717;</span> Resultados de laboratorio vinculados</div>
+                <div class="rpt-check" id="rptChkInterp"><span style="color:var(--danger)">&#x2717;</span> Interpretación de suelo calculada</div>
+                <div class="rpt-check" id="rptChkMaps"><span style="color:var(--danger)">&#x2717;</span> Mapas de nutrientes generados</div>
+                <div class="rpt-check" id="rptChkPresc"><span style="color:var(--danger)">&#x2717;</span> Prescripción VRT calculada</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- ===== REPORT: EXPORT MAPS ===== -->
       <div id="view-report-export" class="view">
         <div class="engine-card">
@@ -1746,6 +1843,8 @@ function pixLogout() {
 <script src="js/kriging.js"></script>
 <script src="js/zones-engine.js?v=5"></script>
 <script src="js/sampling-engine.js?v=5"></script>
+<script src="js/cloud-sync.js"></script>
+<script src="js/client-report.js"></script>
 <script src="js/admin-app.js"></script>
 <script src="js/agent-admin.js"></script>
 <script>

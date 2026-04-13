@@ -1,7 +1,7 @@
 // PIX Muestreo - Service Worker for Offline Support
 // IMPORTANT: Keep CACHE_NAME in sync with APP_VERSION in js/cloud.js
-// v52 — fix: canvas map renderer (no CORS) + real QR code generator
-const CACHE_NAME = 'pix-muestreo-v52';
+// v53 — fix: device heartbeat GPS location for dashboard tracking
+const CACHE_NAME = 'pix-muestreo-v54';
 const TILE_CACHE = 'pix-tiles-v1';
 
 // Derive base path dynamically — works in both web (/pix-muestreo/) and APK WebView
@@ -33,6 +33,12 @@ const STATIC_ASSETS = [
   BASE + 'js/report-pro.js',
   BASE + 'lib/html2pdf.bundle.min.js',
   BASE + 'lib/qrcode-gen.min.js',
+  // Leaflet marker images (required for offline map markers)
+  BASE + 'lib/images/marker-icon.png',
+  BASE + 'lib/images/marker-icon-2x.png',
+  BASE + 'lib/images/marker-shadow.png',
+  BASE + 'lib/images/layers.png',
+  BASE + 'lib/images/layers-2x.png',
   // Icons
   BASE + 'icons/icon-192.png',
   BASE + 'icons/icon-512.png',
@@ -79,6 +85,19 @@ self.addEventListener('fetch', event => {
             if (response.ok) cache.put(event.request, response.clone());
             return response;
           }).catch(() => new Response('', { status: 404, statusText: 'Tile offline' }));
+        })
+      )
+    );
+    return;
+  }
+
+  // Supabase API calls - network only, proper offline JSON response
+  if (url.hostname.includes('supabase.co')) {
+    event.respondWith(
+      fetch(event.request).catch(() =>
+        new Response(JSON.stringify({ error: 'offline' }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' }
         })
       )
     );

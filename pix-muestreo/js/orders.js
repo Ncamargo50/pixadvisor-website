@@ -10,10 +10,36 @@ class PixOrders {
     this.currentFilter = filterStatus || 'todas';
     let orders;
 
+    // Always get ALL local orders first (avoids ID mismatch issues)
+    const allOrders = await pixDB.getAll('serviceOrders');
+
     if (pixAuth.isAdmin()) {
-      orders = await pixDB.getAll('serviceOrders');
+      orders = allOrders;
     } else {
-      orders = await pixDB.getAllByIndex('serviceOrders', 'technicianId', pixAuth.getUserId());
+      // Filter by technicianId OR by matching technician name (handles ID mismatch on fresh installs)
+      const userId = pixAuth.getUserId();
+      const userName = (pixAuth.getUserName() || '').toLowerCase();
+      orders = allOrders.filter(o =>
+        o.technicianId === userId ||
+        (userName && o.notes && o.notes.toLowerCase().includes(userName)) ||
+        (o.createdBy === 'cloud') // Cloud-imported orders always visible to logged-in tech
+      );
+    }
+
+    // ALWAYS pull from cloud when opening Orders view (non-blocking for existing orders)
+    if (pixCloud.isEnabled() && navigator.onLine) {
+      try {
+        await app._pullCloudOrders();
+        // Reload after pull to include any new orders
+        const refreshed = await pixDB.getAll('serviceOrders');
+        const userId = pixAuth.getUserId();
+        const userName = (pixAuth.getUserName() || '').toLowerCase();
+        orders = pixAuth.isAdmin() ? refreshed : refreshed.filter(o =>
+          o.technicianId === userId ||
+          (userName && o.notes && o.notes.toLowerCase().includes(userName)) ||
+          (o.createdBy === 'cloud')
+        );
+      } catch (e) { console.warn('[Orders] Cloud pull on load:', e.message); }
     }
 
     // Apply filter
@@ -269,6 +295,11 @@ class PixOrders {
     order.updatedAt = new Date().toISOString();
     if (newStatus === 'completada') order.completedAt = new Date().toISOString();
     await pixDB.put('serviceOrders', order);
+    // Sync status change to cloud (non-blocking)
+    if (pixCloud.isEnabled() && order.cloudOrderId) {
+      pixCloud.updateOrderStatus(order.cloudOrderId, newStatus).catch(e =>
+        console.warn('[Orders] Cloud status update failed:', e.message));
+    }
     app.toast(`Orden ${newStatus === 'en_progreso' ? 'iniciada' : newStatus === 'completada' ? 'completada' : 'cancelada'}`, 'success');
     this.showOrderDetail(orderId);
   }

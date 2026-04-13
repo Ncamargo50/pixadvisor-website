@@ -21,22 +21,11 @@ class SyncManager {
   }
 
   // Auto-sync when coming online
+  // NOTE: app.js _checkAutoSync() already registers a debounced online handler
+  // for cloud+drive sync. This method only handles background sync registration.
   setupAutoSync() {
-    window.addEventListener('online', async () => {
-      try {
-        console.log('Back online - checking for unsynced data');
-        if (typeof pixDB === 'undefined' || typeof driveSync === 'undefined') return;
-        const unsynced = await pixDB.getUnsyncedSamples();
-        if (unsynced.length > 0 && driveSync.isAuthenticated()) {
-          if (typeof app !== 'undefined') {
-            app.toast(`${unsynced.length} muestras pendientes. Sincronizando...`, 'warning');
-            setTimeout(() => app.syncToDrive().catch(e => console.warn('[Sync] Auto-sync error:', e)), 2000);
-          }
-        }
-      } catch (e) {
-        console.warn('[Sync] Online handler error:', e);
-      }
-    });
+    // No duplicate online listener — app.js handles online→sync via _checkAutoSync()
+    console.log('[SyncManager] Auto-sync delegated to app._checkAutoSync()');
   }
 
 }

@@ -211,6 +211,25 @@
         <div id="dashMap"></div>
       </div>
 
+      <!-- PERIMETROS INDEPENDIENTES -->
+      <div class="panel" style="margin-bottom:20px">
+        <div class="panel-title" style="display:flex;align-items:center;justify-content:space-between">
+          <span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/></svg>
+            Perimetros de Lotes
+          </span>
+          <button class="btn btn-outline" onclick="downloadAllBoundaries()" style="padding:4px 12px;font-size:11px">⬇ Descargar Todos</button>
+        </div>
+        <div class="panel-body" style="max-height:300px;overflow-y:auto">
+          <table>
+            <thead><tr><th>Lote</th><th>Proyecto</th><th>Area (ha)</th><th>Tecnico</th><th>Fecha</th><th>Descargar</th></tr></thead>
+            <tbody id="boundariesTable">
+              <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Cargando perimetros...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- TECHNICIANS + FIELDS -->
       <div class="grid" style="grid-template-columns: 1fr 2fr">
         <div class="panel">
@@ -790,6 +809,7 @@ async function loadData() {
     renderMap(fields);
     renderTechGPS(devices);
     renderActivity(activities);
+    loadBoundaries();
     setConnected(true);
 
     document.getElementById('refreshBar').textContent =
@@ -936,6 +956,7 @@ function renderTechGPS(devices) {
   if (!devices || !dashMap) return;
 
   const ONE_HOUR = 3600000;
+  const onlineBounds = [];
 
   for (const d of devices) {
     let lat = null, lng = null;
@@ -967,6 +988,22 @@ function renderTechGPS(devices) {
 
     marker.addTo(dashMap);
     techMarkers.push(marker);
+    if (isOnline) onlineBounds.push(L.latLng(lat, lng));
+  }
+
+  // Extend map view to include online technicians
+  if (onlineBounds.length > 0) {
+    try {
+      // Combine with existing field layers
+      const allBounds = L.latLngBounds(onlineBounds);
+      fieldLayers.forEach(l => {
+        try { if (l.getBounds) allBounds.extend(l.getBounds()); } catch(_){}
+      });
+      dashMap.fitBounds(allBounds.pad(0.1));
+    } catch (e) {
+      // Fallback: center on first online tech
+      dashMap.setView(onlineBounds[0], 15);
+    }
   }
 }
 
@@ -991,6 +1028,97 @@ function renderActivity(activities) {
       <span class="activity-text">${text}</span>
     </div>`;
   }).join('');
+}
+
+// ═══════════════════════════════════════════════════
+// PERIMETROS — Independent Boundary Management
+// ═══════════════════════════════════════════════════
+
+let _boundariesCache = [];
+
+async function loadBoundaries() {
+  try {
+    const data = await supaFetch('/field_syncs?select=project,field_name,area_ha,boundary,technician,synced_at&boundary=not.is.null&order=synced_at.desc');
+    _boundariesCache = data || [];
+    renderBoundaries(_boundariesCache);
+  } catch (e) {
+    console.warn('[Dashboard] Load boundaries:', e.message);
+  }
+}
+
+function renderBoundaries(boundaries) {
+  const tbody = document.getElementById('boundariesTable');
+  if (!tbody) return;
+  if (!boundaries || boundaries.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Sin perimetros registrados</td></tr>';
+    return;
+  }
+  tbody.innerHTML = boundaries.map((b, i) => {
+    const date = b.synced_at ? new Date(b.synced_at).toLocaleDateString('es') : '—';
+    const area = b.area_ha ? b.area_ha.toFixed(2) : '—';
+    return `<tr>
+      <td><strong>${esc(b.field_name)}</strong></td>
+      <td>${esc(b.project)}</td>
+      <td>${area}</td>
+      <td>${esc(b.technician || '—')}</td>
+      <td><small>${date}</small></td>
+      <td>
+        <button class="btn btn-outline" onclick="downloadBoundary(${i})" style="padding:2px 8px;font-size:11px">📐 GeoJSON</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function downloadBoundary(index) {
+  const b = _boundariesCache[index];
+  if (!b || !b.boundary) return;
+  const geojson = typeof b.boundary === 'string' ? b.boundary : JSON.stringify(b.boundary, null, 2);
+  const name = `perimetro_${b.project}_${b.field_name}.geojson`.replace(/\s+/g, '_');
+  const blob = new Blob([geojson], { type: 'application/geo+json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name; a.click();
+  URL.revokeObjectURL(url);
+  toast('Descargado: ' + name, 'success');
+}
+
+function downloadAllBoundaries() {
+  if (!_boundariesCache || _boundariesCache.length === 0) {
+    toast('No hay perimetros para descargar', 'warning');
+    return;
+  }
+  // Merge all boundaries into a single FeatureCollection
+  const allFeatures = [];
+  for (const b of _boundariesCache) {
+    if (!b.boundary) continue;
+    const geo = typeof b.boundary === 'string' ? JSON.parse(b.boundary) : b.boundary;
+    if (geo.type === 'FeatureCollection' && geo.features) {
+      for (const f of geo.features) {
+        f.properties = {
+          ...(f.properties || {}),
+          project: b.project,
+          field: b.field_name,
+          area_ha: b.area_ha,
+          technician: b.technician,
+          synced_at: b.synced_at
+        };
+        allFeatures.push(f);
+      }
+    } else if (geo.type === 'Feature') {
+      geo.properties = { ...(geo.properties || {}), project: b.project, field: b.field_name, area_ha: b.area_ha };
+      allFeatures.push(geo);
+    }
+  }
+  const merged = { type: 'FeatureCollection', features: allFeatures };
+  const content = JSON.stringify(merged, null, 2);
+  const today = new Date().toISOString().slice(0, 10);
+  const name = `perimetros_todos_${today}.geojson`;
+  const blob = new Blob([content], { type: 'application/geo+json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name; a.click();
+  URL.revokeObjectURL(url);
+  toast(`${allFeatures.length} perimetros descargados: ${name}`, 'success');
 }
 
 // ═══════════════════════════════════════════════════
@@ -1235,7 +1363,10 @@ async function submitOrder() {
     ? techSelect.options[techSelect.selectedIndex].text : null;
 
   // Transform GeoJSON to APK-compatible { fields: [...] } format
-  const fieldData = orderGeoData ? transformGeoToFieldData(orderGeoData) : null;
+  // If editing, data may already be in { fields: [...] } format — don't re-transform
+  const fieldData = orderGeoData
+    ? (orderGeoData.fields ? orderGeoData : transformGeoToFieldData(orderGeoData))
+    : null;
 
   const body = {
     title: title,
@@ -1495,20 +1626,25 @@ async function submitTechnician() {
       await supaPost('/technicians?id=eq.' + editId, body, 'PATCH');
       toast('Tecnico actualizado');
     } else {
-      // Check if username exists as soft-deleted (active=false) — reactivate it
-      const existing = await supaFetch('/technicians?username=eq.' + encodeURIComponent(username) + '&active=eq.false&select=id');
-      if (existing && existing.length > 0) {
-        // Reactivate soft-deleted record
-        body.active = true;
-        body.updated_at = new Date().toISOString();
-        await supaPost('/technicians?id=eq.' + existing[0].id, body, 'PATCH');
-        toast('Tecnico reactivado');
+      // Check if username already exists (active or inactive)
+      const existingInactive = await supaFetch('/technicians?username=eq.' + encodeURIComponent(username) + '&active=eq.false&select=id');
+      if (existingInactive && existingInactive.length > 0) {
+        // Delete old inactive record, then create fresh
+        await supaDelete('/technicians?id=eq.' + existingInactive[0].id);
       } else {
-        body.active = true;
-        body.created_at = new Date().toISOString();
-        await supaPost('/technicians', body);
-        toast('Tecnico creado');
+        // Check if username is in use by an active technician
+        const existingActive = await supaFetch('/technicians?username=eq.' + encodeURIComponent(username) + '&active=eq.true&select=id,full_name');
+        if (existingActive && existingActive.length > 0) {
+          toast('El username "' + username + '" ya esta en uso por ' + (existingActive[0].full_name || 'otro tecnico'), 'err');
+          btn.disabled = false;
+          btn.textContent = 'Crear Tecnico';
+          return;
+        }
       }
+      body.active = true;
+      body.created_at = new Date().toISOString();
+      await supaPost('/technicians', body);
+      toast('Tecnico creado');
     }
     toggleTechForm(false);
     loadTechnicians();
@@ -1576,10 +1712,10 @@ async function resetTechPassword(id, name) {
 }
 
 async function deleteTechnician(id, name) {
-  if (!await pixConfirm('Eliminar tecnico "' + name + '"?')) return;
+  if (!await pixConfirm('Eliminar tecnico "' + name + '" permanentemente?\n\nEsta accion NO se puede deshacer.')) return;
   try {
-    await supaPost('/technicians?id=eq.' + id, { active: false, updated_at: new Date().toISOString() }, 'PATCH');
-    toast('Tecnico "' + name + '" eliminado');
+    await supaDelete('/technicians?id=eq.' + id);
+    toast('Tecnico "' + name + '" eliminado permanentemente');
     loadTechnicians();
   } catch (e) {
     toast('Error: ' + e.message, 'err');
@@ -1763,19 +1899,18 @@ function toast(msg, type) {
 // File System Access API (Chrome 86+)
 // ═══════════════════════════════════════════════════
 
-// NOTE: Configure these values in the dashboard settings or override per-deployment.
-// Empty defaults — PII should not be hardcoded in source.
+// Cadastro IBRA Megalab — Pixadvisor Agricultura de Precision
 const IBRA_CADASTRO = {
-  solicitante: '',
-  responsavel: '',
-  telefone: '',
-  endereco: '',
-  cep: '',
-  bairro: '',
-  municipio: '',
-  uf: '',
-  cpfCnpj: '',
-  emailLaudos: ''
+  solicitante: 'PIXADVISOR AGRICULTURA DE PRECISAO',
+  responsavel: 'NILTON LUIZ CAMARGO',
+  telefone: '43 999819554',
+  endereco: 'RUA ELIEZER MARTINS BANDEIRA 44',
+  cep: '86200536',
+  bairro: 'CINQUENTENARIO',
+  municipio: 'IBIPORA',
+  uf: 'PR',
+  cpfCnpj: '41.196.481/0001-30',
+  emailLaudos: 'nilton.camargo@pixadvisor.network, gis.agronomico@gmail.com'
 };
 
 function safeName(name) {

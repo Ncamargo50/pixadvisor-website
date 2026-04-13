@@ -323,7 +323,7 @@ html, body {
   -webkit-backdrop-filter: blur(28px) saturate(180%);
   backdrop-filter: blur(28px) saturate(180%);
   border-radius: var(--radius-xl);
-  padding: 16px;
+  padding: 10px 14px;
   box-shadow: var(--shadow-xl);
   border: 1px solid var(--border);
 }
@@ -331,11 +331,11 @@ html, body {
 .nav-panel .nav-info {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 10px;
 }
 
 .nav-distance {
-  font-size: 36px;
+  font-size: 28px;
   font-weight: 700;
   color: var(--teal);
   line-height: 1;
@@ -353,7 +353,7 @@ html, body {
 }
 
 .nav-target-name {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
 }
 
@@ -375,10 +375,10 @@ html, body {
 /* GPS Quality Bar */
 .gps-quality-bar {
   width: 100%;
-  height: 6px;
+  height: 4px;
   background: rgba(255,255,255,0.08);
-  border-radius: 3px;
-  margin-top: 8px;
+  border-radius: 2px;
+  margin-top: 4px;
   overflow: hidden;
   position: relative;
 }
@@ -396,9 +396,9 @@ html, body {
 .gps-status-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 6px;
-  font-size: 11px;
+  gap: 6px;
+  margin-top: 3px;
+  font-size: 10px;
 }
 .gps-status-dot {
   width: 10px;
@@ -494,14 +494,14 @@ html, body {
 /* Map action bar */
 .map-action-bar {
   display: flex;
-  gap: 8px;
-  margin-top: 12px;
+  gap: 6px;
+  margin-top: 6px;
 }
 
 .action-btn {
   flex: 1;
-  padding: 14px;
-  min-height: 56px;
+  padding: 8px;
+  min-height: 36px;
   border-radius: 14px;
   border: none;
   font-weight: 600;
@@ -1732,19 +1732,20 @@ select.form-input {
 .fab-btn:active { transform: scale(0.85) !important; }
 
 .nav-panel {
-  background: rgba(15,27,45,0.88) !important; -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid rgba(127,214,51,0.12) !important; border-radius: 20px !important;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important; padding: 20px !important;
+  background: rgba(15,27,45,0.92) !important; -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(127,214,51,0.12) !important; border-radius: 12px !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important; padding: 6px 10px !important;
 }
+.nav-panel .nav-info { gap: 8px !important; }
 .nav-distance {
-  font-size: 42px !important; font-weight: 800 !important;
+  font-size: 24px !important; font-weight: 800 !important;
   background: var(--gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   filter: drop-shadow(0 2px 4px rgba(127,214,51,0.3));
 }
-.nav-distance small { font-size: 16px !important; font-weight: 600 !important; }
-.nav-target-name { font-size: 16px !important; font-weight: 700 !important; }
+.nav-distance small { font-size: 11px !important; font-weight: 600 !important; }
+.nav-target-name { font-size: 12px !important; font-weight: 700 !important; }
 
-.action-btn { padding: 14px 16px !important; border-radius: 14px !important; font-size: 15px !important; font-weight: 700 !important; }
+.action-btn { padding: 8px 12px !important; border-radius: 10px !important; font-size: 12px !important; font-weight: 700 !important; }
 .action-btn.primary { box-shadow: 0 4px 16px rgba(127,214,51,0.3); }
 
 .gps-quality-bar { height: 6px !important; border-radius: 3px !important; }

@@ -133,7 +133,10 @@ class PixAdmin {
                   <svg viewBox="0 0 24 24" fill="none" stroke="${u.active ? 'var(--danger)' : 'var(--success)'}" stroke-width="2" style="width:14px;height:14px">
                     ${u.active ? '<path d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>' : '<path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>'}
                   </svg>
-                </button>` : '<span style="font-size:10px;color:var(--text-muted)">Default</span>'}
+                </button>
+                ${!u.active ? `<button class="fab-btn secondary" style="width:28px;height:28px;border-color:var(--danger)" onclick="pixAdmin.deleteUserPermanently('${escJS(u.id)}')" title="Eliminar permanentemente">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2" style="width:14px;height:14px"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2m-6 5v6m4-6v6"/></svg>
+                </button>` : ''}` : '<span style="font-size:10px;color:var(--text-muted)">Default</span>'}
             </div>
           </div>
         </div>
@@ -229,6 +232,24 @@ class PixAdmin {
   async toggleUser(userId) {
     await pixAuth.toggleUserActive(userId);
     await this.renderUserList(document.getElementById('adminSectionContent'));
+  }
+
+  async deleteUserPermanently(userId) {
+    const user = await pixDB.get('users', userId);
+    if (!user) return;
+    if (user.id === 'admin-default') {
+      app.toast('No se puede eliminar el admin por defecto', 'warning');
+      return;
+    }
+    if (!confirm(`Eliminar permanentemente a "${user.name}" (${user.email})?\n\nEsta accion NO se puede deshacer.`)) return;
+    try {
+      await pixDB.delete('users', userId);
+      app.toast(`Usuario "${user.name}" eliminado permanentemente`, 'success');
+      await this.renderUserList(document.getElementById('adminSectionContent'));
+    } catch (err) {
+      console.error('[Admin] Error deleting user:', err);
+      app.toast('Error al eliminar usuario', 'error');
+    }
   }
 
   // Export users as JSON file (for transferring to APK or another device)

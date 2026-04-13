@@ -108,7 +108,13 @@ class PixDB {
           fl.createIndex('createdAt', 'createdAt', { unique: false });
         }
       };
-      req.onsuccess = e => { this.db = e.target.result; resolve(this.db); };
+      req.onblocked = () => reject(new Error('Base de datos bloqueada por otra pestaña/worker'));
+      req.onsuccess = e => {
+        this.db = e.target.result;
+        // Allow other tabs to upgrade by closing this connection when needed
+        this.db.onversionchange = () => { this.db.close(); this.db = null; };
+        resolve(this.db);
+      };
       req.onerror = e => reject(e.target.error);
     });
   }
@@ -302,6 +308,7 @@ class PixDB {
   // Atomic save: sample + point status update in ONE transaction
   // If either fails, both roll back — prevents orphaned samples on crash
   async saveSampleAtomic(sample, point) {
+    this._ensureDB();
     return new Promise((resolve, reject) => {
       const tx = this.db.transaction(['samples', 'points'], 'readwrite');
       const now = new Date().toISOString();

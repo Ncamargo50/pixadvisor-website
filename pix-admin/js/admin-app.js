@@ -201,7 +201,7 @@ class PixAdmin {
       'leaf': 'leaf-group', 'leaf-dris': 'leaf-group', 'leaf-cross': 'leaf-group',
       'engine-idw': 'engine-group', 'engine-kriging': 'engine-group', 'engine-variogram': 'engine-group', 'engine-validation': 'engine-group',
       'nutrient-maps': 'maps-group', 'relation-maps': 'maps-group', 'prescription': 'maps-group',
-      'interpretation': 'reports-group', 'report-protocol': 'reports-group', 'report-financial': 'reports-group', 'report-export': 'reports-group',
+      'interpretation': 'reports-group', 'client-report': 'reports-group', 'report-protocol': 'reports-group', 'report-financial': 'reports-group', 'report-export': 'reports-group',
       'manage-crops': 'config-group', 'settings': 'config-group'
     };
     const groupId = viewGroupMap[viewName];
@@ -256,6 +256,7 @@ class PixAdmin {
       'service-orders': ['Ordenes de Servicio', 'Crear, gestionar y compartir ordenes de muestreo'],
       'samples': ['Muestras / Lab', 'Gestión de muestras y resultados'],
       'manage-crops': ['Cultivos', 'Base de datos agronómica'],
+      'client-report': ['Reporte Profesional', 'PDF multi-página con logo PIX para cliente'],
       'manage-clients': ['Clientes', 'Gestión de clientes y propiedades'],
       'settings': ['Configuración', 'Preferencias de la aplicación']
     };
@@ -293,6 +294,7 @@ class PixAdmin {
     if (viewName === 'leaf-dris') this._renderLeafDRIS();
     if (viewName === 'leaf-cross') this._renderLeafCross();
     if (viewName === 'manage-crops') this._renderCropsManager();
+    if (viewName === 'client-report') this._updateReportPipelineStatus();
   }
 
   // ===== CROP SELECTOR =====
@@ -997,6 +999,7 @@ class PixAdmin {
     'propriedade': '_property', 'propiedad': '_property', 'fazenda': '_property', 'hacienda': '_property',
     'talhao': '_lote', 'talhão': '_lote', 'lote': '_lote', 'gleba': '_lote',
     'profundidade': '_depth', 'profundidad': '_depth', 'prof.': '_depth', 'prof': '_depth',
+    'zona': '_zona', 'zone': '_zona',
     'latitude': '_lat', 'lat': '_lat', 'longitud': '_lng', 'longitude': '_lng', 'lng': '_lng', 'lon': '_lng',
     // --- pH ---
     'ph h2o': 'pH_H2O', 'ph (h2o)': 'pH_H2O', 'ph agua': 'pH_H2O', 'ph_h2o': 'pH_H2O', 'ph': 'pH_H2O',
@@ -1248,8 +1251,9 @@ class PixAdmin {
             </p>
           </div>
           <div style="overflow-y:auto;flex:1;padding:16px 24px">
-            <div style="display:flex;gap:8px;margin-bottom:12px">
+            <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
               <button class="btn btn-sm btn-primary" onclick="admin._importAllLabSamples()">Importar Todas (${count})</button>
+              ${this.samples.some(s => s.cloudSyncId) ? '<button class="btn btn-sm" style="background:#00bfa5;color:#000;font-weight:600" onclick="admin._linkLabOnly()">Vincular a Muestras Cloud</button>' : ''}
               <button class="btn btn-sm btn-secondary" onclick="admin._importSelectedLabSample()">Cargar Seleccionada al Formulario</button>
             </div>
             <table class="data-table" style="font-size:12px">
@@ -1308,11 +1312,37 @@ class PixAdmin {
     if (meta0._property && !this.clientData.propiedad) this.clientData.propiedad = meta0._property;
     if (meta0._lote && !this.clientData.lote) this.clientData.lote = meta0._lote;
 
+    // Try to link lab results to existing cloud samples
+    let linkMsg = '';
+    if (this.samples.some(s => s.cloudSyncId && !s.labLinked)) {
+      const linked = this._linkLabToCloudSamples(result);
+      if (linked > 0) linkMsg = ` · ${linked} vinculadas a muestras cloud`;
+    }
+
     document.getElementById('labImportModal')?.remove();
     this.updateDashboard();
     this._updateGISSamplesBadge();
     if (this.currentView === 'samples') this.renderSamplesTable();
-    this.toast(`${result.count} muestras importadas + formulario autocompletado`);
+    this.toast(`${result.count} muestras importadas${linkMsg} + formulario autocompletado`);
+  }
+
+  _linkLabOnly() {
+    const result = this._labImportResult;
+    if (!result) return;
+
+    const linked = this._linkLabToCloudSamples(result);
+
+    // Also load first sample into soilData for report
+    if (result.samples.length > 0) {
+      this.soilData = { ...result.samples[0].soilData };
+      this._fillSoilFormFromData(result.samples[0].soilData);
+    }
+
+    document.getElementById('labImportModal')?.remove();
+    this.updateDashboard();
+    this.saveState();
+    if (this.currentView === 'samples') this.renderSamplesTable();
+    this.toast(linked > 0 ? `${linked} muestras vinculadas exitosamente` : 'No se encontraron coincidencias por barcode/zona/nombre', linked > 0 ? 'success' : 'warning');
   }
 
   _importSelectedLabSample() {
@@ -1388,25 +1418,48 @@ class PixAdmin {
   renderSamplesTable() {
     const container = document.getElementById('samplesTable');
     if (this.samples.length === 0) {
-      container.innerHTML = '<div class="empty-state"><h3>Sin muestras</h3><p>Importá datos desde PIX Muestreo o cargá resultados de laboratorio</p></div>';
+      container.innerHTML = '<div class="empty-state"><h3>Sin muestras</h3><p>Sincronice desde Supabase Cloud, importe JSON de PIX Muestreo, o cargue resultados de laboratorio</p></div>';
       return;
     }
 
-    let html = '<table class="data-table"><thead><tr><th>#</th><th>Nombre</th><th>Lat</th><th>Lng</th><th>Prof.</th><th>Datos Lab</th><th>Acciones</th></tr></thead><tbody>';
+    const totalSamples = this.samples.length;
+    const linkedCount = this.samples.filter(s => s.labLinked).length;
+    const withCoords = this.samples.filter(s => s.lat && s.lng).length;
+    const zonas = [...new Set(this.samples.map(s => s.zona).filter(Boolean))];
+
+    let html = `<div style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap">
+      <div style="padding:8px 14px;background:var(--dark-3);border-radius:8px;font-size:12px"><strong>${totalSamples}</strong> muestras</div>
+      <div style="padding:8px 14px;background:var(--dark-3);border-radius:8px;font-size:12px"><strong>${withCoords}</strong> con GPS</div>
+      <div style="padding:8px 14px;background:var(--dark-3);border-radius:8px;font-size:12px;color:${linkedCount > 0 ? 'var(--success)' : 'var(--text-dim)'}"><strong>${linkedCount}/${totalSamples}</strong> lab vinculado</div>
+      ${zonas.length > 0 ? `<div style="padding:8px 14px;background:var(--dark-3);border-radius:8px;font-size:12px"><strong>${zonas.length}</strong> zonas</div>` : ''}
+    </div>`;
+
+    html += '<table class="data-table"><thead><tr><th>#</th><th>Nombre</th><th>Zona</th><th>Lat</th><th>Lng</th><th>Prof.</th><th>Lab</th><th>Acciones</th></tr></thead><tbody>';
     for (const s of this.samples) {
       const hasLab = Object.keys(s.soilData || {}).length;
+      const labBadge = s.labLinked
+        ? `<span class="badge badge-a" title="Lab vinculado: ${s.labSource || ''}">${hasLab} params</span>`
+        : hasLab
+          ? `<span class="badge" style="background:var(--warning);color:#000" title="Datos sin vincular">${hasLab} params</span>`
+          : '<span class="badge badge-b">Sin datos</span>';
+      const zonaBadge = s.zona ? `<span style="display:inline-block;padding:1px 8px;border-radius:8px;font-size:10px;font-weight:700;background:var(--dark-3);color:var(--teal)">${s.zona}</span>` : '—';
+
       html += `<tr>
         <td>${s.id}</td>
-        <td><strong>${s.name}</strong>${s.lote ? `<br><small style="color:var(--text-dim)">${s.lote}</small>` : ''}</td>
-        <td style="font-family:monospace;font-size:12px">${s.lat?.toFixed(5) || '—'}</td>
-        <td style="font-family:monospace;font-size:12px">${s.lng?.toFixed(5) || '—'}</td>
+        <td><strong>${escapeHtml(s.name)}</strong>${s.fieldName ? `<br><small style="color:var(--text-dim)">${escapeHtml(s.fieldName)}</small>` : s.lote ? `<br><small style="color:var(--text-dim)">${escapeHtml(s.lote)}</small>` : ''}</td>
+        <td style="text-align:center">${zonaBadge}</td>
+        <td style="font-family:monospace;font-size:11px">${s.lat?.toFixed(6) || '—'}</td>
+        <td style="font-family:monospace;font-size:11px">${s.lng?.toFixed(6) || '—'}</td>
         <td>${s.depth || '—'}</td>
-        <td>${hasLab ? `<span class="badge badge-a">${hasLab} params</span>` : '<span class="badge badge-b">Sin datos</span>'}</td>
+        <td>${labBadge}</td>
         <td><button class="btn btn-sm btn-secondary" onclick="admin.loadSampleToForm(${s.id})">Cargar</button></td>
       </tr>`;
     }
     html += '</tbody></table>';
     container.innerHTML = html;
+
+    // Update pipeline card
+    this._updatePipelineCard();
   }
 
   loadSampleToForm(sampleId) {
@@ -3621,6 +3674,384 @@ class PixAdmin {
     if (!el) return;
     // Try using the QR API if available
     el.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(data)}" alt="QR" style="width:180px;height:180px;border-radius:4px" onerror="this.parentElement.innerHTML='<p style=color:#666;font-size:12px>QR no disponible offline. Use el link directo.</p>'">`;
+  }
+
+  // ═════════════════════════════════════════════════════════════════
+  // CLOUD SYNC — Pull field_syncs from Supabase and populate samples
+  // ═════════════════════════════════════════════════════════════════
+
+  async pullCloudData() {
+    this._showLoadingOverlay('Sincronizando con Supabase Cloud...');
+    try {
+      const syncs = await adminCloud.pullFieldSyncs();
+      if (!syncs || syncs.length === 0) {
+        this._hideLoadingOverlay();
+        this.toast('No se encontraron campos sincronizados en la nube', 'warning');
+        return;
+      }
+
+      this._cloudSyncs = syncs;
+
+      // Update UI
+      const statusEl = document.getElementById('cloudSyncStatus');
+      if (statusEl) statusEl.textContent = `${syncs.length} campos encontrados — ${new Date().toLocaleTimeString()}`;
+
+      // Show cloud fields list
+      const card = document.getElementById('cloudFieldsCard');
+      const list = document.getElementById('cloudFieldsList');
+      if (card && list) {
+        card.style.display = '';
+        let html = '<table class="data-table"><thead><tr><th>Campo</th><th>Proyecto</th><th>Cliente</th><th>Puntos</th><th>Área</th><th>Fecha Sync</th><th></th></tr></thead><tbody>';
+        for (const sync of syncs) {
+          const date = sync.synced_at ? new Date(sync.synced_at).toLocaleDateString() : '—';
+          html += `<tr>
+            <td><strong>${escapeHtml(sync.field_name || '—')}</strong></td>
+            <td>${escapeHtml(sync.project || '—')}</td>
+            <td>${escapeHtml(sync.client || '—')}</td>
+            <td style="text-align:center">${sync.collected_points || 0}/${sync.total_points || 0}</td>
+            <td>${sync.area_ha ? sync.area_ha.toFixed(1) + ' ha' : '—'}</td>
+            <td style="font-size:11px">${date}</td>
+            <td><button class="btn btn-sm" style="background:var(--teal);color:#000;font-weight:600" onclick="admin.loadCloudField('${sync.id}')">Cargar</button></td>
+          </tr>`;
+        }
+        html += '</tbody></table>';
+        list.innerHTML = html;
+      }
+
+      this._hideLoadingOverlay();
+      this.toast(`${syncs.length} campos sincronizados desde Supabase`);
+    } catch (err) {
+      this._hideLoadingOverlay();
+      console.error('Cloud sync error:', err);
+      this.toast('Error sync: ' + err.message, 'danger');
+    }
+  }
+
+  loadCloudField(syncId) {
+    const sync = (this._cloudSyncs || []).find(s => s.id === syncId);
+    if (!sync) { this.toast('Campo no encontrado', 'danger'); return; }
+
+    // Import using AdminCloudSync
+    const imported = adminCloud.importFieldSync(sync);
+    if (imported.length === 0) {
+      this.toast('No hay muestras en este campo', 'warning');
+      return;
+    }
+
+    // Replace samples with imported cloud data
+    this.samples = imported;
+    this._activeCloudSync = sync;
+
+    // Set field boundary if available
+    if (sync.boundary) {
+      try {
+        const boundary = typeof sync.boundary === 'string' ? JSON.parse(sync.boundary) : sync.boundary;
+        if (boundary.type === 'FeatureCollection' || boundary.type === 'Feature' || boundary.type === 'Polygon') {
+          this._setFieldBoundary(boundary);
+        }
+      } catch (e) { console.warn('Boundary parse error:', e); }
+    }
+
+    // Set client data from sync
+    this.clientData.nombre = sync.client || '';
+    this.clientData.propiedad = sync.project || '';
+    this.clientData.lote = sync.field_name || '';
+    this.clientData.area = sync.area_ha ? String(sync.area_ha) : '';
+
+    // Build zonasMetadata from zones_summary
+    if (sync.zones_summary && sync.zones_summary.length > 0) {
+      this._zonasMetadata = sync.zones_summary.map(z => ({
+        zona: z.zona,
+        clase: z.clase || '',
+        barcode: z.barcode || '',
+        ibra: z.ibra || '',
+        count: z.count || 0
+      }));
+    }
+
+    this.updateDashboard();
+    this.saveState();
+    this.renderSamplesTable();
+    this.toast(`${imported.length} muestras cargadas de "${sync.field_name}"`);
+  }
+
+  // ═════════════════════════════════════════════════════════════════
+  // LAB LINKING — After importing lab CSV, link to cloud samples
+  // ═════════════════════════════════════════════════════════════════
+
+  _linkLabToCloudSamples(labResult) {
+    if (!this.samples || this.samples.length === 0) return 0;
+
+    // Build labRows array matching AdminCloudSync expected format
+    const labRows = labResult.samples.map(s => {
+      const row = { ...s.soilData };
+      if (s.meta._barcode) row._barcode = s.meta._barcode;
+      if (s.meta._sampleId) row._sampleId = s.meta._sampleId;
+      if (s.meta._lote) row._lote = s.meta._lote;
+      if (s.meta._zona) row._zona = parseInt(s.meta._zona);
+      return row;
+    });
+
+    const linked = AdminCloudSync.linkLabToSamples(this.samples, labRows);
+    return linked;
+  }
+
+  // ═════════════════════════════════════════════════════════════════
+  // PIPELINE CARD — UI state updates
+  // ═════════════════════════════════════════════════════════════════
+
+  _updatePipelineCard() {
+    const card = document.getElementById('pipelineCard');
+    if (!card) return;
+
+    const hasSamples = this.samples.length > 0;
+    const linkedCount = this.samples.filter(s => s.labLinked).length;
+    const hasLinked = linkedCount >= 2; // Need at least 2 for interpolation
+
+    card.style.display = hasSamples ? '' : 'none';
+
+    const nameEl = document.getElementById('pipelineLoteName');
+    const statsEl = document.getElementById('pipelineStats');
+    const btnPipeline = document.getElementById('btnPipeline');
+    const btnReport = document.getElementById('btnReport');
+
+    if (nameEl) {
+      const sync = this._activeCloudSync;
+      nameEl.textContent = sync ? `${sync.field_name} — ${sync.project}` : (this.clientData.lote || 'Datos Locales');
+    }
+    if (statsEl) {
+      statsEl.textContent = `${this.samples.length} muestras · ${linkedCount} con lab · ${this.samples.filter(s => s.lat && s.lng).length} con GPS`;
+    }
+    if (btnPipeline) btnPipeline.disabled = !hasLinked;
+    if (btnReport) btnReport.disabled = !hasSamples;
+  }
+
+  // ═════════════════════════════════════════════════════════════════
+  // FULL PIPELINE — lab linked samples → interpret → interpolate → prescribe
+  // ═════════════════════════════════════════════════════════════════
+
+  async runFullPipeline() {
+    const linkedSamples = this.samples.filter(s => s.labLinked && s.lat && s.lng);
+    if (linkedSamples.length < 2) {
+      this.toast('Necesita al menos 2 muestras con lab vinculado y GPS', 'warning');
+      return;
+    }
+
+    this._showLoadingOverlay('Ejecutando pipeline completo...');
+
+    try {
+      // Step 1: Get available nutrients
+      const nutrients = AdminCloudSync.getAvailableNutrients(this.samples);
+      if (nutrients.length === 0) {
+        this._hideLoadingOverlay();
+        this.toast('No hay datos de nutrientes para interpolar', 'warning');
+        return;
+      }
+
+      // Step 2: Use first linked sample as representative soilData for interpretation
+      const firstLinked = linkedSamples[0];
+      this.soilData = { ...firstLinked.soilData };
+      this._fillSoilFormFromData(this.soilData);
+
+      // Step 3: Run soil interpretation
+      const options = { pMethod: this.pMethod, phMethod: this.phMethod, unitSystem: this.unitSystem };
+      this._pipelineInterpretation = InterpretationEngine.interpretSoil(this.soilData, this.cropId, options);
+
+      // Step 4: Interpolate primary nutrients
+      const primaryNutrients = ['P', 'K', 'Ca', 'Mg', 'pH_H2O', 'V', 'MO'].filter(n => nutrients.includes(n));
+      this._pipelineNutrientGrids = {};
+
+      for (const nutrient of primaryNutrients) {
+        const points = AdminCloudSync.getSamplesForInterpolation(this.samples, nutrient);
+        if (points.length < 2) continue;
+
+        const bounds = InterpolationEngine.getBounds(points);
+        const grid = InterpolationEngine.interpolateIDW(points, bounds, { resolution: 80, power: 2, smooth: 2 });
+        this._pipelineNutrientGrids[nutrient] = { grid, bounds, points };
+      }
+
+      // Step 5: Generate prescription for deficient nutrients
+      this._pipelinePrescriptions = {};
+      const crop = CROPS_DB[this.cropId];
+      const yieldTarget = this.yieldTarget || crop?.defaultYield || 100;
+
+      for (const nutrient of ['P', 'K']) {
+        if (!this._pipelineNutrientGrids[nutrient]) continue;
+        const { grid, bounds, points } = this._pipelineNutrientGrids[nutrient];
+        try {
+          const presc = InterpolationEngine.generatePrescription(grid, nutrient, this.cropId, yieldTarget, 'MAP');
+          this._pipelinePrescriptions[nutrient] = presc;
+        } catch (e) {
+          console.warn(`Prescription for ${nutrient} failed:`, e.message);
+        }
+      }
+
+      // Step 6: Store results
+      this._pipelineComplete = true;
+      this._pipelineNutrients = primaryNutrients;
+
+      this._hideLoadingOverlay();
+      this._updatePipelineCard();
+      this.updateDashboard();
+      this.saveState();
+
+      const interpCount = Object.keys(this._pipelineNutrientGrids).length;
+      const prescCount = Object.keys(this._pipelinePrescriptions).length;
+      this.toast(`Pipeline completo: ${interpCount} mapas de nutrientes + ${prescCount} prescripciones generadas`);
+
+    } catch (err) {
+      this._hideLoadingOverlay();
+      console.error('Pipeline error:', err);
+      this.toast('Error en pipeline: ' + err.message, 'danger');
+    }
+  }
+
+  // ═════════════════════════════════════════════════════════════════
+  // CLIENT REPORT — Professional multi-page PDF for the client
+  // ═════════════════════════════════════════════════════════════════
+
+  generateClientReport() {
+    const samples = this.samples;
+    if (samples.length === 0) {
+      this.toast('No hay muestras cargadas. Sincronice desde Cloud primero.', 'warning');
+      return;
+    }
+
+    this._showLoadingOverlay('Generando reporte profesional...');
+
+    try {
+      // Get client data from report form or existing
+      const rptClient = document.getElementById('rptClientName');
+      const clientData = {
+        nombre: rptClient?.value || this.clientData.nombre || '',
+        propiedad: document.getElementById('rptProperty')?.value || this.clientData.propiedad || '',
+        ubicacion: document.getElementById('rptLocation')?.value || this.clientData.ubicacion || '',
+        lote: document.getElementById('rptFieldName')?.value || this.clientData.lote || '',
+        area: document.getElementById('rptArea')?.value || this.clientData.area || '',
+        responsable: document.getElementById('rptTechnician')?.value || 'Nilton Luiz Camargo',
+        laboratorio: 'IBRA megalab',
+        nMuestra: String(samples.length)
+      };
+
+      // Run interpretation if not yet done
+      const options = { pMethod: this.pMethod, phMethod: this.phMethod, unitSystem: this.unitSystem };
+      const linkedSample = samples.find(s => s.labLinked && Object.keys(s.soilData || {}).length > 3);
+      let soilInterp = this._pipelineInterpretation;
+      if (!soilInterp && linkedSample) {
+        soilInterp = InterpretationEngine.interpretSoil(linkedSample.soilData, this.cropId, options);
+      }
+
+      // Get available nutrients
+      const nutrients = AdminCloudSync.getAvailableNutrients(samples);
+
+      // Collect prescription data
+      const prescriptions = this._pipelinePrescriptions || {};
+
+      // Get crop info
+      const crop = CROPS_DB[this.cropId];
+
+      // Build data for ClientReport
+      const reportData = {
+        clientData,
+        project: this._activeCloudSync?.project || clientData.propiedad || '',
+        fieldName: this._activeCloudSync?.field_name || clientData.lote || '',
+        cropName: crop?.name || this.cropId,
+        yieldTarget: this.yieldTarget || crop?.defaultYield || 100,
+        samples,
+        soilInterpretation: soilInterp,
+        nutrients,
+        prescription: prescriptions,
+        zonasMetadata: this._zonasMetadata || [],
+        boundary: this.fieldBoundary,
+        areaHa: parseFloat(clientData.area) || this.fieldAreaHa || 0,
+        collector: clientData.responsable,
+        today: new Date().toLocaleDateString('es-BO', { year: 'numeric', month: 'long', day: 'numeric' }),
+        mapCanvasDataURL: this._captureMapCanvas('nutrient'),
+        nutrientMapDataURL: this._captureMapCanvas('nutrient'),
+        prescriptionMapDataURL: this._captureMapCanvas('prescription')
+      };
+
+      const html = ClientReport.generate(reportData);
+
+      // Open in new window for print-to-PDF
+      const win = window.open('', '_blank', 'width=900,height=700');
+      if (!win) {
+        this._hideLoadingOverlay();
+        this.toast('Permita ventanas emergentes para generar el reporte', 'warning');
+        return;
+      }
+      win.document.write(html);
+      win.document.close();
+
+      // Auto-trigger print after render
+      win.onload = () => {
+        setTimeout(() => win.print(), 500);
+      };
+
+      this._hideLoadingOverlay();
+      this.toast('Reporte profesional generado — use Ctrl+P para guardar como PDF');
+    } catch (err) {
+      this._hideLoadingOverlay();
+      console.error('Report error:', err);
+      this.toast('Error generando reporte: ' + err.message, 'danger');
+    }
+  }
+
+  _captureMapCanvas(mapKey) {
+    // Try to capture a Leaflet map as data URL
+    const map = this.maps[mapKey];
+    if (!map) return null;
+    try {
+      const container = map.getContainer();
+      const canvas = container.querySelector('canvas');
+      if (canvas) return canvas.toDataURL('image/png');
+    } catch (e) { /* CORS or no canvas */ }
+    return null;
+  }
+
+  _updateReportPipelineStatus() {
+    const hasSamples = this.samples.length > 0;
+    const hasLinked = this.samples.some(s => s.labLinked);
+    const hasInterp = !!this._pipelineInterpretation;
+    const hasMaps = Object.keys(this._pipelineNutrientGrids || {}).length > 0;
+    const hasPresc = Object.keys(this._pipelinePrescriptions || {}).length > 0;
+
+    const checks = [
+      ['rptChkSamples', hasSamples],
+      ['rptChkLab', hasLinked],
+      ['rptChkInterp', hasInterp],
+      ['rptChkMaps', hasMaps],
+      ['rptChkPresc', hasPresc]
+    ];
+
+    for (const [id, ok] of checks) {
+      const el = document.getElementById(id);
+      if (!el) continue;
+      const icon = ok ? '<span style="color:var(--success)">&#x2713;</span>' : '<span style="color:var(--danger)">&#x2717;</span>';
+      el.innerHTML = icon + ' ' + el.textContent.replace(/^[✓✗]\s*/, '');
+    }
+
+    // Pre-fill report form from clientData
+    const fields = { rptClientName: 'nombre', rptProperty: 'propiedad', rptFieldName: 'lote', rptLocation: 'ubicacion', rptArea: 'area' };
+    for (const [elId, key] of Object.entries(fields)) {
+      const el = document.getElementById(elId);
+      if (el && !el.value && this.clientData[key]) el.value = this.clientData[key];
+    }
+  }
+
+  clearAllSamples() {
+    if (!confirm('Limpiar todas las muestras cargadas?')) return;
+    this.samples = [];
+    this._activeCloudSync = null;
+    this._zonasMetadata = null;
+    this._pipelineComplete = false;
+    this._pipelineInterpretation = null;
+    this._pipelineNutrientGrids = {};
+    this._pipelinePrescriptions = {};
+    this.saveState();
+    this.updateDashboard();
+    this.renderSamplesTable();
+    this.toast('Muestras limpiadas');
   }
 
   // ===== TOAST =====

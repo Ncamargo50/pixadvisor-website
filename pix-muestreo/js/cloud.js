@@ -4,7 +4,7 @@
 
 // App version constant — used by registerDevice() for fleet tracking
 // IMPORTANT: Keep APP_VERSION in sync with CACHE_NAME in sw.js
-const APP_VERSION = 'pix-muestreo-v52';
+const APP_VERSION = 'pix-muestreo-v54';
 
 // Default Supabase credentials (PIX Muestreo project)
 const _CLOUD_DEFAULT_URL = 'https://fnoocboaupjmxpkhdnij.supabase.co';
@@ -152,6 +152,7 @@ class PixCloud {
     if (!this._enabled) throw new Error('Cloud no configurado');
     if (this._syncing) throw new Error('Sync ya en progreso');
     this._syncing = true;
+    this._lastSyncError = null;
 
     try {
     const projects = await pixDB.getAll('projects');
@@ -292,23 +293,34 @@ class PixCloud {
   // PULL SERVICE ORDERS
   // ═══════════════════════════════════════════════
 
-  async pullOrders(techName) {
-    if (!this._enabled || !techName) return [];
+  async pullOrders(techName, techId) {
+    if (!this._enabled) return [];
     try {
-      const encoded = encodeURIComponent(techName);
-      // Try exact match first
-      let resp = await this._fetch(
-        `/service_orders?assigned_to_name=eq.${encoded}&status=in.(pendiente,asignada,en_progreso)&order=created_at.desc`
-      );
-      let orders = await resp.json();
-      // Fallback: case-insensitive partial match (ilike)
-      if (orders.length === 0) {
-        resp = await this._fetch(
+      let orders = [];
+      // 1. Try by technician ID (most reliable)
+      if (techId) {
+        const resp = await this._fetch(
+          `/service_orders?assigned_to=eq.${techId}&status=in.(pendiente,asignada,en_progreso)&order=created_at.desc`
+        );
+        orders = await resp.json();
+      }
+      // 2. Try by case-insensitive name match (handles casing differences)
+      if (orders.length === 0 && techName) {
+        const encoded = encodeURIComponent(techName);
+        const resp = await this._fetch(
+          `/service_orders?assigned_to_name=ilike.${encoded}&status=in.(pendiente,asignada,en_progreso)&order=created_at.desc`
+        );
+        orders = await resp.json();
+      }
+      // 3. Fallback: partial match (first name only, etc.)
+      if (orders.length === 0 && techName) {
+        const encoded = encodeURIComponent(techName);
+        const resp = await this._fetch(
           `/service_orders?assigned_to_name=ilike.*${encoded}*&status=in.(pendiente,asignada,en_progreso)&order=created_at.desc`
         );
         orders = await resp.json();
       }
-      console.log(`[Cloud] Pulled ${orders.length} orders for ${techName}`);
+      console.log(`[Cloud] Pulled ${orders.length} orders for ${techName || techId}`);
       return orders;
     } catch (e) {
       console.warn('[Cloud] Pull orders failed:', e.message);
@@ -326,6 +338,19 @@ class PixCloud {
       body: JSON.stringify(body)
     });
     console.log(`[Cloud] Order ${orderId.slice(0, 8)}... → ${status}`);
+  }
+
+  // Check status of specific order IDs in cloud (for sync cancellations)
+  async checkOrderStatuses(orderIds) {
+    if (!this._enabled || !orderIds || orderIds.length === 0) return [];
+    try {
+      const ids = orderIds.map(id => `"${id}"`).join(',');
+      const resp = await this._fetch(`/service_orders?id=in.(${ids})&select=id,status`);
+      return await resp.json();
+    } catch (e) {
+      console.warn('[Cloud] Check order statuses failed:', e.message);
+      return [];
+    }
   }
 
   // ═══════════════════════════════════════════════

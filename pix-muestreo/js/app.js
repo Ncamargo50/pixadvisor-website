@@ -145,8 +145,9 @@ class PixApp {
       }
     } catch (e) { console.warn('[Cloud] Init deferred:', e.message); }
 
-    // Register device with Cloud
+    // Register device with Cloud + start heartbeat
     this._registerDevice();
+    this._startDeviceHeartbeat();
 
     // Load projects
     this.loadProjects();
@@ -221,7 +222,9 @@ class PixApp {
   showView(viewName) {
     this.currentView = viewName;
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-    document.getElementById(`view-${viewName}`).classList.add('active');
+    const viewEl = document.getElementById(`view-${viewName}`);
+    if (!viewEl) return;
+    viewEl.classList.add('active');
     document.querySelectorAll('.nav-item').forEach(n => {
       n.classList.toggle('active', n.dataset.view === viewName);
     });
@@ -578,6 +581,7 @@ class PixApp {
     document.getElementById('navTargetName').textContent = `Punto ${point.name}`;
     pixMap.updatePointStatus(point.id, 'current');
     this.isNavigating = true;
+    this._arrivedNotified = false; // Reset arrival flag for new target
   }
 
   updateNavPanel() {
@@ -634,8 +638,7 @@ class PixApp {
       // Audible beep using Web Audio API
       this._playArrivalBeep();
       this.toast('Llegaste al punto!', 'success');
-      // Reset flag when navigating to next point
-      setTimeout(() => { this._arrivedNotified = false; }, 5000);
+      // Flag is reset when navigation target changes (onPointClick / nextPoint)
     }
   }
 
@@ -1336,20 +1339,38 @@ class PixApp {
   // from WhatsApp, email, file manager, or any app that shares files.
   async receiveFileFromIntent(filename, content) {
     console.log('[App] receiveFileFromIntent:', filename, '(' + content.length + ' chars)');
-    this.toast('Abriendo mapa: ' + filename + '...', '');
+    this.toast('Recibiendo: ' + filename + '...', '');
+
+    // Wait for DB to be ready (cold start: intent may arrive before init completes)
+    if (!pixDB.db) {
+      console.log('[App] DB not ready, polling...');
+      let dbRetries = 0;
+      while (!pixDB.db && dbRetries < 10) {
+        await new Promise(r => setTimeout(r, 500));
+        dbRetries++;
+      }
+      if (!pixDB.db) {
+        this.toast('Error: base de datos no disponible', 'error');
+        return;
+      }
+    }
 
     try {
       const lowerName = (filename || '').toLowerCase();
       const trimmed = content.trim();
+      if (!trimmed) {
+        this.toast('Archivo vacio: ' + filename, 'error');
+        return;
+      }
 
       // KML files (XML-based)
       if (lowerName.endsWith('.kml') || (trimmed.startsWith('<?xml') && trimmed.includes('<kml'))) {
         const geojson = driveSync._parseKML(trimmed);
         await this.processGeoJSON(geojson, filename);
-        this.loadProjects();
+        await this.loadProjects();
         this.toast('Mapa KML importado: ' + filename, 'success');
-        this.showView('map');
         await this._autoOpenFirstField();
+        this.showView('map');
         return;
       }
 
@@ -1357,33 +1378,40 @@ class PixApp {
       if (lowerName.endsWith('.csv')) {
         const geojson = driveSync._parseCSV(trimmed);
         await this.processGeoJSON(geojson, filename);
-        this.loadProjects();
+        await this.loadProjects();
         this.toast('Puntos CSV importados: ' + filename, 'success');
-        this.showView('map');
         await this._autoOpenFirstField();
+        this.showView('map');
         return;
       }
 
       // JSON-based formats (GeoJSON, Project JSON, Backup)
-      const parsed = JSON.parse(trimmed);
+      let parsed;
+      try {
+        parsed = JSON.parse(trimmed);
+      } catch (parseErr) {
+        console.error('[App] JSON parse error:', parseErr);
+        this.toast('Error: archivo no es JSON valido', 'error');
+        return;
+      }
 
       // Check if this is a PIX project JSON (has project + lotes structure)
       if (parsed.project && parsed.lotes && Array.isArray(parsed.lotes)) {
         await this.importProjectJSON(parsed);
-        this.loadProjects();
+        await this.loadProjects();
         this.toast(`Proyecto importado: ${parsed.project.name} (${parsed.lotes.length} lotes)`, 'success');
-        this.showView('map');
         await this._autoOpenFirstField();
+        this.showView('map');
         return;
       }
 
       // Check if it's a PIX backup JSON (has app + projects + fields + points)
       if (parsed.app === 'PIX Muestreo' && parsed.projects) {
         await this._restoreBackup(parsed);
-        this.loadProjects();
+        await this.loadProjects();
         this.toast('Backup restaurado: ' + (parsed.projects.length || 0) + ' proyectos', 'success');
-        this.showView('map');
         await this._autoOpenFirstField();
+        this.showView('map');
         return;
       }
 
@@ -1391,15 +1419,17 @@ class PixApp {
       if (parsed.type === 'FeatureCollection' || parsed.type === 'Feature'
           || parsed.type === 'Polygon' || parsed.type === 'MultiPolygon' || parsed.type === 'Point') {
         await this.processGeoJSON(parsed, filename);
-        this.loadProjects();
-        this.toast('Mapa importado: ' + filename, 'success');
-        this.showView('map');
+        await this.loadProjects();
+        this.toast('Mapa guardado en proyecto: ' + filename, 'success');
         await this._autoOpenFirstField();
+        this.showView('map');
         return;
       }
 
-      // Unknown JSON structure
-      this.toast('Archivo no reconocido. Soporta: GeoJSON, KML, CSV, proyecto PIX.', 'error');
+      // Unknown JSON structure — log keys for debugging
+      const keys = Object.keys(parsed).join(', ');
+      console.warn('[App] Unknown JSON structure, keys:', keys);
+      this.toast('Archivo no reconocido (keys: ' + keys + '). Soporta: GeoJSON, KML, CSV, proyecto PIX.', 'error');
 
     } catch (err) {
       console.error('[App] receiveFileFromIntent error:', err);
@@ -2088,17 +2118,17 @@ class PixApp {
   }
 
   async loadIbraSettings() {
-    // PII defaults cleared — configure in Settings > IBRA Megalab
+    // Cadastro IBRA Megalab — Pixadvisor Agricultura de Precision
     const defaults = {
-      solicitante: '',
-      responsavel: '',
-      telefone: '',
-      cnpj: '',
-      endereco: '',
-      municipio: '',
-      uf: '',
-      cep: '',
-      email: ''
+      solicitante: 'PIXADVISOR AGRICULTURA DE PRECISAO',
+      responsavel: 'NILTON LUIZ CAMARGO',
+      telefone: '43 999819554',
+      cnpj: '41.196.481/0001-30',
+      endereco: 'RUA ELIEZER MARTINS BANDEIRA 44',
+      municipio: 'IBIPORA',
+      uf: 'PR',
+      cep: '86200536',
+      email: 'nilton.camargo@pixadvisor.network, gis.agronomico@gmail.com'
     };
     const ibra = {};
     for (const [k, def] of Object.entries(defaults)) {
@@ -2272,13 +2302,13 @@ class PixApp {
 <div class="section">
   <div class="section-title ibra">1. SOLICITANTE (Cadastro IBRA)</div>
   <div class="info-grid">
-    <div class="label">Solicitante</div><div class="value">${ibra.solicitante}</div>
-    <div class="label">Responsavel</div><div class="value">${ibra.responsavel}</div>
-    <div class="label">Telefone</div><div class="value">${ibra.telefone}</div>
-    <div class="label">CPF/CNPJ</div><div class="value">${ibra.cnpj}</div>
-    <div class="label">Endereco</div><div class="value">${ibra.endereco}</div>
-    <div class="label">Municipio/UF</div><div class="value">${ibra.municipio} - ${ibra.uf} | CEP: ${ibra.cep}</div>
-    <div class="label">E-mail laudos</div><div class="value">${ibra.email}</div>
+    <div class="label">Solicitante</div><div class="value">${escH(ibra.solicitante)}</div>
+    <div class="label">Responsavel</div><div class="value">${escH(ibra.responsavel)}</div>
+    <div class="label">Telefone</div><div class="value">${escH(ibra.telefone)}</div>
+    <div class="label">CPF/CNPJ</div><div class="value">${escH(ibra.cnpj)}</div>
+    <div class="label">Endereco</div><div class="value">${escH(ibra.endereco)}</div>
+    <div class="label">Municipio/UF</div><div class="value">${escH(ibra.municipio)} - ${escH(ibra.uf)} | CEP: ${escH(ibra.cep)}</div>
+    <div class="label">E-mail laudos</div><div class="value">${escH(ibra.email)}</div>
   </div>
 </div>
 
@@ -2328,7 +2358,7 @@ class PixApp {
 ${detailHTML}
 
 <div class="footer">
-  Generado por PIX Muestreo v3.8.0 — Pixadvisor Agricultura de Precision — pixadvisor.network — ${new Date().toLocaleString('es')}
+  Generado por PIX Muestreo v3.12.2 — Pixadvisor Agricultura de Precision — pixadvisor.network — ${new Date().toLocaleString('es')}
 </div>
 
 </body></html>`;
@@ -2458,7 +2488,7 @@ ${detailHTML}
       const fields = [field];
       const allSamples = await pixDB.getAll('samples');
       const collector = await pixDB.getSetting('collectorName') || '';
-      const html = this._buildIbraReportHTML(project, fields, allSamples, ibra, collector, today);
+      const html = await this._buildIbraReportHTML(project, fields, allSamples, ibra, collector, today);
       const fileName = `IBRA_${fieldName}_${today}.html`;
 
       // Download to phone
@@ -2566,86 +2596,211 @@ ${detailHTML}
     return Math.round(dist) / 1000; // meters → km, rounded
   }
 
-  // Reuse report generation logic but return HTML string (not open window)
-  _buildIbraReportHTML(project, fields, allSamples, ibra, collector, today) {
-    // Delegate to the existing generateFieldReport logic but capture HTML
+  // Build complete IBRA report HTML (async — loads points from DB for clase + planned data)
+  async _buildIbraReportHTML(project, fields, allSamples, ibra, collector, today) {
     let zonesHTML = '';
     let detailHTML = '';
     let totalMuestras = 0;
     let totalPuntos = 0;
 
     for (const field of fields) {
+      const points = await pixDB.getAllByIndex('points', 'fieldId', field.id);
       const fieldSamples = allSamples.filter(s => s.fieldId === field.id);
-      const points = [];
-      // Build zone data from samples (offline — no async DB calls needed)
-      const zoneMap = {};
+
+      // Group by zone (same logic as manual generateFieldReport)
+      const zones = {};
+      for (const p of points) {
+        const z = this._detectZone(p);
+        if (!zones[z]) zones[z] = { principal: null, subs: [], samples: [] };
+        if (this._detectPointType(p) === 'principal') zones[z].principal = p;
+        else zones[z].subs.push(p);
+      }
       for (const s of fieldSamples) {
         const z = s.zona || 1;
-        if (!zoneMap[z]) zoneMap[z] = { samples: [], barcode: '', clase: '' };
-        zoneMap[z].samples.push(s);
-        if (s.zoneBarcode) zoneMap[z].barcode = s.zoneBarcode;
-        if (s.zoneIbraSampleId) zoneMap[z].ibraId = s.zoneIbraSampleId;
+        if (zones[z]) zones[z].samples.push(s);
       }
 
-      const sortedZones = Object.keys(zoneMap).sort((a, b) => { const na = parseFloat(a), nb = parseFloat(b); return (!isNaN(na) && !isNaN(nb)) ? na - nb : String(a).localeCompare(String(b)); });
+      const sortedZones = Object.keys(zones).sort((a, b) => {
+        const na = parseFloat(a), nb = parseFloat(b);
+        return (!isNaN(na) && !isNaN(nb)) ? na - nb : String(a).localeCompare(String(b));
+      });
 
-      for (const z of sortedZones) {
-        const zd = zoneMap[z];
-        const nPts = zd.samples.length;
+      // Field header row
+      zonesHTML += `<tr style="background:#e8f5e9"><td colspan="7" style="font-weight:700;padding:8px">
+        ${escH(field.name)} — ${field.area ? field.area.toFixed(1) + ' ha' : ''}</td></tr>`;
+
+      for (const zk of sortedZones) {
+        const z = zones[zk];
+        const clase = z.principal?.properties?.clase || field.zonasMetadata?.[zk - 1]?.clase || '';
+        const qr = z.samples.find(s => s.zoneBarcode)?.zoneIbraSampleId || z.samples.find(s => s.zoneBarcode)?.zoneBarcode || '—';
+        const depth = z.samples[0]?.depth || '0-20';
+        const tipo = z.samples[0]?.sampleType || '—';
+        const nPts = 1 + z.subs.length;
+        const sampled = z.samples.length > 0;
         totalMuestras++;
         totalPuntos += nPts;
-        const depths = [...new Set(zd.samples.map(s => s.depth || '0-20'))].join(', ');
-        const types = [...new Set(zd.samples.map(s => s.sampleType || 'quimico'))].join(', ');
-        const status = nPts > 0 ? 'Completa' : 'Pendiente';
+
+        const claseColor = clase === 'Alta' ? '#4CAF50' : clase === 'Media' ? '#FFC107' : clase === 'Baja' ? '#F44336' : '#607D8B';
 
         zonesHTML += `<tr>
-          <td style="text-align:center;font-weight:700">${z}</td>
-          <td>${zd.ibraId || zd.barcode || '—'}</td>
-          <td>${zd.clase || '—'}</td>
+          <td style="text-align:center;font-weight:600">${zk}</td>
+          <td style="font-family:monospace;font-size:11px">${qr}</td>
+          <td style="text-align:center"><span style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;color:#fff;background:${claseColor}">${clase || '—'}</span></td>
           <td style="text-align:center">${nPts}</td>
-          <td>${depths}</td>
-          <td>${types}</td>
-          <td><span style="color:${status === 'Completa' ? '#4CAF50' : '#F44336'}">${status}</span></td>
+          <td style="text-align:center">${depth} cm</td>
+          <td>${tipo}</td>
+          <td style="text-align:center;color:${sampled ? '#4CAF50' : '#F44336'};font-weight:600">${sampled ? 'OK' : 'Pendiente'}</td>
         </tr>`;
 
-        // Detail rows
-        for (const s of zd.samples) {
-          detailHTML += `<tr>
-            <td style="text-align:center">${z}</td>
-            <td>${s.pointType === 'principal' ? '<b>Principal</b>' : 'Sub'}</td>
-            <td>${s.pointName || '—'}</td>
-            <td>${s.lat ? s.lat.toFixed(6) : '—'}</td>
-            <td>${s.lng ? s.lng.toFixed(6) : '—'}</td>
-            <td>${s.accuracy ? s.accuracy.toFixed(1) + 'm' : '—'}</td>
-            <td>${s.depth || '0-20'}</td>
-            <td>${s.collectedAt ? new Date(s.collectedAt).toLocaleTimeString('es') : '—'}</td>
-          </tr>`;
+        // Detail table per zone (principal first, then subs)
+        const allZonePoints = [z.principal, ...z.subs.sort((a, b) => this._getSubOrder(a) - this._getSubOrder(b))].filter(Boolean);
+        detailHTML += `<div style="margin-bottom:20px">
+          <h3 style="margin:0 0 6px;font-size:14px;color:#333;border-bottom:2px solid ${claseColor};padding-bottom:4px">
+            ${escH(field.name)} — Zona ${zk} (${escH(clase)}) — QR: ${escH(qr)}
+          </h3>
+          <table style="width:100%;border-collapse:collapse;font-size:11px">
+            <tr style="background:#f5f5f5">
+              <th style="padding:4px 6px;text-align:left;border:1px solid #ddd">Punto</th>
+              <th style="padding:4px 6px;text-align:left;border:1px solid #ddd">Tipo</th>
+              <th style="padding:4px 6px;text-align:right;border:1px solid #ddd">Latitud</th>
+              <th style="padding:4px 6px;text-align:right;border:1px solid #ddd">Longitud</th>
+              <th style="padding:4px 6px;text-align:center;border:1px solid #ddd">Prof.</th>
+              <th style="padding:4px 6px;text-align:center;border:1px solid #ddd">Precision</th>
+              <th style="padding:4px 6px;text-align:center;border:1px solid #ddd">Hora</th>
+            </tr>`;
+
+        for (const p of allZonePoints) {
+          const s = fieldSamples.find(s => s.pointId === p.id);
+          const isPrin = this._detectPointType(p) === 'principal';
+          const hora = s?.collectedAt ? new Date(s.collectedAt).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }) : '—';
+          const acc = s?.accuracy ? s.accuracy.toFixed(1) + 'm' : '—';
+          const lat = s?.lat || p.lat;
+          const lng = s?.lng || p.lng;
+
+          detailHTML += `<tr style="${isPrin ? 'background:#fff3e0;font-weight:600' : ''}">
+              <td style="padding:3px 6px;border:1px solid #ddd">${p.name || p.id}</td>
+              <td style="padding:3px 6px;border:1px solid #ddd">${isPrin ? 'Principal' : 'Sub'}</td>
+              <td style="padding:3px 6px;border:1px solid #ddd;text-align:right;font-family:monospace">${lat.toFixed(6)}</td>
+              <td style="padding:3px 6px;border:1px solid #ddd;text-align:right;font-family:monospace">${lng.toFixed(6)}</td>
+              <td style="padding:3px 6px;border:1px solid #ddd;text-align:center">${s?.depth || '0-20'}</td>
+              <td style="padding:3px 6px;border:1px solid #ddd;text-align:center">${acc}</td>
+              <td style="padding:3px 6px;border:1px solid #ddd;text-align:center">${hora}</td>
+            </tr>`;
         }
+        detailHTML += '</table></div>';
       }
     }
 
-    return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>IBRA ${project.name} ${today}</title>
-<style>body{font-family:Arial,sans-serif;font-size:12px;color:#333;margin:20px}
-table{width:100%;border-collapse:collapse;margin:10px 0}th,td{border:1px solid #ddd;padding:6px 8px;font-size:11px}
-th{background:#f5f5f5;font-weight:600}.header{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #333;padding-bottom:8px;margin-bottom:16px}
-h1{font-size:16px;color:#333}h2{font-size:14px;color:#555;margin:16px 0 8px}
-.footer{margin-top:20px;text-align:center;font-size:10px;color:#999;border-top:1px solid #ddd;padding-top:8px}
-@media print{.page-break{page-break-before:always}}</style></head><body>
-<div class="header"><div><h1>Ficha de Envio de Muestras — IBRA Megalab</h1><p style="margin:4px 0;font-size:11px">${project.name}</p></div>
-<div style="text-align:right;font-size:11px"><b>Fecha:</b> ${today}<br><b>Colector:</b> ${collector}</div></div>
-<table><tr><td><b>Solicitante:</b> ${ibra.solicitante || '—'}</td><td><b>Responsavel:</b> ${ibra.responsavel || '—'}</td></tr>
-<tr><td><b>Telefone:</b> ${ibra.telefone || '—'}</td><td><b>Email:</b> ${ibra.email || '—'}</td></tr>
-<tr><td><b>CNPJ/CPF:</b> ${ibra.cnpj || '—'}</td><td><b>Endereco:</b> ${ibra.endereco || '—'}</td></tr>
-<tr><td><b>Municipio:</b> ${ibra.municipio || '—'} / ${ibra.uf || '—'}</td><td><b>CEP:</b> ${ibra.cep || '—'}</td></tr></table>
-<h2>Resumen por Zona de Manejo</h2>
-<table><thead><tr><th>Zona</th><th>QR IBRA</th><th>Clase</th><th>Puntos</th><th>Prof.</th><th>Analisis</th><th>Estado</th></tr></thead>
-<tbody>${zonesHTML}</tbody></table>
-<p style="font-size:11px;color:#666">Total: ${totalMuestras} zonas, ${totalPuntos} puntos</p>
+    // Full professional 2-page A4 HTML (same quality as manual report)
+    return `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Reporte IBRA — ${project.name}</title>
+<style>
+  @page { size: A4; margin: 15mm; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #333; margin: 0; padding: 20px; }
+  .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #4CAF50; padding-bottom: 12px; margin-bottom: 16px; }
+  .header h1 { font-size: 18px; margin: 0; color: #2E7D32; }
+  .header .logo { font-size: 22px; font-weight: 800; color: #F44336; }
+  .section { margin-bottom: 16px; }
+  .section-title { font-size: 13px; font-weight: 700; color: #fff; padding: 6px 12px; margin-bottom: 0; }
+  .section-title.ibra { background: #F44336; }
+  .section-title.green { background: #4CAF50; }
+  .info-grid { display: grid; grid-template-columns: 140px 1fr; gap: 0; border: 1px solid #ddd; }
+  .info-grid .label { background: #f5f5f5; padding: 5px 10px; font-weight: 600; font-size: 11px; border-bottom: 1px solid #ddd; border-right: 1px solid #ddd; }
+  .info-grid .value { padding: 5px 10px; font-size: 12px; border-bottom: 1px solid #ddd; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #e8f5e9; padding: 6px 8px; text-align: left; font-size: 11px; border: 1px solid #ddd; }
+  td { padding: 5px 8px; border: 1px solid #ddd; font-size: 12px; }
+  .page-break { page-break-before: always; }
+  .footer { margin-top: 24px; text-align: center; font-size: 10px; color: #999; border-top: 1px solid #eee; padding-top: 8px; }
+  .obs { margin-top:16px;padding:10px;background:#FFF3E0;border:1px solid #FFB74D;border-radius:6px;font-size:11px; }
+  @media print { .no-print { display: none; } body { padding: 0; } }
+</style>
+</head>
+<body>
+
+<div class="no-print" style="text-align:center;margin-bottom:16px">
+  <button onclick="window.print()" style="padding:12px 32px;background:#4CAF50;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer">
+    Imprimir / Guardar como PDF
+  </button>
+</div>
+
+<!-- PAGE 1: FICHA DE ENVIO -->
+<div class="header">
+  <div>
+    <div class="logo">IBRA <span style="font-size:11px;color:#666;font-weight:400">megalab</span></div>
+    <div style="font-size:10px;color:#888">FICHA PARA ENVIO DE AMOSTRAS</div>
+  </div>
+  <div style="text-align:right">
+    <h1>PIX Muestreo</h1>
+    <div style="font-size:10px;color:#888">Pixadvisor Agricultura de Precision</div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title ibra">1. SOLICITANTE (Cadastro IBRA)</div>
+  <div class="info-grid">
+    <div class="label">Solicitante</div><div class="value">${escH(ibra.solicitante)}</div>
+    <div class="label">Responsavel</div><div class="value">${escH(ibra.responsavel)}</div>
+    <div class="label">Telefone</div><div class="value">${escH(ibra.telefone)}</div>
+    <div class="label">CPF/CNPJ</div><div class="value">${escH(ibra.cnpj)}</div>
+    <div class="label">Endereco</div><div class="value">${escH(ibra.endereco)}</div>
+    <div class="label">Municipio/UF</div><div class="value">${escH(ibra.municipio)} - ${escH(ibra.uf)} | CEP: ${escH(ibra.cep)}</div>
+    <div class="label">E-mail laudos</div><div class="value">${escH(ibra.email)}</div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title green">2. CLIENTE / PROPRIEDADE</div>
+  <div class="info-grid">
+    <div class="label">Cliente</div><div class="value" style="font-weight:700;font-size:14px">${escH(project.client || '—')}</div>
+    <div class="label">Hacienda</div><div class="value" style="font-weight:700;font-size:14px">${escH(project.name)}</div>
+    <div class="label">Campo/Lote</div><div class="value">${fields.map(f => escH(f.name) + (f.area ? ' (' + f.area.toFixed(1) + ' ha)' : '')).join(', ')}</div>
+    <div class="label">Fecha colecta</div><div class="value">${today}</div>
+    <div class="label">Tecnico</div><div class="value">${escH(collector)}</div>
+    <div class="label">Total puntos GPS</div><div class="value">${totalPuntos} puntos georreferenciados</div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title green">3. AMOSTRAS POR ZONA DE MANEJO</div>
+  <table>
+    <tr>
+      <th style="text-align:center;width:40px">Zona</th>
+      <th>QR IBRA</th>
+      <th style="text-align:center;width:70px">Clase</th>
+      <th style="text-align:center;width:50px">Puntos</th>
+      <th style="text-align:center;width:70px">Prof.</th>
+      <th>Analisis</th>
+      <th style="text-align:center;width:60px">Estado</th>
+    </tr>
+    ${zonesHTML}
+  </table>
+  <div style="margin-top:8px;font-size:11px;color:#666">
+    <strong>Total:</strong> ${totalMuestras} muestras compuestas | ${totalPuntos} puntos GPS | ${fields.length} campo(s)
+  </div>
+</div>
+
+<div class="obs">
+  <strong>Obs:</strong> Cada muestra compuesta es la mezcla de 1 punto principal + submuestras de la misma zona de manejo.
+  Los codigos QR de las bolsas IBRA vinculan los datos de campo con los resultados de laboratorio.
+</div>
+
+<!-- PAGE 2: DETALLE -->
 <div class="page-break"></div>
-<h2>Detalle de Puntos por Zona</h2>
-<table><thead><tr><th>Zona</th><th>Tipo</th><th>Punto</th><th>Lat</th><th>Lng</th><th>Prec.</th><th>Prof.</th><th>Hora</th></tr></thead>
-<tbody>${detailHTML}</tbody></table>
-<div class="footer">PIX Muestreo — Pixadvisor Agricultura de Precision — pixadvisor.network — ${new Date().toLocaleString('es')}</div>
+<div class="header">
+  <div><h1 style="font-size:16px;color:#333">Detalle de Puntos por Zona</h1></div>
+  <div style="text-align:right;font-size:11px;color:#888">${escH(project.name)} — ${today}</div>
+</div>
+
+${detailHTML}
+
+<div class="footer">
+  Generado por PIX Muestreo v3.12.2 — Pixadvisor Agricultura de Precision — pixadvisor.network — ${new Date().toLocaleString('es')}
+</div>
+
 </body></html>`;
   }
 
@@ -2656,7 +2811,12 @@ h1{font-size:16px;color:#333}h2{font-size:14px;color:#555;margin:16px 0 8px}
   async _checkAutoSync() {
     const lastSync = await pixDB.getSetting('lastSyncTime');
     const now = Date.now();
-    if (lastSync) {
+    if (!lastSync) {
+      // First login ever — sync immediately to pull orders
+      console.log('[AutoSync] First login — auto-triggering sync');
+      this.addSyncLog('⏰ Primer inicio: sincronizando...');
+      setTimeout(() => this._runAutoSync(), 1500);
+    } else {
       const elapsed = now - parseInt(lastSync);
       const TWENTY_FOUR_H = 24 * 60 * 60 * 1000;
       if (elapsed > TWENTY_FOUR_H) {
@@ -2665,9 +2825,10 @@ h1{font-size:16px;color:#333}h2{font-size:14px;color:#555;margin:16px 0 8px}
         this._runAutoSync();
       }
     }
-    // Also listen for connectivity changes
+    // Also listen for connectivity changes (debounced to prevent sync storms on flaky connections)
     window.addEventListener('online', () => {
-      setTimeout(() => this._runAutoSync(), 3000);
+      if (this._onlineDebounce) clearTimeout(this._onlineDebounce);
+      this._onlineDebounce = setTimeout(() => this._runAutoSync(), 5000);
     });
   }
 
@@ -2713,20 +2874,26 @@ h1{font-size:16px;color:#333}h2{font-size:14px;color:#555;margin:16px 0 8px}
     if (!settings) return;
     try {
       const allFields = await pixDB.getAll('fields');
+      const techName = await pixDB.getSetting('collectorName') || 'Tecnico';
       for (const field of allFields) {
         if (!field.boundary) continue;
         const project = await pixDB.get('projects', field.projectId);
         if (!project) continue;
-        // PATCH boundary into field_syncs via direct REST
-        const url = settings.url + '/rest/v1/field_syncs?project=eq.' + encodeURIComponent(project.name) + '&field_name=eq.' + encodeURIComponent(field.name);
-        await fetch(url, {
-          method: 'PATCH',
-          headers: {
-            'apikey': settings.key, 'Authorization': 'Bearer ' + settings.key,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ boundary: field.boundary, area_ha: field.area || null })
-        }).catch(() => {});
+        // UPSERT boundary into field_syncs (creates record if it doesn't exist)
+        try {
+          await pixCloud._fetch('/field_syncs?on_conflict=project,field_name', {
+            method: 'POST',
+            _prefer: 'resolution=merge-duplicates,return=minimal',
+            body: JSON.stringify({
+              project: project.name,
+              field_name: field.name,
+              boundary: field.boundary,
+              area_ha: field.area || null,
+              technician: techName,
+              synced_at: new Date().toISOString()
+            })
+          });
+        } catch (e) { console.warn('[Cloud] Boundary upsert failed for', field.name, e.message); }
       }
     } catch (e) {
       console.warn('[Cloud] Boundary sync error:', e.message);
@@ -2878,20 +3045,27 @@ h1{font-size:16px;color:#333}h2{font-size:14px;color:#555;margin:16px 0 8px}
   }
 
   // Track toggle
-  toggleTracking() {
+  async toggleTracking() {
     const btn = document.getElementById('trackBtn');
     if (gpsNav.isTracking) {
       const positions = gpsNav.stopTracking();
       if (this.currentField && positions.length > 0) {
-        pixDB.add('tracks', {
-          fieldId: this.currentField.id,
-          positions: positions,
-          startTime: positions[0]?.timestamp,
-          endTime: positions[positions.length - 1]?.timestamp
-        });
+        try {
+          await pixDB.add('tracks', {
+            fieldId: this.currentField.id,
+            positions: positions,
+            startTime: positions[0]?.timestamp,
+            endTime: positions[positions.length - 1]?.timestamp
+          });
+          this.toast('Recorrido guardado', 'success');
+        } catch (e) {
+          console.error('[Track] Save failed:', e);
+          this.toast('Error guardando recorrido', 'error');
+        }
+      } else {
+        this.toast('Recorrido vacio', 'warning');
       }
       btn.classList.remove('active');
-      this.toast('Recorrido guardado', 'success');
     } else {
       gpsNav.startTracking();
       btn.classList.add('active');
@@ -3125,15 +3299,63 @@ h1{font-size:16px;color:#333}h2{font-size:14px;color:#555;margin:16px 0 8px}
         this.toast(`Area guardada: ${positions.length} puntos, ${area.toFixed(2)} ha`, 'success');
         if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
 
+        // ═══ SAVE BOUNDARY AS INDEPENDENT FILE (GeoJSON) ═══
+        const projectName = this.currentProject?.name || 'SinProyecto';
+        const fieldName = this.currentField.name || 'SinCampo';
+        const today = new Date().toISOString().slice(0, 10);
+        const timestamp = new Date().toISOString();
+        const techName = await pixDB.getSetting('collectorName') || 'Tecnico';
+
+        // Enrich GeoJSON with metadata for independent use
+        const independentGeojson = JSON.parse(JSON.stringify(geojson));
+        independentGeojson.features[0].properties = {
+          ...independentGeojson.features[0].properties,
+          project: projectName,
+          field: fieldName,
+          area_ha: Math.round(area * 100) / 100,
+          technician: techName,
+          tracedAt: timestamp,
+          pointCount: positions.length,
+          method: 'GPS boundary trace',
+          app: 'PIX-Muestreo'
+        };
+
+        const boundaryContent = JSON.stringify(independentGeojson, null, 2);
+        const boundaryFileName = `perimetro_${projectName}_${fieldName}_${today}.geojson`;
+
+        // Save to IndexedDB as independent file
+        await pixDB.saveFile({
+          fieldId: this.currentField.id,
+          projectName: projectName,
+          fieldName: fieldName,
+          fileName: boundaryFileName,
+          type: 'boundary',
+          mimeType: 'application/geo+json',
+          content: boundaryContent,
+          area_ha: Math.round(area * 100) / 100,
+          technician: techName,
+          synced: 0,
+          createdAt: timestamp
+        });
+        console.log('[Boundary] Independent file saved:', boundaryFileName);
+
+        // Auto-download to phone storage
+        this._downloadBlob(boundaryContent, boundaryFileName, 'application/json');
+
+        // Sync boundary to cloud immediately if online
+        if (navigator.onLine && pixCloud.isEnabled()) {
+          this._syncBoundariesToCloud().catch(e =>
+            console.warn('[Boundary] Cloud sync deferred:', e.message));
+        }
+
         // Upload field boundary to Drive if authenticated
         if (driveSync.isAuthenticated()) {
           this._syncFieldToDrive(this.currentField).catch(e => {
             console.warn('[Drive] Field sync error:', e.message);
-            this.toast('Lote guardado local. Error al subir a Drive.', 'warning');
           });
-        } else {
-          this.toast('Lote guardado local. Conecta Drive para sincronizar.', 'info');
         }
+
+        this.toast(`Perimetro guardado: ${boundaryFileName}`, 'success');
       } catch (err) {
         console.error('[Boundary] Save error:', err);
         this.toast('Error al guardar el area: ' + err.message, 'error');
@@ -3660,6 +3882,7 @@ h1{font-size:16px;color:#333}h2{font-size:14px;color:#555;margin:16px 0 8px}
 
     document.body.appendChild(toast);
     requestAnimationFrame(() => toast.classList.add('show'));
+    if (this._toastTimer) clearTimeout(this._toastTimer);
     this._toastTimer = setTimeout(() => {
       toast.classList.remove('show');
       setTimeout(() => toast.remove(), 300);
@@ -3722,8 +3945,21 @@ h1{font-size:16px;color:#333}h2{font-size:14px;color:#555;margin:16px 0 8px}
       const deviceId = await this._getDeviceId();
       const techName = await pixDB.getSetting('collectorName') || 'Tecnico';
       let location = null;
+      // Use cached GPS position if available
       if (gpsNav.currentPosition) {
         location = { lat: gpsNav.currentPosition.lat, lng: gpsNav.currentPosition.lng };
+      } else {
+        // Actively request a GPS fix (3s timeout, non-blocking)
+        try {
+          const pos = await new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(
+              p => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
+              reject,
+              { enableHighAccuracy: true, timeout: 3000 }
+            );
+          });
+          location = pos;
+        } catch (_) { /* GPS not available yet, send null */ }
       }
       await pixCloud.registerDevice(deviceId, techName, location);
     } catch (e) {
@@ -3731,13 +3967,59 @@ h1{font-size:16px;color:#333}h2{font-size:14px;color:#555;margin:16px 0 8px}
     }
   }
 
+  // ── HEARTBEAT: periodic location update to Supabase (every 60s) ──
+  _startDeviceHeartbeat() {
+    if (this._heartbeatTimer) return;
+    this._heartbeatTimer = setInterval(async () => {
+      if (!navigator.onLine || !pixCloud.isEnabled()) return;
+      try {
+        const deviceId = await this._getDeviceId();
+        const techName = await pixDB.getSetting('collectorName') || 'Tecnico';
+        let location = null;
+        if (gpsNav.currentPosition) {
+          location = { lat: gpsNav.currentPosition.lat, lng: gpsNav.currentPosition.lng };
+        }
+        if (location) {
+          await pixCloud.registerDevice(deviceId, techName, location);
+          console.log('[Heartbeat] Location sent:', location.lat.toFixed(5), location.lng.toFixed(5));
+        }
+      } catch (_) { /* silent */ }
+    }, 60000); // every 60 seconds
+    console.log('[Heartbeat] Device heartbeat started (60s interval)');
+  }
+
   async _pullCloudOrders() {
     if (!pixCloud.isEnabled()) return;
     try {
       const techName = await pixDB.getSetting('collectorName') || '';
-      if (!techName) return;
+      // Also get cloudTechId from logged-in user for ID-based matching
+      let techId = '';
+      if (pixAuth.currentUser?.cloudTechId) {
+        techId = pixAuth.currentUser.cloudTechId;
+      }
+      if (!techName && !techId) return;
 
-      const orders = await pixCloud.pullOrders(techName);
+      // ═══ SYNC CANCELLATIONS: check if any local orders were cancelled in cloud ═══
+      try {
+        const localOrders = await pixDB.getAll('serviceOrders');
+        const cloudLinked = localOrders.filter(o => o.cloudOrderId && o.status !== 'cancelada' && o.status !== 'completada');
+        if (cloudLinked.length > 0) {
+          const cloudStatuses = await pixCloud.checkOrderStatuses(cloudLinked.map(o => o.cloudOrderId));
+          for (const cs of cloudStatuses) {
+            if (cs.status === 'cancelada' || cs.status === 'completada') {
+              const local = cloudLinked.find(o => o.cloudOrderId === cs.id);
+              if (local) {
+                local.status = cs.status;
+                local.updatedAt = new Date().toISOString();
+                await pixDB.put('serviceOrders', local);
+                console.log(`[Cloud] Order ${cs.id.slice(0, 8)}... synced → ${cs.status}`);
+              }
+            }
+          }
+        }
+      } catch (e) { console.warn('[Cloud] Sync cancellations:', e.message); }
+
+      const orders = await pixCloud.pullOrders(techName, techId);
       if (!orders || orders.length === 0) {
         this.addSyncLog('☁ Sin ordenes pendientes');
         return;
@@ -3769,7 +4051,7 @@ h1{font-size:16px;color:#333}h2{font-size:14px;color:#555;margin:16px 0 8px}
 
           // Import fields and points if field_data is available
           const fields = order.field_data?.fields || [];
-          let globalPointIdx = 0;
+          // globalPointIdx declared at outer scope (line 3780) — reuse it
 
           // Detect management zones: multiple fields with zona property → merge into 1
           // Check field-level zona OR point-level zona properties
@@ -3979,9 +4261,14 @@ h1{font-size:16px;color:#333}h2{font-size:14px;color:#555;margin:16px 0 8px}
         const email = (t.email || t.username || '').toLowerCase().trim();
         if (!email) continue;
         try {
-          const existing = await pixDB.getByIndex('users', 'email', email);
+          // Find existing user by email OR username
+          let existing = await pixDB.getByIndex('users', 'email', email);
+          if (!existing && t.username) {
+            const allU = await pixDB.getAll('users');
+            existing = allU.find(u => u.username === t.username.toLowerCase().trim());
+          }
           if (existing) {
-            // Update password + role if cloud is newer
+            // Update password + role + username + cloudTechId if cloud is newer
             let changed = false;
             if (t.password_hash && t.password_hash !== existing.passwordHash) {
               existing.passwordHash = t.password_hash;
@@ -3993,6 +4280,15 @@ h1{font-size:16px;color:#333}h2{font-size:14px;color:#555;margin:16px 0 8px}
             }
             if (t.full_name && t.full_name !== existing.name) {
               existing.name = t.full_name;
+              changed = true;
+            }
+            const uname = (t.username || '').toLowerCase().trim();
+            if (uname && uname !== existing.username) {
+              existing.username = uname;
+              changed = true;
+            }
+            if (t.id && t.id !== existing.cloudTechId) {
+              existing.cloudTechId = t.id;
               changed = true;
             }
             if (changed) {
@@ -4007,6 +4303,8 @@ h1{font-size:16px;color:#333}h2{font-size:14px;color:#555;margin:16px 0 8px}
               id: 'cloud-' + (t.id || Date.now() + '-' + Math.random().toString(36).substr(2, 6)),
               name: t.full_name || t.username || email,
               email: email,
+              username: (t.username || '').toLowerCase().trim(),
+              cloudTechId: t.id || null,
               passwordHash: t.password_hash,
               role: t.role || 'tecnico',
               phone: t.phone || '',
@@ -4015,7 +4313,7 @@ h1{font-size:16px;color:#333}h2{font-size:14px;color:#555;margin:16px 0 8px}
               _syncedFrom: 'cloud'
             };
             await pixDB.putUser(user);
-            console.log(`[Cloud] Created local user: ${user.name} (${email})`);
+            console.log(`[Cloud] Created local user: ${user.name} (${email}) username=${user.username}`);
           }
         } catch (e) {
           console.warn(`[Cloud] User bridge failed for ${email}:`, e.message);
@@ -4210,9 +4508,12 @@ function showApp() {
     }
   }, 2000);
 
-  // Periodic sync every 60 seconds (keeps credentials fresh)
+  // Periodic sync every 60 seconds (only when online — saves battery in field)
   setInterval(async () => {
+    if (!navigator.onLine) return;
     try { await pixAuth.syncUsersFromAPI(); } catch (_) {}
+    // Also pull new orders from cloud every 60s
+    try { if (pixCloud.isEnabled()) await app._pullCloudOrders(); } catch (_) {}
   }, 60000);
 }
 
@@ -4256,12 +4557,19 @@ async function _preLoginCloudSync() {
       const email = (t.email || t.username || '').toLowerCase().trim();
       if (!email || !t.password_hash) continue;
       try {
-        const existing = await pixDB.getByIndex('users', 'email', email);
+        // Find by email OR username
+        let existing = await pixDB.getByIndex('users', 'email', email);
+        if (!existing && t.username) {
+          const allU = await pixDB.getAll('users');
+          existing = allU.find(u => (u.username || '') === t.username.toLowerCase().trim());
+        }
         if (!existing) {
           await pixDB.putUser({
             id: 'cloud-' + (t.id || Date.now() + '-' + Math.random().toString(36).substr(2, 6)),
             name: t.full_name || t.username || email,
             email: email,
+            username: (t.username || '').toLowerCase().trim(),
+            cloudTechId: t.id || null,
             passwordHash: t.password_hash,
             role: t.role || 'tecnico',
             phone: t.phone || '',
@@ -4271,11 +4579,14 @@ async function _preLoginCloudSync() {
           });
           synced++;
         } else {
-          // Update password/role/name if cloud is newer
+          // Update password/role/name/username/cloudTechId if cloud is newer
           let changed = false;
           if (t.password_hash !== existing.passwordHash) { existing.passwordHash = t.password_hash; changed = true; }
           if (t.full_name && t.full_name !== existing.name) { existing.name = t.full_name; changed = true; }
           if (t.role && t.role !== existing.role) { existing.role = t.role; changed = true; }
+          const uname = (t.username || '').toLowerCase().trim();
+          if (uname && uname !== (existing.username || '')) { existing.username = uname; changed = true; }
+          if (t.id && t.id !== existing.cloudTechId) { existing.cloudTechId = t.id; changed = true; }
           if (changed) {
             existing._syncedFrom = 'cloud';
             existing.updatedAt = new Date().toISOString();
