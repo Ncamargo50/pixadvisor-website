@@ -1929,6 +1929,11 @@ class PixApp {
 
     await pixDB.setSetting('lastSyncTime', String(Date.now()));
 
+    // ═══ AUTO-COMPLETE ORDERS after sync: mark 100% done orders as completada ═══
+    try {
+      await this._autoCompleteFinishedOrders();
+    } catch (e) { console.warn('[Sync] autoComplete:', e.message); }
+
     // Show summary toast
     if (cloudSynced || driveSynced) {
       this.toast('Sincronización completada', 'success');
@@ -4003,12 +4008,14 @@ ${detailHTML}
       }
       if (!techName && !techId) return;
 
-      // ═══ SYNC CANCELLATIONS: check if any local orders were cancelled in cloud ═══
+      // ═══ SYNC CANCELLATIONS + DELETIONS from cloud ═══
       try {
         const localOrders = await pixDB.getAll('serviceOrders');
         const cloudLinked = localOrders.filter(o => o.cloudOrderId && o.status !== 'cancelada' && o.status !== 'completada');
         if (cloudLinked.length > 0) {
           const cloudStatuses = await pixCloud.checkOrderStatuses(cloudLinked.map(o => o.cloudOrderId));
+          const cloudIdSet = new Set(cloudStatuses.map(cs => cs.id));
+
           for (const cs of cloudStatuses) {
             if (cs.status === 'cancelada' || cs.status === 'completada') {
               const local = cloudLinked.find(o => o.cloudOrderId === cs.id);
@@ -4018,6 +4025,18 @@ ${detailHTML}
                 await pixDB.put('serviceOrders', local);
                 console.log(`[Cloud] Order ${cs.id.slice(0, 8)}... synced → ${cs.status}`);
               }
+            }
+          }
+
+          // ═══ DETECT DELETED ORDERS: local has cloudOrderId but cloud doesn't have it ═══
+          for (const local of cloudLinked) {
+            if (!cloudIdSet.has(local.cloudOrderId)) {
+              // Order was DELETED from cloud → cancel locally
+              local.status = 'cancelada';
+              local.updatedAt = new Date().toISOString();
+              local._deletedFromCloud = true;
+              await pixDB.put('serviceOrders', local);
+              console.log(`[Cloud] Order ${local.cloudOrderId.slice(0, 8)}... DELETED from cloud → cancelada locally`);
             }
           }
         }
@@ -4461,6 +4480,69 @@ ${detailHTML}
       }
     } catch (e) {
       console.warn('[App] _checkAndCompleteOrder:', e.message);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // AUTO-COMPLETE ALL FINISHED ORDERS after sync
+  // Scans all local orders with status pendiente/en_progreso
+  // and checks if their linked field has 100% collected points
+  // ═══════════════════════════════════════════════════════════════
+  async _autoCompleteFinishedOrders() {
+    try {
+      const allOrders = await pixDB.getAll('serviceOrders');
+      const activeOrders = allOrders.filter(o =>
+        o.status === 'pendiente' || o.status === 'en_progreso' || o.status === 'asignada'
+      );
+      if (activeOrders.length === 0) return;
+
+      let completed = 0;
+      for (const order of activeOrders) {
+        let allDone = false;
+
+        if (order.projectId) {
+          // Check all fields in this project
+          const fields = await pixDB.getAllByIndex('fields', 'projectId', order.projectId);
+          if (fields.length > 0) {
+            allDone = true;
+            for (const f of fields) {
+              const pts = await pixDB.getAllByIndex('points', 'fieldId', f.id);
+              if (pts.length === 0 || !pts.every(p => p.status === 'collected')) {
+                allDone = false;
+                break;
+              }
+            }
+          }
+        } else if (order.fieldId) {
+          // Single field order
+          const pts = await pixDB.getAllByIndex('points', 'fieldId', order.fieldId);
+          if (pts.length > 0 && pts.every(p => p.status === 'collected')) {
+            allDone = true;
+          }
+        }
+
+        if (allDone) {
+          order.status = 'completada';
+          order.completedAt = new Date().toISOString();
+          order.updatedAt = new Date().toISOString();
+          await pixDB.put('serviceOrders', order);
+          console.log(`[App] Order auto-completed: ${order.notes || order.id}`);
+
+          // Sync to cloud
+          if (pixCloud.isEnabled() && order.cloudOrderId) {
+            try {
+              await pixCloud.updateOrderStatus(order.cloudOrderId, 'completada');
+            } catch (e) { /* silent */ }
+          }
+          completed++;
+        }
+      }
+
+      if (completed > 0) {
+        this.addSyncLog(`✅ ${completed} orden(es) completada(s) automaticamente`);
+      }
+    } catch (e) {
+      console.warn('[App] _autoCompleteFinishedOrders:', e.message);
     }
   }
 }
