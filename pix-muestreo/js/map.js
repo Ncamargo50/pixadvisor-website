@@ -94,7 +94,15 @@ class PixMap {
       this.map.setView([lat, lng], targetZoom, { animate: true, duration: 0.3 });
     }
 
-    // Update live track line with decimation (min 3m between points to prevent memory leak)
+    // Update live track line with decimation (min 3m between points to prevent memory leak).
+    //
+    // Memory budget: each LatLng ≈ 40 bytes + Leaflet's internal renderer state
+    // (~80 bytes). A day in the field (~10h × 1 reading/2s) would be 18 000 pts →
+    // ~2 MB just for the polyline, plus re-renders of the whole array on every
+    // addLatLng. We bound the line to MAX_TRACK_POINTS and run a progressive
+    // decimation above 60 % of that so the UI never spikes.
+    const MAX_TRACK_POINTS = 1500;
+    const DECIMATE_THRESHOLD = 900;  // Start thinning well before the hard cap
     if (this.liveTrackLine && this._liveTrackActive) {
       const pts = this.liveTrackLine.getLatLngs();
       if (pts.length === 0) {
@@ -107,12 +115,18 @@ class PixMap {
         const dy = (lng - last.lng) * 111320 * cosLat;
         if (Math.sqrt(dx * dx + dy * dy) >= 3) {
           this.liveTrackLine.addLatLng([lat, lng]);
-          // Aggressive decimation: cap at 2000 points max (8h session safety)
-          if (pts.length > 2000) {
-            const simplified = pts.filter((p, i) => i === 0 || i === pts.length - 1 || i % 4 === 0);
+          const n = pts.length + 1;
+          if (n >= MAX_TRACK_POINTS) {
+            // Hard cap: drop every other interior point (keep first + last).
+            const simplified = [pts[0]];
+            for (let i = 1; i < pts.length - 1; i += 2) simplified.push(pts[i]);
+            simplified.push(pts[pts.length - 1]);
+            simplified.push([lat, lng]);
             this.liveTrackLine.setLatLngs(simplified);
-          } else if (pts.length > 500 && pts.length % 100 === 0) {
+          } else if (n > DECIMATE_THRESHOLD && n % 50 === 0) {
+            // Soft decimation every 50 new points above threshold.
             const simplified = pts.filter((p, i) => i === 0 || i === pts.length - 1 || i % 3 === 0);
+            simplified.push([lat, lng]);
             this.liveTrackLine.setLatLngs(simplified);
           }
         }

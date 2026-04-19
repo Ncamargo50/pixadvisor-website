@@ -666,7 +666,9 @@ class PixFieldAgent {
   // ===== ERROR MONITORING =====
 
   _setupErrorMonitor() {
-    window.addEventListener('error', (event) => {
+    // Store listener refs so destroy() can remove them — anonymous arrow
+    // functions would leak handlers on every re-init.
+    this._errorHandler = (event) => {
       this.errorLog.push({
         type: 'error',
         message: event.message || 'Error desconocido',
@@ -674,6 +676,18 @@ class PixFieldAgent {
         line: event.lineno,
         time: new Date()
       });
+      // Cap log size so a runaway error loop doesn't balloon memory.
+      if (this.errorLog.length > 100) this.errorLog.splice(0, this.errorLog.length - 100);
+      // Forward to Sentry (no-ops if telemetry is disabled / opted out).
+      try {
+        if (window.pixTelemetry && event.error) {
+          window.pixTelemetry.captureException(event.error, {
+            file: event.filename,
+            line: event.lineno,
+            col: event.colno
+          });
+        }
+      } catch (_) {}
       if (this.isOpen) {
         this._addMessage(`Error: \`${event.message}\``, 'agent', 'system');
       } else {
@@ -684,12 +698,31 @@ class PixFieldAgent {
           badge.style.display = '';
         }
       }
-    });
-
-    window.addEventListener('unhandledrejection', (event) => {
+    };
+    this._rejectionHandler = (event) => {
       const msg = event.reason ? (event.reason.message || String(event.reason)) : 'Promise rejected';
       this.errorLog.push({ type: 'promise', message: msg, time: new Date() });
-    });
+      if (this.errorLog.length > 100) this.errorLog.splice(0, this.errorLog.length - 100);
+      try {
+        if (window.pixTelemetry) {
+          const err = event.reason instanceof Error ? event.reason : new Error(msg);
+          window.pixTelemetry.captureException(err, { kind: 'unhandledrejection' });
+        }
+      } catch (_) {}
+    };
+    window.addEventListener('error', this._errorHandler);
+    window.addEventListener('unhandledrejection', this._rejectionHandler);
+
+    // Battery-aware: speechSynthesis keeps its queue alive across tab hides on
+    // some Android WebViews and will finish long utterances in the background
+    // (drains battery + confuses the user). Cancel on hide, allow on resume.
+    this._visibilityHandler = () => {
+      if (document.hidden && this.synthesis) {
+        try { this.synthesis.cancel(); } catch (_) {}
+        this.isSpeaking = false;
+      }
+    };
+    document.addEventListener('visibilitychange', this._visibilityHandler);
 
     // Monitor GPS health
     this._gpsHealthIntervalId = setInterval(() => this._gpsHealthCheck(), 30000);
@@ -719,7 +752,10 @@ class PixFieldAgent {
     this._addMessage(text, 'agent');
   }
 
-  // Cleanup — clear intervals to prevent memory leaks
+  // Cleanup — clear intervals, cancel speech, tear down listeners. Called on
+  // logout (auth.js) and should leave the global in a re-init-safe state so
+  // DOMContentLoaded -> new PixFieldAgent() on the next login doesn't stack
+  // duplicate handlers.
   destroy() {
     if (this._gpsHealthIntervalId) {
       clearInterval(this._gpsHealthIntervalId);
@@ -728,6 +764,35 @@ class PixFieldAgent {
     if (this.guidanceInterval) {
       clearInterval(this.guidanceInterval);
       this.guidanceInterval = null;
+    }
+    // Speech: cancel any queued/ongoing utterance + drop refs so the TTS
+    // engine isn't pinned alive by our utterance callbacks.
+    if (this.synthesis) {
+      try { this.synthesis.cancel(); } catch (_) {}
+    }
+    this.isSpeaking = false;
+    if (this.recognition) {
+      try { this.recognition.abort(); } catch (_) {}
+      try { this.recognition.stop(); } catch (_) {}
+      this.recognition.onresult = null;
+      this.recognition.onend = null;
+      this.recognition.onerror = null;
+      this.recognition = null;
+    }
+    this.isListening = false;
+    // Window-level listeners — without these removes the next init() doubles
+    // every error push.
+    if (this._errorHandler) {
+      window.removeEventListener('error', this._errorHandler);
+      this._errorHandler = null;
+    }
+    if (this._rejectionHandler) {
+      window.removeEventListener('unhandledrejection', this._rejectionHandler);
+      this._rejectionHandler = null;
+    }
+    if (this._visibilityHandler) {
+      document.removeEventListener('visibilitychange', this._visibilityHandler);
+      this._visibilityHandler = null;
     }
   }
 

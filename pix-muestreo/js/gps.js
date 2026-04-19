@@ -679,8 +679,24 @@ class GPSNavigator {
     // Initial poll
     this._pollNativeGNSS();
 
-    // Poll every 2 seconds (GNSS status updates ~1/sec from Android)
-    this._gnssPollingId = setInterval(() => this._pollNativeGNSS(), 2000);
+    // Poll every 2 seconds (GNSS status updates ~1/sec from Android).
+    // Battery-aware: skip the JNI round-trip while the document is hidden
+    // (screen off / app backgrounded). watchPosition itself keeps running so
+    // that ongoing sampling navigation is not interrupted.
+    this._gnssPollingId = setInterval(() => {
+      if (document.hidden) return;
+      this._pollNativeGNSS();
+    }, 2000);
+
+    // Fire an immediate poll when the user returns to the app so the UI
+    // reflects the latest satellite state without a 2-second delay.
+    if (!this._gnssVisibilityBound) {
+      this._gnssVisibilityHandler = () => {
+        if (!document.hidden && this._gnssPollingId) this._pollNativeGNSS();
+      };
+      document.addEventListener('visibilitychange', this._gnssVisibilityHandler);
+      this._gnssVisibilityBound = true;
+    }
   }
 
   /**
@@ -690,6 +706,10 @@ class GPSNavigator {
     if (this._gnssPollingId) {
       clearInterval(this._gnssPollingId);
       this._gnssPollingId = null;
+    }
+    if (this._gnssVisibilityBound) {
+      document.removeEventListener('visibilitychange', this._gnssVisibilityHandler);
+      this._gnssVisibilityBound = false;
     }
   }
 

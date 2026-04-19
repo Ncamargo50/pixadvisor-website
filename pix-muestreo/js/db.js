@@ -340,14 +340,139 @@ class PixDB {
   // FILE BACKUP — Save/retrieve generated files
   // ═══════════════════════════════════════════════
 
-  // Save a file to IndexedDB for offline backup
+  // Save a file to IndexedDB for offline backup.
+  //
+  // IndexedDB QuotaExceededError is the single most common way this app
+  // "silently breaks" in the field — the user keeps sampling, we keep
+  // adding rows, and eventually writes start failing with no visible error.
+  // We:
+  //   1. Check quota before the write; refuse above 95 % to leave headroom.
+  //   2. Catch the DOMException and surface a clear message to the caller.
+  //   3. Opportunistically prune synced files when we're over 85 %.
   async saveFile(fileData) {
     // fileData: { fieldId, projectName, fieldName, fileName, type, mimeType, content, synced: 0 }
-    return this.add('files', {
-      ...fileData,
-      synced: fileData.synced || 0,
-      sizeBytes: fileData.content ? fileData.content.length : 0
-    });
+    // `content` may be a string (HTML / legacy base64 data URL) OR a Blob.
+    // Blob is preferred for binary payloads (PDF, images) — avoids the ~33%
+    // base64 expansion and the memory cost of the intermediate data URL.
+    try {
+      const est = await this.storageEstimate();
+      if (est.percentUsed > 85) {
+        await this._pruneSyncedFiles().catch(() => {});
+      }
+      if (est.quota && est.percentUsed >= 95) {
+        const err = new Error('Almacenamiento casi lleno. Liberá espacio o sincronizá a la nube.');
+        err.name = 'QuotaNearFull';
+        err.estimate = est;
+        throw err;
+      }
+    } catch (e) {
+      // Only rethrow if WE threw — swallow storageEstimate() errors.
+      if (e && e.name === 'QuotaNearFull') throw e;
+    }
+    // Correct byte-size for either Blob (`.size`) or string (`.length`, which
+    // is close enough for ASCII/UTF-8-ish cases we care about here).
+    // NOTE: we compute sizeBytes on the PLAINTEXT so quota accounting stays
+    // intuitive — the encrypted envelope is ~28 bytes larger (IV + tag + b64
+    // expansion) but we want sync/ui to reflect the user-visible size.
+    let sizeBytes = 0;
+    if (fileData.content) {
+      if (typeof Blob !== 'undefined' && fileData.content instanceof Blob) {
+        sizeBytes = fileData.content.size;
+      } else if (typeof fileData.content === 'string') {
+        sizeBytes = fileData.content.length;
+      }
+    }
+    // At-rest encryption — opportunistic. If the vault isn't unlocked (old
+    // browser, disabled, not yet initialized), we store plaintext and the
+    // read path handles both transparently. Sensitive payloads (PDFs,
+    // base64 photos) are the ones we MOST want encrypted; for those the
+    // vault is guaranteed to be up by the time any UI path calls saveFile.
+    let storedContent = fileData.content;
+    try {
+      if (window.pixVault && window.pixVault.isUnlocked() && storedContent != null) {
+        storedContent = await window.pixVault.encryptField(storedContent);
+      }
+    } catch (e) {
+      console.warn('[DB] encrypt failed, storing plaintext:', e && e.message);
+    }
+    try {
+      return await this.add('files', {
+        ...fileData,
+        content: storedContent,
+        encrypted: storedContent && storedContent.__enc ? 1 : 0,
+        synced: fileData.synced || 0,
+        sizeBytes
+      });
+    } catch (e) {
+      // Browsers surface the quota error via DOMException.name==='QuotaExceededError'
+      // (with error.code === 22) on IndexedDB transactions.
+      const isQuota = (e && (e.name === 'QuotaExceededError' ||
+                             e.code === 22 ||
+                             /quota/i.test(String(e.message || ''))));
+      if (isQuota) {
+        // Try one more prune, then rethrow with a friendly message
+        await this._pruneSyncedFiles().catch(() => {});
+        const friendly = new Error('No hay espacio para guardar el archivo. Sincronizá a Drive/Cloud o liberá archivos viejos.');
+        friendly.name = 'QuotaExceededError';
+        friendly.cause = e;
+        throw friendly;
+      }
+      throw e;
+    }
+  }
+
+  // Return a file's `content` as a Blob regardless of whether it was stored
+  // as a Blob (new path), a base64 data URL (legacy rows written by older
+  // versions), or an encrypted envelope (v3.16+). Callers that need to
+  // upload / download the raw bytes should go through this helper so all
+  // three formats stay transparent.
+  async getFileAsBlob(fileId) {
+    const f = await this.get('files', fileId);
+    if (!f || !f.content) return null;
+    let content = f.content;
+    // Encrypted envelope? Decrypt first (requires vault unlocked — boot
+    // unlocks with device secret, so this works for all normal reads).
+    if (content && typeof content === 'object' && content.__enc === 'pix-aesgcm-v1') {
+      if (!window.pixVault || !window.pixVault.isUnlocked()) {
+        throw new Error('Vault bloqueado — no se puede leer el archivo cifrado');
+      }
+      content = await window.pixVault.decryptField(content);
+    }
+    if (typeof Blob !== 'undefined' && content instanceof Blob) return content;
+    if (typeof content === 'string') {
+      const s = content;
+      // Data URL? (data:<mime>;base64,<b64>)
+      const dm = s.match(/^data:([^;]+);base64,(.*)$/);
+      if (dm) {
+        const bin = atob(dm[2]);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return new Blob([bytes], { type: dm[1] || f.mimeType || 'application/octet-stream' });
+      }
+      // Plain string (e.g. HTML) — wrap directly.
+      return new Blob([s], { type: f.mimeType || 'text/plain' });
+    }
+    if (content instanceof Uint8Array) {
+      return new Blob([content], { type: f.mimeType || 'application/octet-stream' });
+    }
+    return null;
+  }
+
+  // Remove already-synced files older than 7 days to reclaim space.
+  // Only deletes files with synced=1 AND syncedAt older than the cutoff —
+  // never touches unsynced data.
+  async _pruneSyncedFiles() {
+    const cutoff = Date.now() - 7 * 24 * 3600 * 1000;
+    const synced = await this.getAllByIndex('files', 'synced', 1);
+    let removed = 0;
+    for (const f of synced) {
+      const syncedAt = f.syncedAt ? Date.parse(f.syncedAt) : 0;
+      if (syncedAt && syncedAt < cutoff) {
+        try { await this.delete('files', f.id); removed++; } catch (_) {}
+      }
+    }
+    if (removed > 0) console.log(`[DB] Pruned ${removed} synced files to free space`);
+    return removed;
   }
 
   // Get all saved files (newest first)

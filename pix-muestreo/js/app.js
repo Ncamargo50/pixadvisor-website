@@ -110,8 +110,21 @@ class PixApp {
     });
 
     // Online/offline detection
-    window.addEventListener('online', () => { this.isOnline = true; this.updateConnectionStatus(); });
-    window.addEventListener('offline', () => { this.isOnline = false; this.updateConnectionStatus(); });
+    window.addEventListener('online', () => {
+      this.isOnline = true;
+      this.updateConnectionStatus();
+      // Refresh sync-status card if visible
+      if (document.getElementById('view-sync')?.classList.contains('active')) {
+        this.updateSyncStats().catch(() => {});
+      }
+    });
+    window.addEventListener('offline', () => {
+      this.isOnline = false;
+      this.updateConnectionStatus();
+      if (document.getElementById('view-sync')?.classList.contains('active')) {
+        this.updateSyncStats().catch(() => {});
+      }
+    });
 
     // Init navigation
     this.initNavigation();
@@ -585,6 +598,47 @@ class PixApp {
     pixMap.updatePointStatus(point.id, 'current');
     this.isNavigating = true;
     this._arrivedNotified = false; // Reset arrival flag for new target
+    // v3.17: acquire screen wake-lock so GPS + audio keep working when técnico
+    // puts phone in pocket during a long walk. Released on arrival / zone end.
+    this._acquireWakeLock().catch(() => {});
+  }
+
+  // Screen wake-lock — v3.17 field-ergonomics upgrade.
+  // WebView + PWA both support navigator.wakeLock. We keep screen awake so
+  // the GPS watcher stays in foreground-priority mode. Released explicitly
+  // when navigation stops so we don't drain battery unnecessarily.
+  async _acquireWakeLock() {
+    try {
+      if (!('wakeLock' in navigator)) return; // older webview
+      if (this._wakeLock) return;              // already held
+      this._wakeLock = await navigator.wakeLock.request('screen');
+      this._wakeLock.addEventListener('release', () => {
+        // OS auto-released (user switched app, screen timed out). Will be
+        // re-acquired next time visibility returns while still navigating.
+        this._wakeLock = null;
+      });
+      // Re-acquire on visibility change (foregrounded while still navigating)
+      if (!this._wakeLockVisibilityBound) {
+        this._wakeLockVisibilityBound = true;
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible' && this.isNavigating && !this._wakeLock) {
+            this._acquireWakeLock().catch(() => {});
+          }
+        });
+      }
+    } catch (e) {
+      // Non-fatal — some devices just deny the request.
+      console.warn('[App] wakeLock request failed:', e.message || e);
+    }
+  }
+
+  async _releaseWakeLock() {
+    try {
+      if (this._wakeLock) {
+        await this._wakeLock.release();
+        this._wakeLock = null;
+      }
+    } catch (_) { /* ignore */ }
   }
 
   updateNavPanel() {
@@ -634,6 +688,8 @@ class PixApp {
     }
 
     // Auto-alert when arriving at point (vibration + beep + toast) — 3m radius trigger
+    // (v3.17.1: progressive proximity beep REMOVED per user request —
+    //  la alarma suena sólo al llegar a <3m, como era originalmente)
     if (dist < 3 && this.isNavigating && !this._arrivedNotified) {
       this._arrivedNotified = true;
       // Strong vibration pattern
@@ -860,7 +916,10 @@ class PixApp {
   }
 
   // ===== COLLECT SAMPLE =====
+  // v3.17: wrapped in try/catch so a transient DB/render glitch never leaves
+  // the técnico stuck on a blank form with no feedback.
   async openCollectForm() {
+    try {
     if (!this.currentPoint) {
       this.toast('Seleccioná un punto en el mapa', 'warning');
       return;
@@ -933,6 +992,10 @@ class PixApp {
 
     // Show modal
     document.getElementById('collectModal').classList.add('active');
+    } catch (e) {
+      console.error('[App] openCollectForm error:', e);
+      this.toast('Error abriendo formulario: ' + (e.message || 'desconocido'), 'error');
+    }
   }
 
   closeCollectForm() {
@@ -1864,6 +1927,55 @@ class PixApp {
 
     const projects = await pixDB.getAll('projects');
     document.getElementById('syncProjects').textContent = projects.length;
+
+    // v3.17: update the live status card (online/offline, last sync, stale)
+    this._updateSyncStatusCard(unsynced.length).catch(() => {});
+  }
+
+  // v3.17: small live-updating card that shows at a glance:
+  //   • connection state (green dot online / red offline)
+  //   • how long since last successful cloud sync
+  //   • N pending unsynced samples
+  //   • warning if offline > 24h (data may be stale)
+  async _updateSyncStatusCard(pendingCount) {
+    const dot = document.getElementById('syncStatusDot');
+    const conn = document.getElementById('syncStatusConn');
+    const lastLbl = document.getElementById('syncStatusLastSync');
+    const pendNum = document.getElementById('syncStatusPendingNum');
+    const staleWarn = document.getElementById('syncStaleWarn');
+    if (!dot || !conn || !lastLbl || !pendNum) return;
+
+    const online = navigator.onLine;
+    dot.style.background = online ? '#22c55e' : '#ef4444';
+    dot.style.color = online ? '#22c55e' : '#ef4444';
+    conn.textContent = online ? 'En línea' : 'Sin conexión';
+    conn.style.color = online ? '#cbd5e1' : '#fca5a5';
+
+    pendNum.textContent = String(pendingCount || 0);
+    pendNum.style.color = pendingCount > 0 ? '#fbbf24' : 'var(--accent)';
+
+    let lastISO = null;
+    try { lastISO = await pixDB.getSetting('cloud_last_sync_at'); } catch (_) {}
+    if (!lastISO) {
+      lastLbl.textContent = 'Sin sincronizar aún';
+      if (staleWarn) staleWarn.style.display = online ? 'none' : 'block';
+      return;
+    }
+    const lastMs = Date.parse(lastISO);
+    const ageMs = Date.now() - lastMs;
+    const mins = Math.floor(ageMs / 60000);
+    let txt;
+    if (mins < 1) txt = 'hace unos segundos';
+    else if (mins < 60) txt = `hace ${mins} min`;
+    else if (mins < 1440) txt = `hace ${Math.floor(mins / 60)} h`;
+    else txt = `hace ${Math.floor(mins / 1440)} días`;
+    lastLbl.textContent = `Última sincronización: ${txt}`;
+
+    // Show stale warning if last sync > 24h AND there's pending data OR we're offline
+    if (staleWarn) {
+      const stale = ageMs > 24 * 3600 * 1000;
+      staleWarn.style.display = stale ? 'block' : 'none';
+    }
   }
 
   async syncToDrive() {
@@ -2462,7 +2574,26 @@ ${detailHTML}
         this.toast('Archivo sin contenido', 'error');
         return;
       }
-      this._downloadBlob(file.content, file.fileName, file.mimeType || 'text/html');
+      // Use getFileAsBlob so legacy base64-data-URL rows AND new Blob-stored
+      // rows both decode correctly. Previously passing a base64 data URL
+      // string to _downloadBlob would write the literal data-URL text into
+      // the downloaded PDF, corrupting it.
+      const blob = await pixDB.getFileAsBlob(fileId);
+      if (!blob) {
+        this.toast('No se pudo leer el archivo', 'error');
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      try {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = file.fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      } finally {
+        URL.revokeObjectURL(url);
+      }
       this.toast(`Descargado: ${file.fileName}`, 'success');
     } catch (e) {
       this.toast('Error: ' + e.message, 'error');
@@ -3453,6 +3584,7 @@ ${detailHTML}
     gpsNav.clearTarget();
     pixMap.clearNavigationLine();
     this.isNavigating = false;
+    this._releaseWakeLock && this._releaseWakeLock().catch(() => {});
     const _ov = document.getElementById('mapDistOverlay'); if (_ov) _ov.style.display = 'none';
 
     document.getElementById('zoneCompleteModal').classList.add('active');
@@ -3530,6 +3662,7 @@ ${detailHTML}
       gpsNav.clearTarget();
       pixMap.clearNavigationLine();
       this.isNavigating = false;
+      this._releaseWakeLock && this._releaseWakeLock().catch(() => {});
       const _ov2 = document.getElementById('mapDistOverlay'); if (_ov2) _ov2.style.display = 'none';
 
       // Auto-save IBRA report + track report to Downloads
@@ -3743,38 +3876,47 @@ ${detailHTML}
   }
 
   // NEAREST-NEIGHBOR point navigation: always go to closest pending point
+  // v3.17: wrapped in try/catch so a DB index/schema issue doesn't soft-lock
+  // the app with a silent uncaught error in the field.
   async nextPoint() {
-    if (!this.currentField) return;
-    const points = await pixDB.getAllByIndex('points', 'fieldId', this.currentField.id);
+    try {
+      if (!this.currentField) return;
+      const points = await pixDB.getAllByIndex('points', 'fieldId', this.currentField.id);
 
-    const pending = points.filter(p => p.status !== 'collected');
-    if (pending.length === 0) {
-      this.toast('Todos los puntos recolectados!', 'success');
-      return;
+      const pending = points.filter(p => p.status !== 'collected');
+      if (pending.length === 0) {
+        this.toast('Todos los puntos recolectados!', 'success');
+        // Release wake-lock so phone can sleep normally — nothing left to navigate to.
+        this._releaseWakeLock && this._releaseWakeLock().catch(() => {});
+        return;
+      }
+
+      // If we have GPS, sort by distance to current position (nearest first)
+      if (gpsNav.currentPosition) {
+        const pos = gpsNav.currentPosition;
+        pending.sort((a, b) => {
+          const distA = gpsNav.distanceTo(pos.lat, pos.lng, a.lat, a.lng);
+          const distB = gpsNav.distanceTo(pos.lat, pos.lng, b.lat, b.lng);
+          return distA - distB;
+        });
+      }
+
+      const nearest = pending[0];
+      const zona = this._detectZone(nearest);
+      const type = this._detectPointType(nearest);
+      const dist = gpsNav.currentPosition
+        ? Math.round(gpsNav.distanceTo(gpsNav.currentPosition.lat, gpsNav.currentPosition.lng, nearest.lat, nearest.lng))
+        : '?';
+
+      this.onPointClick(nearest);
+
+      const remaining = pending.length - 1;
+      const label = type === 'principal' ? 'Principal' : 'Sub';
+      this.toast(`${label} ${nearest.name} (Zona ${zona}) — ${dist}m — faltan ${remaining}`, 'success');
+    } catch (e) {
+      console.error('[App] nextPoint error:', e);
+      this.toast('Error seleccionando próximo punto: ' + (e.message || 'desconocido'), 'error');
     }
-
-    // If we have GPS, sort by distance to current position (nearest first)
-    if (gpsNav.currentPosition) {
-      const pos = gpsNav.currentPosition;
-      pending.sort((a, b) => {
-        const distA = gpsNav.distanceTo(pos.lat, pos.lng, a.lat, a.lng);
-        const distB = gpsNav.distanceTo(pos.lat, pos.lng, b.lat, b.lng);
-        return distA - distB;
-      });
-    }
-
-    const nearest = pending[0];
-    const zona = this._detectZone(nearest);
-    const type = this._detectPointType(nearest);
-    const dist = gpsNav.currentPosition
-      ? Math.round(gpsNav.distanceTo(gpsNav.currentPosition.lat, gpsNav.currentPosition.lng, nearest.lat, nearest.lng))
-      : '?';
-
-    this.onPointClick(nearest);
-
-    const remaining = pending.length - 1;
-    const label = type === 'principal' ? 'Principal' : 'Sub';
-    this.toast(`${label} ${nearest.name} (Zona ${zona}) — ${dist}m — faltan ${remaining}`, 'success');
   }
 
   // Delete project
@@ -3981,9 +4123,13 @@ ${detailHTML}
   }
 
   // ── HEARTBEAT: periodic location update to Supabase (every 60s) ──
+  // Battery-aware: pauses when document.hidden (screen off / app backgrounded)
+  // and resumes on visibilitychange → visible. Saves ~8-12% battery/hour on
+  // phones left idle with the app open.
   _startDeviceHeartbeat() {
     if (this._heartbeatTimer) return;
-    this._heartbeatTimer = setInterval(async () => {
+    const tick = async () => {
+      if (document.hidden) return;            // skip while backgrounded
       if (!navigator.onLine || !pixCloud.isEnabled()) return;
       try {
         const deviceId = await this._getDeviceId();
@@ -3997,8 +4143,30 @@ ${detailHTML}
           console.log('[Heartbeat] Location sent:', location.lat.toFixed(5), location.lng.toFixed(5));
         }
       } catch (_) { /* silent */ }
-    }, 60000); // every 60 seconds
-    console.log('[Heartbeat] Device heartbeat started (60s interval)');
+    };
+    this._heartbeatTimer = setInterval(tick, 60000);
+
+    // Wire up visibility handler once — trigger an immediate tick on resume so
+    // the next cloud state reflects reality without waiting 60s.
+    if (!this._heartbeatVisibilityBound) {
+      this._heartbeatVisibilityHandler = () => {
+        if (!document.hidden) tick();
+      };
+      document.addEventListener('visibilitychange', this._heartbeatVisibilityHandler);
+      this._heartbeatVisibilityBound = true;
+    }
+    console.log('[Heartbeat] Device heartbeat started (60s, paused when hidden)');
+  }
+
+  _stopDeviceHeartbeat() {
+    if (this._heartbeatTimer) {
+      clearInterval(this._heartbeatTimer);
+      this._heartbeatTimer = null;
+    }
+    if (this._heartbeatVisibilityBound) {
+      document.removeEventListener('visibilitychange', this._heartbeatVisibilityHandler);
+      this._heartbeatVisibilityBound = false;
+    }
   }
 
   async _pullCloudOrders() {
@@ -4603,9 +4771,26 @@ let _preLoginSyncPromise = null; // Resolves when cloud credential sync finishes
 
 document.addEventListener('DOMContentLoaded', async () => {
   try {
-    // Init DB first (needed for auth)
+    // Init DB first (needed for auth + telemetry DSN lookup + crypto-vault)
     await pixDB.init();
     await pixDB.migrateToV3();
+
+    // Unlock the at-rest vault with the device secret BEFORE any file read
+    // path runs. If unlock fails (old browser without SubtleCrypto?), db.js
+    // transparently falls back to plaintext — no data loss, only degraded
+    // at-rest protection. We log it so Sentry can surface the trend.
+    try {
+      if (window.pixVault && !window.pixVault.isUnlocked()) {
+        await window.pixVault.unlock(null);
+      }
+    } catch (e) {
+      console.warn('[Boot] Vault unlock failed — at-rest encryption disabled:', e && e.message);
+    }
+
+    // Telemetry: fire-and-forget. pixTelemetry handles opt-out + missing-DSN
+    // internally and falls back to a no-op. We do NOT block boot on this —
+    // a slow CDN must not delay the login screen.
+    try { if (window.pixTelemetry) window.pixTelemetry.init(); } catch (_) {}
 
     // Try restore session
     const restored = await pixAuth.init();

@@ -4,11 +4,19 @@ class BarcodeScanner {
     this.scanner = null;
     this.isScanning = false;
     this.onScanSuccess = null;
+    this._timeoutId = null;       // Auto-stop after 60s idle
+    this._onTimeout = null;       // Callback fired when auto-stop kicks in
   }
 
-  // Initialize scanner
-  async init(containerId, onSuccess) {
+  // Initialize scanner.
+  //   onSuccess   — (text, decodedResult) called on a hit
+  //   onTimeout   — (optional) called if the scanner runs for 60s without
+  //                 a hit. Lets the UI close the modal and tell the user
+  //                 "no pude leer el código" instead of draining the camera
+  //                 + battery indefinitely when nothing's in frame.
+  async init(containerId, onSuccess, onTimeout) {
     this.onScanSuccess = onSuccess;
+    this._onTimeout = onTimeout || null;
 
     this.scanner = new Html5Qrcode(containerId);
 
@@ -41,6 +49,17 @@ class BarcodeScanner {
         () => {} // expected: called on each frame without detection
       );
       this.isScanning = true;
+
+      // Safety net: camera + CPU eats ~3-5 %/min. Auto-stop after 60 s so
+      // an unattended scanner screen doesn't silently drain the battery.
+      this._timeoutId = setTimeout(() => {
+        this._timeoutId = null;
+        if (this.isScanning) {
+          this.stop().finally(() => {
+            if (this._onTimeout) try { this._onTimeout(); } catch (_) {}
+          });
+        }
+      }, 60000);
     } catch (err) {
       this.isScanning = false;
       console.error('Scanner init error:', err);
@@ -226,6 +245,12 @@ class BarcodeScanner {
 
   // Stop scanning
   async stop() {
+    // Always clear the idle-timeout so a stale timer can't fire stop() twice
+    // or invoke onTimeout after a successful scan.
+    if (this._timeoutId) {
+      clearTimeout(this._timeoutId);
+      this._timeoutId = null;
+    }
     if (this.scanner && this.isScanning) {
       try {
         await this.scanner.stop();

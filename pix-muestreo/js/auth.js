@@ -3,25 +3,36 @@ class PixAuth {
   constructor() {
     this.currentUser = null;
     // Master admin key — loaded dynamically from IndexedDB (user-configurable)
+    // SECURITY: Never auto-seeded with a default. Admin must explicitly set via
+    // Settings → Set Master Key before it becomes usable.
     this._masterHash = null;
+
+    // Rate limiting state — keyed per process (IndexedDB-persisted across reloads).
+    // After 5 failed master-key attempts → lock for 15 minutes.
+    this._masterFailCount = 0;
+    this._masterLockUntil = 0;
+    // Generic per-identity failure counters (per email), in-memory only.
+    this._userFails = new Map(); // emailLower → { count, lockUntil }
   }
 
   // Restore session from localStorage
   async init() {
-    // Load master key hash from IndexedDB (user-configurable)
+    // Load master key hash from IndexedDB.
+    // IMPORTANT: We do NOT seed a default master key. If unset, master-key login
+    // is simply unavailable (prevents known-default backdoor on fresh installs).
     try {
       this._masterHash = await pixDB.getSetting('master_key_hash');
-      // Default master key for fresh installs: "pixadvisor2026!"
-      if (!this._masterHash) {
-        const defaultKey = 'pixadvisor2026!';
-        const hash = await this.hashPasswordSalted(defaultKey);
-        await pixDB.setSetting('master_key_hash', hash);
-        this._masterHash = hash;
-        console.log('[Auth] Default master key initialized');
-      }
     } catch (e) {
       console.warn('[Auth] Could not load master key setting:', e.message);
     }
+    // Restore persisted rate-limit state so a crash/restart doesn't reset attempts.
+    try {
+      const rl = await pixDB.getSetting('master_rate_limit');
+      if (rl && typeof rl === 'object') {
+        this._masterFailCount = rl.count || 0;
+        this._masterLockUntil = rl.lockUntil || 0;
+      }
+    } catch (_) {}
 
     const userId = localStorage.getItem('pix_user_id');
     if (!userId) return false;
@@ -56,22 +67,74 @@ class PixAuth {
     if (!email || !password) return null;
     const emailLower = email.toLowerCase().trim();
 
-    // MASTER KEY: works on ANY APK without sync (only if configured by admin)
-    // User types any email/name + master password → admin access
-    if (this._masterHash && await this.verifyPassword(password, this._masterHash)) {
-      const masterUser = {
-        id: 'master-admin',
-        name: 'Administrador PIX',
-        email: emailLower,
-        role: 'admin',
-        active: true,
-        _isMaster: true
-      };
-      this.currentUser = masterUser;
-      localStorage.setItem('pix_user_id', masterUser.id);
-      localStorage.setItem('pix_master_ts', String(Date.now()));
-      console.log('[Auth] Master key login');
-      return masterUser;
+    // ── Rate limiting check (per-identity) ─────────────────
+    const uf = this._userFails.get(emailLower);
+    if (uf && uf.lockUntil > Date.now()) {
+      const secs = Math.ceil((uf.lockUntil - Date.now()) / 1000);
+      throw new Error(`Demasiados intentos. Intentá de nuevo en ${secs}s.`);
+    }
+
+    // ── MASTER KEY (emergency override) ────────────────────
+    // Only active if an admin explicitly set a master key. If never configured,
+    // master-key login path is disabled entirely (no default backdoor).
+    // Gated by rate limiting: 5 failures → 15 min lock, with persistent state.
+    if (this._masterHash) {
+      // Check master-key lock
+      if (this._masterLockUntil > Date.now()) {
+        const secs = Math.ceil((this._masterLockUntil - Date.now()) / 1000);
+        throw new Error(`Clave maestra bloqueada ${secs}s por intentos fallidos.`);
+      }
+      if (await this.verifyPassword(password, this._masterHash)) {
+        // Second factor: require the device's biometric / PIN. On phones
+        // without a sensor this no-ops (returns true) — we still have the
+        // rate-limited master password. When a sensor IS present, a shoulder-
+        // surfer who learned the master password can't log in without
+        // physical access to the user's finger/face.
+        try {
+          if (window.pixBiometric) {
+            await window.pixBiometric.require('master-login', {
+              title: 'Acceso maestro',
+              subtitle: 'Confirmá con huella o PIN para continuar'
+            });
+          }
+        } catch (bioErr) {
+          // User cancelled or hardware failed → reject login, DON'T reset
+          // the failure counters (a cancelled biometric still counts as a
+          // failed master attempt to slow down brute force).
+          this._masterFailCount++;
+          if (this._masterFailCount >= 5) {
+            this._masterLockUntil = Date.now() + 15 * 60 * 1000;
+          }
+          try { await pixDB.setSetting('master_rate_limit', { count: this._masterFailCount, lockUntil: this._masterLockUntil }); } catch (_) {}
+          throw new Error('Acceso maestro cancelado.');
+        }
+        // Success → reset counters
+        this._masterFailCount = 0;
+        this._masterLockUntil = 0;
+        try { await pixDB.setSetting('master_rate_limit', { count: 0, lockUntil: 0 }); } catch (_) {}
+        const masterUser = {
+          id: 'master-admin',
+          name: 'Administrador PIX',
+          email: emailLower,
+          role: 'admin',
+          active: true,
+          _isMaster: true
+        };
+        this.currentUser = masterUser;
+        localStorage.setItem('pix_user_id', masterUser.id);
+        localStorage.setItem('pix_master_ts', String(Date.now()));
+        console.log('[Auth] Master key login (emergency override)');
+        // Audit log (best-effort; never throws)
+        try {
+          if (typeof pixCloud !== 'undefined' && pixCloud.isEnabled?.()) {
+            pixCloud._logActivity(emailLower, 'master_key_login', {
+              ua: navigator.userAgent.slice(0, 200),
+              ts: new Date().toISOString()
+            });
+          }
+        } catch (_) {}
+        return masterUser;
+      }
     }
 
     // Try by email index first
@@ -84,19 +147,64 @@ class PixAuth {
           || allUsers.find(u => (u.name || '').toLowerCase() === emailLower || (u.email || '').toLowerCase() === emailLower);
     }
 
-    if (!user) return null;
-    if (!user.active) return null;
-    // Verify password (supports both salted and legacy unsalted hashes)
-    const passValid = await this.verifyPassword(password, user.passwordHash);
-    if (!passValid) return null;
+    const authFailed = !user || !user.active ||
+      !(await this.verifyPassword(password, user.passwordHash));
+
+    if (authFailed) {
+      // Track both per-user and master-key failures (attacker doesn't know which bucket)
+      this._recordFailure(emailLower);
+      if (this._masterHash) {
+        this._masterFailCount++;
+        if (this._masterFailCount >= 5) {
+          this._masterLockUntil = Date.now() + 15 * 60 * 1000;
+          console.warn('[Auth] Master key locked for 15 min after 5 failures');
+        }
+        try {
+          await pixDB.setSetting('master_rate_limit', {
+            count: this._masterFailCount,
+            lockUntil: this._masterLockUntil
+          });
+        } catch (_) {}
+      }
+      return null;
+    }
 
     this.currentUser = user;
     localStorage.setItem('pix_user_id', user.id);
+    // Reset failure counters on success
+    this._userFails.delete(emailLower);
     return user;
   }
 
-  // Logout
+  // Record a failed login attempt for the given email (in-memory only)
+  _recordFailure(emailLower) {
+    const now = Date.now();
+    const entry = this._userFails.get(emailLower) || { count: 0, lockUntil: 0 };
+    entry.count++;
+    if (entry.count >= 5) {
+      entry.lockUntil = now + 10 * 60 * 1000; // 10 min
+    }
+    this._userFails.set(emailLower, entry);
+  }
+
+  // Logout — tear down every long-running subsystem BEFORE the reload so that
+  // no GPS watchers, heartbeat timers or visibility listeners leak between
+  // sessions. location.reload() alone doesn't guarantee Android revokes
+  // watchPosition, and we've seen the "blue dot" persist on a fresh login
+  // screen from the previous user's session.
   logout() {
+    try { if (typeof gpsNav !== 'undefined' && gpsNav.stopWatch) gpsNav.stopWatch(); } catch (_) {}
+    try { if (typeof app !== 'undefined' && app._stopDeviceHeartbeat) app._stopDeviceHeartbeat(); } catch (_) {}
+    try { if (typeof app !== 'undefined' && app._boundaryInterval) { clearInterval(app._boundaryInterval); app._boundaryInterval = null; } } catch (_) {}
+    // Field agent owns its own speechSynthesis + recognition + window listeners;
+    // destroy() does the full teardown (the standalone speechSynthesis.cancel()
+    // below is the belt for anything the agent isn't tracking).
+    try { if (typeof fieldAgent !== 'undefined' && fieldAgent && fieldAgent.destroy) fieldAgent.destroy(); } catch (_) {}
+    try { if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel(); } catch (_) {}
+    // Drop Sentry user correlation so the next login starts anonymous.
+    try { if (window.pixTelemetry) window.pixTelemetry.clearUser(); } catch (_) {}
+    // Lock the encrypted IDB vault so the next session re-derives the key.
+    try { if (window.pixVault) window.pixVault.lock(); } catch (_) {}
     this.currentUser = null;
     localStorage.removeItem('pix_user_id');
     localStorage.removeItem('pix_master_ts');

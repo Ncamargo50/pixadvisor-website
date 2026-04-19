@@ -4,9 +4,20 @@
 
 // App version constant — used by registerDevice() for fleet tracking
 // IMPORTANT: Keep APP_VERSION in sync with CACHE_NAME in sw.js
-const APP_VERSION = 'pix-muestreo-v56';
+const APP_VERSION = 'pix-muestreo-v59';
 
-// Default Supabase credentials (PIX Muestreo project)
+// ── Supabase "bootstrap" endpoint & anon key ─────────────────────────────
+// SECURITY MODEL: The Supabase anon key is PUBLIC by design — it grants only
+// anonymous role access, and all data is protected by Row Level Security (RLS)
+// policies enforced server-side. An attacker extracting this key from the APK
+// gains NO additional capability beyond what any anonymous web client already
+// has. The real security boundary lives in the Supabase dashboard (RLS rules,
+// policy definitions on every table, service_role key kept server-side only).
+//
+// Rotation: if compromise is suspected or after personnel changes, rotate the
+// anon key in Supabase → ship a new APK version → old APKs stop syncing until
+// users update. Alternate URL/Key can also be provisioned per tenant via the
+// in-app Settings screen (overrides these defaults at runtime — see init()).
 const _CLOUD_DEFAULT_URL = 'https://fnoocboaupjmxpkhdnij.supabase.co';
 const _CLOUD_DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZub29jYm9hdXBqbXhwa2hkbmlqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3NzA3MTYsImV4cCI6MjA5MTM0NjcxNn0.WCoLdveWAwpcwzWpvLFSgQeXeot6X263DTffdEWoCfg';
 
@@ -47,32 +58,72 @@ class PixCloud {
 
   async _fetch(path, options = {}) {
     if (!this._enabled) throw new Error('Cloud no configurado');
-    // AbortController: 30s timeout prevents hanging on bad network
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
-    try {
-      const resp = await fetch(this.url + '/rest/v1' + path, {
-        ...options,
-        signal: controller.signal,
-        headers: {
-          'apikey': this.key,
-          'Authorization': 'Bearer ' + this.key,
-          'Content-Type': 'application/json',
-          'Prefer': options._prefer || 'return=representation',
-          ...options.headers
-        }
-      });
-      if (!resp.ok) {
-        const errText = await resp.text().catch(() => resp.statusText);
-        throw new Error(`Cloud ${resp.status}: ${errText}`);
+    // v3.17: exponential backoff for transient failures (2G/3G jitter, 5xx).
+    // 4 attempts with delays 0s, 1s, 2s, 4s → max ~7s total before giving up.
+    // 4xx (client errors) bail immediately — retrying won't help.
+    const MAX_ATTEMPTS = 4;
+    let lastErr;
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      if (attempt > 0) {
+        const delay = Math.pow(2, attempt - 1) * 1000; // 1s, 2s, 4s
+        await new Promise(r => setTimeout(r, delay));
       }
-      return resp;
-    } catch (e) {
-      if (e.name === 'AbortError') throw new Error('Cloud: timeout de red (30s)');
-      throw e;
-    } finally {
-      clearTimeout(timeoutId);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      try {
+        const resp = await fetch(this.url + '/rest/v1' + path, {
+          ...options,
+          signal: controller.signal,
+          headers: {
+            'apikey': this.key,
+            'Authorization': 'Bearer ' + this.key,
+            'Content-Type': 'application/json',
+            'Prefer': options._prefer || 'return=representation',
+            ...options.headers
+          }
+        });
+        if (!resp.ok) {
+          const errText = await resp.text().catch(() => resp.statusText);
+          const err = new Error(`Cloud ${resp.status}: ${errText}`);
+          err.status = resp.status;
+          // 4xx is deterministic client error — no point retrying auth or bad schema
+          if (resp.status >= 400 && resp.status < 500) throw err;
+          lastErr = err;
+          continue; // 5xx → retry
+        }
+        return resp;
+      } catch (e) {
+        clearTimeout(timeoutId);
+        if (e.status && e.status >= 400 && e.status < 500) throw e;
+        // Network / timeout / 5xx — retry unless last attempt
+        lastErr = (e.name === 'AbortError')
+          ? new Error('Cloud: timeout de red (30s)')
+          : e;
+        if (attempt === MAX_ATTEMPTS - 1) throw lastErr;
+      } finally {
+        clearTimeout(timeoutId);
+      }
     }
+    throw lastErr || new Error('Cloud: falló tras reintentos');
+  }
+
+  // Build a Supabase Edge Function URL. Returns null if cloud not configured,
+  // so callers (e.g. integrity.js) can "fail open" instead of crashing.
+  _supabaseFunctionUrl(fnName) {
+    if (!this.url || !fnName) return null;
+    return this.url + '/functions/v1/' + encodeURIComponent(fnName);
+  }
+
+  // Auth headers for direct fetch() calls (Edge Functions, storage, etc.).
+  // Kept separate from _fetch() because Functions use a different base URL
+  // and some callers add their own Content-Type (multipart, binary, etc.).
+  _authHeaders() {
+    const h = {};
+    if (this.key) {
+      h['apikey'] = this.key;
+      h['Authorization'] = 'Bearer ' + this.key;
+    }
+    return h;
   }
 
   // ═══════════════════════════════════════════════
@@ -80,18 +131,83 @@ class PixCloud {
   // Called after Drive sync or independently
   // ═══════════════════════════════════════════════
 
-  async syncField(projectName, fieldName, clientName, fieldObj, samples, collector) {
+  async syncField(projectName, fieldName, clientName, fieldObj, samples, collector, tracks) {
     if (!this._enabled) return;
 
-    // Build zone summary
-    const zones = {};
+    // ── CONFLICT DETECTION (v3.17): before overwriting the field row in cloud,
+    // pull the current version and refuse to clobber samples that have been
+    // updated in cloud MORE RECENTLY than our local copy. Common scenario:
+    // two técnicos work in the same lote; one syncs → we pull stale orders →
+    // we're about to push back over the other's work. We log a warning and
+    // skip just THOSE samples, keeping everyone's data intact.
+    let cloudSamples = [];
+    try {
+      const existingResp = await this._fetch(
+        `/field_syncs?project=eq.${encodeURIComponent(projectName || 'Sin proyecto')}` +
+        `&field_name=eq.${encodeURIComponent(fieldName || 'Sin campo')}&select=samples,synced_at`
+      );
+      const existing = await existingResp.json();
+      if (existing && existing.length > 0 && Array.isArray(existing[0].samples)) {
+        cloudSamples = existing[0].samples;
+      }
+    } catch (e) {
+      // Non-fatal — if preflight fails, proceed with best-effort push.
+      console.warn('[Cloud] conflict preflight skipped:', e.message);
+    }
+    const cloudByPoint = {};
+    for (const cs of cloudSamples) {
+      const key = cs.pointId != null ? String(cs.pointId) : (cs.pointName || '');
+      if (!key) continue;
+      // Keep the NEWEST of any duplicates already in cloud
+      if (!cloudByPoint[key] || (cs.collectedAt || '') > (cloudByPoint[key].collectedAt || '')) {
+        cloudByPoint[key] = cs;
+      }
+    }
+    let conflictsSkipped = 0;
+    const mergedSamples = [];
     for (const s of samples) {
+      const key = s.pointId != null ? String(s.pointId) : (s.pointName || '');
+      const cloudSample = key ? cloudByPoint[key] : null;
+      if (cloudSample) {
+        const localTs = s.collectedAt || s.updatedAt || '';
+        const cloudTs = cloudSample.collectedAt || cloudSample.updatedAt || '';
+        // Cloud strictly newer AND different collector → don't overwrite.
+        if (cloudTs && cloudTs > localTs && cloudSample.collector &&
+            cloudSample.collector !== s.collector) {
+          mergedSamples.push(cloudSample);
+          conflictsSkipped++;
+          continue;
+        }
+      }
+      mergedSamples.push(s);
+    }
+    // Also fold in cloud-only samples that we don't have locally (multi-tech
+    // captures where the other device already pushed a different pointId).
+    const localKeys = new Set(samples.map(s =>
+      s.pointId != null ? String(s.pointId) : (s.pointName || '')
+    ).filter(Boolean));
+    for (const [k, cs] of Object.entries(cloudByPoint)) {
+      if (!localKeys.has(k)) mergedSamples.push(cs);
+    }
+    if (conflictsSkipped > 0) {
+      console.warn(`[Cloud] ${conflictsSkipped} sample conflict(s) resolved by keeping cloud (newer).`);
+    }
+
+    // Build zone summary from the merged set — ensures progress_pct reflects
+    // true total across all técnicos working the same lote.
+    const zones = {};
+    for (const s of mergedSamples) {
       const z = s.zona || 1;
       if (!zones[z]) zones[z] = { zona: z, count: 0, barcode: null, clase: '' };
       zones[z].count++;
       if (s.zoneBarcode) zones[z].barcode = s.zoneBarcode;
       if (s.zoneIbraSampleId) zones[z].ibra = s.zoneIbraSampleId;
     }
+
+    // GPS track (breadcrumb trail) — v3.17: now also pushed to Supabase so
+    // the office dashboard can audit the técnico's route.
+    const trackPositions = (tracks && tracks.length > 0 && Array.isArray(tracks[0].positions))
+      ? tracks[0].positions : [];
 
     const row = {
       technician: collector || 'Sin nombre',
@@ -100,7 +216,8 @@ class PixCloud {
       client: clientName || '',
       area_ha: fieldObj?.area || null,
       boundary: fieldObj?.boundary || null,
-      samples: samples.map(s => ({
+      samples: mergedSamples.map(s => ({
+        pointId: s.pointId,
         pointName: s.pointName,
         zona: s.zona,
         lat: s.lat,
@@ -113,14 +230,18 @@ class PixCloud {
         barcode: s.barcode,
         collector: s.collector,
         collectedAt: s.collectedAt,
+        updatedAt: s.updatedAt || s.collectedAt,
         notes: s.notes
       })),
+      track_positions: trackPositions,
+      track_count: trackPositions.length,
       zones_summary: Object.values(zones),
-      total_points: fieldObj?._totalPoints || samples.length,
-      collected_points: samples.length,
+      total_points: fieldObj?._totalPoints || mergedSamples.length,
+      collected_points: mergedSamples.length,
       progress_pct: fieldObj?._totalPoints
-        ? Math.round(samples.length / fieldObj._totalPoints * 100)
+        ? Math.round(mergedSamples.length / fieldObj._totalPoints * 100)
         : 100,
+      conflicts_resolved: conflictsSkipped,
       synced_at: new Date().toISOString()
     };
 
@@ -159,6 +280,7 @@ class PixCloud {
     const allSamples = await pixDB.getAll('samples');
     const allFields = await pixDB.getAll('fields');
     const allPoints = await pixDB.getAll('points');
+    const allTracks = await pixDB.getAll('tracks');
     const collector = await pixDB.getSetting('collectorName') || 'Tecnico';
 
     let synced = 0;
@@ -175,6 +297,7 @@ class PixCloud {
       const project = projects.find(p => p.id === field.projectId);
       const fieldSamples = allSamples.filter(s => s.fieldId === fieldId);
       const fieldPoints = allPoints.filter(p => p.fieldId === fieldId);
+      const fieldTracks = allTracks.filter(t => t.fieldId === fieldId);
 
       // Enrich field with total points count
       field._totalPoints = fieldPoints.length;
@@ -186,7 +309,8 @@ class PixCloud {
           project?.client || '',
           field,
           fieldSamples,
-          collector
+          collector,
+          fieldTracks
         );
         synced++;
         if (onProgress) onProgress(synced, total);
@@ -197,6 +321,9 @@ class PixCloud {
       }
     }
 
+    // Persist timestamp of last successful cloud sync so the UI can show
+    // "Última sincronización hace X min" and the stale-data warning.
+    try { await pixDB.setSetting('cloud_last_sync_at', new Date().toISOString()); } catch (_) {}
     return { synced, total, lastError: this._lastSyncError || null };
     } finally { this._syncing = false; }
   }

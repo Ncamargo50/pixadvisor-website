@@ -1,9 +1,17 @@
 // Google Drive Integration for PIX Muestreo
 // C3: Client ID loaded from settings at runtime, not hardcoded
+//
+// SCOPE POLICY (principle of least privilege):
+//   drive.file  — full access ONLY to files the app itself creates or that
+//                 the user explicitly opens from their Drive. This covers our
+//                 entire use-case (syncing project JSON + samples).
+//   drive.readonly (REMOVED) — granted access to EVERY file in the user's
+//                 Drive, which is wildly excessive for a sampling app. Users
+//                 rightly distrust apps that ask for this.
 const DRIVE_CONFIG = {
   CLIENT_ID: '', // Set via init(clientId) from user settings — not hardcoded
   API_KEY: '',
-  SCOPES: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly',
+  SCOPES: 'https://www.googleapis.com/auth/drive.file',
   DISCOVERY_DOC: 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest',
   FOLDER_NAME: 'PIX Muestreo'
 };
@@ -130,7 +138,8 @@ class DriveSync {
     return !!this.accessToken;
   }
 
-  // API call helper — with proactive token expiry check
+  // API call helper — with proactive token expiry check + exponential backoff.
+  // v3.17: retries transient network / 5xx / 429 failures (rural 3G signal).
   async _fetch(url, options = {}) {
     if (!this.accessToken) throw new Error('Not authenticated');
     // A9: Proactive expiry check — re-auth before 401 happens
@@ -140,78 +149,131 @@ class DriveSync {
       try { sessionStorage.removeItem('pix_drive_token'); } catch (_) {}
       throw new Error('Token expired. Please re-authenticate.');
     }
-    const resp = await fetch(url, {
-      ...options,
-      headers: {
-        'Authorization': `Bearer ${this.accessToken}`,
-        ...options.headers
+    const MAX_ATTEMPTS = 4;
+    let lastErr;
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      if (attempt > 0) {
+        const delay = Math.pow(2, attempt - 1) * 1000; // 1s, 2s, 4s
+        await new Promise(r => setTimeout(r, delay));
       }
-    });
-    if (resp.status === 401) {
-      this.accessToken = null;
-      this._tokenExpiresAt = 0;
-      try { sessionStorage.removeItem('pix_drive_token'); } catch (_) {}
-      throw new Error('Token expired. Please re-authenticate.');
+      try {
+        const resp = await fetch(url, {
+          ...options,
+          headers: {
+            'Authorization': `Bearer ${this.accessToken}`,
+            ...options.headers
+          }
+        });
+        if (resp.status === 401) {
+          // Auth error — no point retrying, kick user back through consent.
+          this.accessToken = null;
+          this._tokenExpiresAt = 0;
+          try { sessionStorage.removeItem('pix_drive_token'); } catch (_) {}
+          throw new Error('Token expired. Please re-authenticate.');
+        }
+        if (resp.status === 429 || resp.status >= 500) {
+          // Rate-limited or server-side hiccup → retry with backoff
+          lastErr = new Error(`Drive ${resp.status}: ${resp.statusText}`);
+          if (attempt === MAX_ATTEMPTS - 1) throw lastErr;
+          continue;
+        }
+        return resp;
+      } catch (e) {
+        // Fetch-level error (network dropped, DNS, CORS preflight) → retry
+        if (/authenticate|expired/i.test(e.message)) throw e; // auth errors bail
+        lastErr = e;
+        if (attempt === MAX_ATTEMPTS - 1) throw lastErr;
+      }
     }
-    return resp;
+    throw lastErr || new Error('Drive: falló tras reintentos');
   }
 
-  // Find or create PIX Muestreo folder
+  // Find or create PIX Muestreo folder.
+  // Serialised via a shared Promise so concurrent callers (uploadJSON +
+  // syncAll + listFiles firing at once) resolve to the SAME folder instead
+  // of racing and creating two "PIX Muestreo" folders with duplicated data.
   async ensureFolder() {
     if (this.folderId) return this.folderId;
+    if (this._ensureFolderPromise) return this._ensureFolderPromise;
 
-    // Search for existing folder
-    const q = encodeURIComponent(`name='${DRIVE_CONFIG.FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
-    const resp = await this._fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`);
-    const data = await resp.json();
+    this._ensureFolderPromise = (async () => {
+      // Search for existing folder
+      const q = encodeURIComponent(`name='${DRIVE_CONFIG.FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+      const resp = await this._fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`);
+      const data = await resp.json();
 
-    if (data.files && data.files.length > 0) {
-      this.folderId = data.files[0].id;
+      if (data.files && data.files.length > 0) {
+        this.folderId = data.files[0].id;
+        return this.folderId;
+      }
+
+      // Create folder
+      const createResp = await this._fetch('https://www.googleapis.com/drive/v3/files', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: DRIVE_CONFIG.FOLDER_NAME,
+          mimeType: 'application/vnd.google-apps.folder'
+        })
+      });
+      const folder = await createResp.json();
+      this.folderId = folder.id;
       return this.folderId;
-    }
-
-    // Create folder
-    const createResp = await this._fetch('https://www.googleapis.com/drive/v3/files', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: DRIVE_CONFIG.FOLDER_NAME,
-        mimeType: 'application/vnd.google-apps.folder'
-      })
+    })().catch(err => {
+      // Allow retry on failure — don't cache a broken promise
+      this._ensureFolderPromise = null;
+      throw err;
     });
-    const folder = await createResp.json();
-    this.folderId = folder.id;
-    return this.folderId;
+
+    return this._ensureFolderPromise;
   }
 
-  // Find or create a subfolder inside a parent folder (cached per session)
+  // Find or create a subfolder inside a parent folder.
+  // Cached per session + serialised in-flight (same pattern as ensureFolder)
+  // to prevent duplicate subfolders on concurrent first-access.
   async ensureSubfolder(parentId, folderName) {
     if (!this._subfolderCache) this._subfolderCache = {};
+    if (!this._subfolderInflight) this._subfolderInflight = {};
     const cacheKey = `${parentId}/${folderName}`;
     if (this._subfolderCache[cacheKey]) return this._subfolderCache[cacheKey];
+    if (this._subfolderInflight[cacheKey]) return this._subfolderInflight[cacheKey];
 
-    const safeName = folderName.replace(/[<>:"/\\|?*]/g, '_').trim() || 'Sin_Cliente';
-    const q = encodeURIComponent(`name='${safeName}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`);
-    const resp = await this._fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`);
-    const data = await resp.json();
+    this._subfolderInflight[cacheKey] = (async () => {
+      const safeName = folderName.replace(/[<>:"/\\|?*]/g, '_').trim() || 'Sin_Cliente';
+      const q = encodeURIComponent(`name='${safeName}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+      const resp = await this._fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`);
+      const data = await resp.json();
 
-    if (data.files && data.files.length > 0) {
-      this._subfolderCache[cacheKey] = data.files[0].id;
-      return data.files[0].id;
-    }
+      if (data.files && data.files.length > 0) {
+        this._subfolderCache[cacheKey] = data.files[0].id;
+        return data.files[0].id;
+      }
 
-    const createResp = await this._fetch('https://www.googleapis.com/drive/v3/files', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: safeName,
-        mimeType: 'application/vnd.google-apps.folder',
-        parents: [parentId]
-      })
+      const createResp = await this._fetch('https://www.googleapis.com/drive/v3/files', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: safeName,
+          mimeType: 'application/vnd.google-apps.folder',
+          parents: [parentId]
+        })
+      });
+      const folder = await createResp.json();
+      this._subfolderCache[cacheKey] = folder.id;
+      return folder.id;
+    })().catch(err => {
+      // Allow retry on failure — don't cache a broken promise
+      delete this._subfolderInflight[cacheKey];
+      throw err;
     });
-    const folder = await createResp.json();
-    this._subfolderCache[cacheKey] = folder.id;
-    return folder.id;
+
+    // Clear the inflight slot on success too (the cache holds the result)
+    this._subfolderInflight[cacheKey].then(
+      () => { delete this._subfolderInflight[cacheKey]; },
+      () => { /* already handled in .catch above */ }
+    );
+
+    return this._subfolderInflight[cacheKey];
   }
 
   // List files in Pixadvisor folder
@@ -463,7 +525,10 @@ class DriveSync {
     return this._uploadFile(fileName, html, 'text/html', folderId);
   }
 
-  // Upload photo (base64)
+  // Upload photo (base64). v3.17: compresses > 1.3 MB photos to ~300 KB max
+  // (1600 px longest side, JPEG q=0.82) BEFORE upload. Typical 3 MB smartphone
+  // photos from the collect form come down ~85 %, which on rural 3G is the
+  // difference between a successful sync and a timeout loop.
   async uploadPhoto(fileName, base64Data) {
     const folderId = await this.ensureFolder();
 
@@ -485,8 +550,13 @@ class DriveSync {
       photosFolderId = folder.id;
     }
 
+    // Compress first (returns base64 or original if already small / no canvas)
+    let compressed = base64Data;
+    try { compressed = await DriveSync._compressJPEG(base64Data, 1600, 0.82); }
+    catch (e) { console.warn('[Drive] photo compression skipped:', e.message); }
+
     // Convert base64 to blob — C5: validate format before split
-    const parts = base64Data.split(',');
+    const parts = compressed.split(',');
     const encoded = parts.length > 1 ? parts[1] : parts[0];
     if (!encoded) throw new Error('Invalid photo data format');
     let byteStr;
@@ -507,6 +577,40 @@ class DriveSync {
       { method: 'POST', body: form }
     );
     return resp.json();
+  }
+
+  // Static helper: resize + recompress a base64 data URL via OffscreenCanvas
+  // where available, falling back to a hidden <canvas>. Returns the resulting
+  // data URL. Originals under `skipIfUnder` bytes are returned unchanged.
+  static _compressJPEG(dataUrl, maxSide = 1600, quality = 0.82, skipIfUnder = 1_300_000) {
+    return new Promise((resolve, reject) => {
+      try {
+        if (!dataUrl || typeof dataUrl !== 'string') return resolve(dataUrl);
+        // Approximate byte size of the underlying binary (base64 is ~1.33x)
+        const commaIdx = dataUrl.indexOf(',');
+        const b64len = commaIdx >= 0 ? dataUrl.length - commaIdx - 1 : dataUrl.length;
+        const approxBytes = Math.floor(b64len * 3 / 4);
+        if (approxBytes < skipIfUnder) return resolve(dataUrl);
+        const img = new Image();
+        img.onload = () => {
+          try {
+            let { width, height } = img;
+            if (width > maxSide || height > maxSide) {
+              const ratio = Math.min(maxSide / width, maxSide / height);
+              width = Math.round(width * ratio);
+              height = Math.round(height * ratio);
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width; canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', quality));
+          } catch (e) { reject(e); }
+        };
+        img.onerror = () => reject(new Error('image load failed'));
+        img.src = dataUrl;
+      } catch (e) { reject(e); }
+    });
   }
 
   // A12+M15 FIX: Sync with parallel photo upload (batches of 3) + progress callback

@@ -696,13 +696,13 @@ ${buildPhotoGallery(photoSamples)}
       });
     } catch (e) {}
 
-    // Backup PDF blob in IndexedDB
+    // Backup PDF blob in IndexedDB — store the Blob directly (IDB v2+ supports
+    // structured-clone of Blob natively). Previously we base64-encoded the PDF
+    // via FileReader, which inflated storage by ~33% AND doubled peak memory
+    // because the entire PDF existed as a JS string during the copy. For a
+    // 10 MB IBRA PRO report that's an extra 3.3 MB of persistent storage per
+    // generation + a 10 MB transient string — measurable on low-end phones.
     try {
-      const reader = new FileReader();
-      const base64 = await new Promise(resolve => {
-        reader.onload = () => resolve(reader.result);
-        reader.readAsDataURL(pdfBlob);
-      });
       await pixDB.saveFile({
         fieldId: fields[0]?.id || null,
         projectName: project.name,
@@ -710,7 +710,7 @@ ${buildPhotoGallery(photoSamples)}
         fileName,
         type: 'ibra_pro_pdf',
         mimeType: 'application/pdf',
-        content: base64
+        content: pdfBlob
       });
     } catch (e) {}
 

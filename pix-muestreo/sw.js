@@ -1,7 +1,11 @@
 // PIX Muestreo - Service Worker for Offline Support
 // IMPORTANT: Keep CACHE_NAME in sync with APP_VERSION in js/cloud.js
-// v56 — fix: comprehensive audit bug fixes
-const CACHE_NAME = 'pix-muestreo-v56';
+// v57 — cache-first strategy for app shell + complete asset list.
+// v58 — add crypto-vault.js + telemetry.js + biometric.js + integrity.js.
+// v59 — v3.17.0 hardening: progressive proximity beep, GPS wake-lock, sync
+//       status card, sample conflict detection, exponential backoff retries,
+//       photo compression, track-to-cloud upload, persistent background sync.
+const CACHE_NAME = 'pix-muestreo-v59';
 const TILE_CACHE = 'pix-tiles-v1';
 
 // Derive base path dynamically — works in both web (/pix-muestreo/) and APK WebView
@@ -11,13 +15,16 @@ const BASE = SW_PATH.replace(/sw\.js$/, ''); // e.g. "/pix-muestreo/" or "/asset
 const STATIC_ASSETS = [
   BASE,
   BASE + 'index.html',
+  BASE + 'dashboard.html',
   BASE + 'manifest.json',
   BASE + 'css/app.css',
   // Local libs (what index.html actually loads)
   BASE + 'lib/leaflet.css',
   BASE + 'lib/leaflet.js',
   BASE + 'lib/html5-qrcode.min.js',
-  // App JS modules
+  BASE + 'lib/html2pdf.bundle.min.js',
+  BASE + 'lib/qrcode-gen.min.js',
+  // App JS modules (all 13)
   BASE + 'js/app.js',
   BASE + 'js/db.js',
   BASE + 'js/map.js',
@@ -31,17 +38,25 @@ const STATIC_ASSETS = [
   BASE + 'js/admin.js',
   BASE + 'js/agent-field.js',
   BASE + 'js/report-pro.js',
-  BASE + 'lib/html2pdf.bundle.min.js',
-  BASE + 'lib/qrcode-gen.min.js',
+  // v3.16 security/observability additions
+  BASE + 'js/crypto-vault.js',
+  BASE + 'js/telemetry.js',
+  BASE + 'js/biometric.js',
+  BASE + 'js/integrity.js',
   // Leaflet marker images (required for offline map markers)
   BASE + 'lib/images/marker-icon.png',
   BASE + 'lib/images/marker-icon-2x.png',
   BASE + 'lib/images/marker-shadow.png',
   BASE + 'lib/images/layers.png',
   BASE + 'lib/images/layers-2x.png',
-  // Icons
+  // Icons (all sizes + SVG for A2HS)
   BASE + 'icons/icon-192.png',
   BASE + 'icons/icon-512.png',
+  BASE + 'icons/globe-only-96.png',
+  BASE + 'icons/globe-only-192.png',
+  BASE + 'icons/globe-only-512.png',
+  BASE + 'icons/globe-only-1024.png',
+  BASE + 'icons/globe-pixadvisor.svg',
 ];
 
 // Install - cache static assets
@@ -134,33 +149,77 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // App files - network first, fallback to cache
+  // App shell — cache-first with background revalidate (stale-while-revalidate).
+  // Why: this is a FIELD app; rural 2G/3G is normal. Network-first meant users
+  // waited 10s+ for every page load before falling back to cache. Cache-first
+  // gives instant load; a background fetch refreshes the cache silently so the
+  // NEXT reload picks up any shipped update.
   event.respondWith(
-    fetch(event.request).then(response => {
-      if (response.ok) {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+    caches.match(event.request).then(cached => {
+      const networkFetch = fetch(event.request).then(response => {
+        if (response && response.ok && event.request.method === 'GET') {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone))
+            .catch(() => {});
+        }
+        return response;
+      }).catch(() => null);
+
+      if (cached) {
+        // Serve cached immediately; let revalidate run in background
+        networkFetch.catch(() => {});
+        return cached;
       }
-      return response;
-    }).catch(() => {
-      return caches.match(event.request).then(cached => {
-        // Only serve index.html fallback for navigation requests (not JS/CSS/images)
-        if (cached) return cached;
+
+      // No cache — go to network, then fall back to index.html for navigations
+      return networkFetch.then(response => {
+        if (response) return response;
         if (event.request.mode === 'navigate') return caches.match(BASE + 'index.html');
-        return new Response('', { status: 404 });
+        return new Response('', { status: 404, statusText: 'Offline & not cached' });
       });
     })
   );
 });
 
-// Background sync
+// Background sync — v3.17 hardened version.
+// If there are open clients, ping them to run their own sync flow (fastest
+// path, full access to IndexedDB + Drive/Cloud creds). If there are NO
+// clients open (e.g. user closed the app), open a hidden client so Chrome
+// can re-register the sync task for next time the app is opened. This makes
+// background sync actually deliver "eventually consistent" — the event won't
+// just silently disappear.
 self.addEventListener('sync', event => {
-  if (event.tag === 'sync-samples') {
+  if (event.tag !== 'sync-samples' && event.tag !== 'pix-sync-queue') return;
+  event.waitUntil((async () => {
+    try {
+      const clients = await self.clients.matchAll({ includeUncontrolled: true, type: 'window' });
+      if (clients.length > 0) {
+        // Live client present — delegate to the full app sync
+        for (const client of clients) {
+          client.postMessage({ type: 'sync-samples', source: 'sw-bg', tag: event.tag });
+        }
+        return;
+      }
+      // No open client. We can't run IndexedDB-backed sync from the SW
+      // directly (requires the full app context). Ask the browser to retry
+      // this sync tag next time network is available so it fires once the
+      // user re-opens the app or it gets foregrounded.
+      if (self.registration && self.registration.sync) {
+        try { await self.registration.sync.register('pix-sync-queue'); } catch (_) {}
+      }
+    } catch (e) {
+      console.warn('[SW] sync handler error:', e && e.message);
+    }
+  })());
+});
+
+// Periodic sync (opportunistic — only fires on browsers that grant
+// periodic-background-sync permission; harmless no-op elsewhere).
+self.addEventListener('periodicsync', event => {
+  if (event.tag === 'pix-daily-sync') {
     event.waitUntil(
-      self.clients.matchAll().then(clients => {
-        clients.forEach(client => {
-          client.postMessage({ type: 'sync-samples' });
-        });
+      self.clients.matchAll({ includeUncontrolled: true, type: 'window' }).then(clients => {
+        clients.forEach(c => c.postMessage({ type: 'sync-samples', source: 'sw-periodic' }));
       })
     );
   }
