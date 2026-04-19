@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.supabase.co; img-src 'self' data: blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://mt0.google.com https://mt1.google.com https://mt2.google.com https://mt3.google.com;">
-<title>PIX Muestreo — Panel de Supervision</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.supabase.co wss://*.supabase.co; img-src 'self' data: blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://mt0.google.com https://mt1.google.com https://mt2.google.com https://mt3.google.com; worker-src 'self' blob:;">
+<title>PIX Muestreo — Panel de Supervision v1.1</title>
 <link rel="icon" type="image/png" href="icons/icon-192.png">
 <link rel="stylesheet" href="lib/leaflet.css">
 <style>
@@ -151,6 +151,45 @@
 
   /* Responsive table wrapper */
   .table-wrap { overflow-x: auto; }
+
+  /* v1.1 — Charts */
+  .charts-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  @media (max-width: 1024px) { .charts-grid { grid-template-columns: 1fr; } }
+  .chart-panel { background: var(--bg2); border-radius: 12px; padding: 14px 16px; border: 1px solid rgba(255,255,255,0.05); }
+  .chart-panel h3 { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; font-weight: 600; }
+  .chart-canvas-wrap { position: relative; height: 200px; }
+
+  /* v1.1 — Conflict badge */
+  .conflict-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 6px; background: rgba(245,158,11,0.18); color: var(--yellow); font-size: 10px; font-weight: 700; margin-left: 6px; }
+  .conflict-badge::before { content: '⚡'; }
+
+  /* v1.1 — Date filter bar */
+  .filter-bar { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+  .filter-bar label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .filter-bar input[type="date"] { padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: var(--bg3); color: var(--text); font-size: 12px; font-family: inherit; }
+  .filter-bar select { padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: var(--bg3); color: var(--text); font-size: 12px; font-family: inherit; }
+  .filter-bar button { padding: 6px 14px; font-size: 11px; }
+
+  /* v1.1 — Pagination */
+  .pagination { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; border-top: 1px solid rgba(255,255,255,0.05); font-size: 12px; color: var(--muted); }
+  .pagination button { padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: var(--bg3); color: var(--text); font-size: 11px; cursor: pointer; margin: 0 2px; }
+  .pagination button:hover:not(:disabled) { border-color: var(--green); color: var(--green); }
+  .pagination button:disabled { opacity: 0.3; cursor: not-allowed; }
+  .pagination button.active { background: var(--green); color: var(--bg); border-color: var(--green); }
+
+  /* v1.1 — Realtime pulse indicator */
+  .rt-pulse { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
+  .rt-pulse .rt-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+  .rt-pulse.on .rt-dot { background: var(--green); animation: pulse 2s infinite; }
+
+  /* v1.1 — Track replay toggle */
+  .track-btn { padding: 2px 8px; font-size: 10px; cursor: pointer; border-radius: 4px; border: 1px solid var(--teal); background: rgba(13,148,136,0.1); color: var(--teal); }
+  .track-btn:hover { background: var(--teal); color: var(--bg); }
+  .track-btn.active { background: var(--teal); color: var(--bg); }
+
+  /* v1.1 — Export PDF hidden during capture */
+  .pdf-exporting .refresh-bar, .pdf-exporting .section-header button,
+  .pdf-exporting .nav-tabs, .pdf-exporting .header button { display: none !important; }
 </style>
 </head>
 <body>
@@ -160,8 +199,10 @@
 <!-- HEADER -->
 <div class="header">
   <img src="icons/icon-192.png" alt="PIX">
-  <h1>Panel de Supervision</h1>
-  <button id="exportBtn" onclick="exportReports()" style="padding:8px 16px;border:1px solid rgba(127,214,51,0.3);background:rgba(127,214,51,0.1);color:var(--green);border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap;display:none" title="Exportar reportes a carpeta local">📁 Exportar Reportes</button>
+  <h1>Panel de Supervision <small style="font-size:11px;font-weight:400;color:var(--muted)">v1.1</small></h1>
+  <span class="rt-pulse" id="rtIndicator" title="Supabase realtime channel"><span class="rt-dot"></span><span id="rtLabel">Polling</span></span>
+  <button id="pdfExportBtn" onclick="exportDashboardPDF()" style="padding:8px 14px;border:1px solid rgba(127,214,51,0.3);background:rgba(127,214,51,0.1);color:var(--green);border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap" title="Exportar dashboard a PDF">📄 PDF</button>
+  <button id="exportBtn" onclick="exportReports()" style="padding:8px 14px;border:1px solid rgba(127,214,51,0.3);background:rgba(127,214,51,0.1);color:var(--green);border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap;display:none" title="Exportar reportes a carpeta local">📁 Exportar</button>
   <div class="status" id="connStatus">
     <span class="dot dot-off" id="connDot"></span>
     <span id="connText">Desconectado</span>
@@ -197,19 +238,54 @@
   <div id="tabPanel" class="tab-content active">
     <div class="container">
 
-      <!-- STATS -->
+      <!-- STATS (+ badge of conflicts detected) -->
       <div class="stats" id="statsGrid">
         <div class="stat-card"><div class="stat-value" id="statTechs">0</div><div class="stat-label">Tecnicos</div></div>
         <div class="stat-card"><div class="stat-value" id="statFields">0</div><div class="stat-label">Campos</div></div>
         <div class="stat-card"><div class="stat-value" id="statSamples">0</div><div class="stat-label">Muestras</div></div>
         <div class="stat-card"><div class="stat-value" id="statProgress">0%</div><div class="stat-label">Avance</div></div>
+        <div class="stat-card" id="statConflictsCard" style="display:none"><div class="stat-value" id="statConflicts" style="color:var(--yellow);-webkit-text-fill-color:var(--yellow);background:none">0</div><div class="stat-label">⚡ Conflictos resueltos</div></div>
       </div>
 
-      <!-- MAP (full width) -->
+      <!-- v1.1: FILTER BAR (shared for charts + tables) -->
+      <div class="filter-bar">
+        <label>Desde</label>
+        <input type="date" id="filterDateFrom" onchange="applyFilters()">
+        <label>Hasta</label>
+        <input type="date" id="filterDateTo" onchange="applyFilters()">
+        <label>Cliente</label>
+        <select id="filterClient" onchange="applyFilters()"><option value="">Todos</option></select>
+        <button class="btn btn-secondary" onclick="clearFilters()">Limpiar</button>
+        <span id="filterInfo" style="font-size:11px;color:var(--muted);margin-left:auto"></span>
+      </div>
+
+      <!-- v1.1: CHARTS ROW — samples/day, top techs, progress per client -->
+      <div class="charts-grid">
+        <div class="chart-panel">
+          <h3>📈 Muestras por dia (ult. 30d)</h3>
+          <div class="chart-canvas-wrap"><canvas id="chartSamplesPerDay"></canvas></div>
+        </div>
+        <div class="chart-panel">
+          <h3>👥 Top 5 tecnicos (muestras)</h3>
+          <div class="chart-canvas-wrap"><canvas id="chartTopTechs"></canvas></div>
+        </div>
+        <div class="chart-panel">
+          <h3>📋 Avance por cliente</h3>
+          <div class="chart-canvas-wrap"><canvas id="chartProgressPerClient"></canvas></div>
+        </div>
+      </div>
+
+      <!-- MAP (full width) with heatmap toggle -->
       <div class="panel" style="margin-bottom:20px">
-        <div class="panel-title">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/></svg>
-          Mapa de Campos
+        <div class="panel-title" style="display:flex;align-items:center;justify-content:space-between">
+          <span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/></svg>
+            Mapa de Campos
+          </span>
+          <span>
+            <button id="toggleHeatBtn" class="btn btn-sm btn-secondary" onclick="toggleHeatmap()" title="Mostrar/ocultar heatmap de puntos">🔥 Heatmap</button>
+            <button id="toggleTracksBtn" class="btn btn-sm btn-secondary" onclick="toggleAllTracks()" title="Mostrar tracks GPS de todos los tecnicos">🛰️ Tracks</button>
+          </span>
         </div>
         <div id="dashMap"></div>
       </div>
@@ -259,6 +335,7 @@
               <tbody id="fieldsTable"></tbody>
             </table>
           </div>
+          <div class="pagination" id="fieldsPagination"></div>
         </div>
       </div>
 
@@ -545,10 +622,16 @@
 
 <!-- SCRIPTS -->
 <script src="lib/leaflet.js"></script>
+<script src="lib/leaflet-heat.js"></script>
+<script src="lib/chart.min.js"></script>
+<script src="lib/html2pdf.bundle.min.js"></script>
 <script>
 // ═══════════════════════════════════════════════════
 // PIX Muestreo Dashboard — Supabase Direct REST
-// Full Admin Panel with Tabs
+// Full Admin Panel with Tabs — v1.1 upgrade
+// v1.1 (2026-04-19): +Charts, +Realtime, +Heatmap, +GPS tracks,
+//                    +PDF export, +pagination, +date/client filters,
+//                    +conflict badges, +sessionStorage creds
 // ═══════════════════════════════════════════════════
 
 // ── DASHBOARD AUTH ──
@@ -647,8 +730,21 @@ const _DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 
 
-let SUPA_URL = localStorage.getItem('pix_dash_url') || _DEFAULT_URL;
-let SUPA_KEY = localStorage.getItem('pix_dash_key') || _DEFAULT_KEY;
+// v1.1: credentials MOVED FROM localStorage → sessionStorage — mitigates XSS
+// (migration: read old key once, write to sessionStorage, delete old).
+(function migrateCreds() {
+  try {
+    const oldUrl = localStorage.getItem('pix_dash_url');
+    const oldKey = localStorage.getItem('pix_dash_key');
+    if (oldUrl && !sessionStorage.getItem('pix_dash_url')) sessionStorage.setItem('pix_dash_url', oldUrl);
+    if (oldKey && !sessionStorage.getItem('pix_dash_key')) sessionStorage.setItem('pix_dash_key', oldKey);
+    // Remove old localStorage copies (cleanup legacy exposure surface)
+    localStorage.removeItem('pix_dash_url');
+    localStorage.removeItem('pix_dash_key');
+  } catch (_) {}
+})();
+let SUPA_URL = sessionStorage.getItem('pix_dash_url') || _DEFAULT_URL;
+let SUPA_KEY = sessionStorage.getItem('pix_dash_key') || _DEFAULT_KEY;
 let dashMap = null;
 let fieldLayers = [];
 let techMarkers = [];  // GPS markers for online technicians
@@ -656,6 +752,16 @@ let _devicesCache = []; // Cached devices for cross-reference
 let refreshTimer = null;
 let activeTab = localStorage.getItem('pix_dash_tab') || 'tabPanel';
 let orderGeoData = null; // Holds parsed GeoJSON for new order
+
+// v1.1: charts + realtime + heatmap state
+let _charts = {};                  // { samplesPerDay, topTechs, progressPerClient } Chart.js instances
+let _heatLayer = null;             // Leaflet.heat layer
+let _heatmapEnabled = false;
+let _trackLayers = {};             // { fieldId: L.Polyline } — track GPS polylines
+let _allTracksShown = false;
+let _realtimeCh = null;            // Supabase Realtime channel
+let _lastSyncedIds = new Set();    // to detect new rows for realtime
+let _fieldsLastFetch = [];         // cache for filtering
 
 // ═══════════════════════════════════════════════════
 // TAB MANAGEMENT
@@ -746,9 +852,15 @@ function showDashboard() {
   // Restore active tab from localStorage
   showTab(activeTab);
 
-  // Auto-refresh every 30s (all tabs)
+  // v1.1: try realtime first; if it fails, poll as fallback
+  enableRealtime();
+
+  // Polling as safety net — realtime reloads are additive, not a replacement
+  // (if WS drops, polling still kicks in; when WS recovers, it just debounces ahead)
   if (refreshTimer) clearInterval(refreshTimer);
   refreshTimer = setInterval(() => {
+    // Skip polling if realtime is actively delivering events (WS open)
+    if (_realtimeCh && _realtimeCh.readyState === 1) return;
     if (activeTab === 'tabPanel') loadData();
     else if (activeTab === 'tabOrdenes') loadOrders();
     else if (activeTab === 'tabDispositivos') loadDevices();
@@ -806,17 +918,22 @@ async function loadData() {
     ]);
 
     _devicesCache = devices || [];
+    _fieldsLastFetch = fields || [];
+    populateClientFilter(fields);
     renderStats(fields);
     renderTechs(fields);
-    renderFields(fields);
-    renderMap(fields);
+    renderFields(fields);                    // v1.1: sets _fieldsCache + renders page 1
+    renderMap(_fieldsFiltered.length ? _fieldsFiltered : fields);
     renderTechGPS(devices);
     renderActivity(activities);
+    renderCharts(_fieldsFiltered.length ? _fieldsFiltered : fields);  // v1.1
+    updateFilterInfo();                      // v1.1
     loadBoundaries();
     setConnected(true);
 
+    const rtMode = _realtimeCh && _realtimeCh.readyState === 1 ? 'realtime' : 'polling 30s';
     document.getElementById('refreshBar').textContent =
-      'Actualizado: ' + new Date().toLocaleTimeString('es') + ' — auto-refresh cada 30s';
+      'Actualizado: ' + new Date().toLocaleTimeString('es') + ' — ' + rtMode;
   } catch (e) {
     console.error('[Dashboard] Load error:', e);
     setConnected(false);
@@ -831,11 +948,23 @@ function renderStats(fields) {
   const totalPts = fields.reduce((s, f) => s + (f.total_points || 0), 0);
   const collPts = fields.reduce((s, f) => s + (f.collected_points || 0), 0);
   const pct = totalPts > 0 ? Math.round(collPts / totalPts * 100) : 0;
+  // v1.1: sum of conflicts_resolved across all fields (from APK v3.17.1+)
+  const totalConflicts = fields.reduce((s, f) => s + (f.conflicts_resolved || 0), 0);
 
   document.getElementById('statTechs').textContent = techs.length;
   document.getElementById('statFields').textContent = fields.length;
   document.getElementById('statSamples').textContent = totalSamples;
   document.getElementById('statProgress').textContent = pct + '%';
+  // Conflict card — only visible when > 0
+  const cCard = document.getElementById('statConflictsCard');
+  if (cCard) {
+    if (totalConflicts > 0) {
+      cCard.style.display = '';
+      document.getElementById('statConflicts').textContent = totalConflicts;
+    } else {
+      cCard.style.display = 'none';
+    }
+  }
 }
 
 // ── RENDER TECHNICIANS TABLE (Panel tab) ──
@@ -843,9 +972,10 @@ function renderTechs(fields) {
   const techMap = {};
   for (const f of fields) {
     const t = f.technician || 'Sin nombre';
-    if (!techMap[t]) techMap[t] = { samples: 0, fields: 0, lastSync: null };
+    if (!techMap[t]) techMap[t] = { samples: 0, fields: 0, lastSync: null, conflicts: 0 };
     techMap[t].samples += f.samples?.length || 0;
     techMap[t].fields++;
+    techMap[t].conflicts += f.conflicts_resolved || 0;  // v1.1
     const syncTime = f.synced_at ? new Date(f.synced_at) : null;
     if (syncTime && (!techMap[t].lastSync || syncTime > techMap[t].lastSync)) {
       techMap[t].lastSync = syncTime;
@@ -856,23 +986,56 @@ function renderTechs(fields) {
   tbody.innerHTML = Object.entries(techMap).map(([name, data]) => {
     const ago = data.lastSync ? timeAgo(data.lastSync) : 'Nunca';
     const recent = data.lastSync && (Date.now() - data.lastSync.getTime()) < 3600000;
+    // v1.1: show conflict badge when a tech has had any conflict_resolved
+    const conflict = data.conflicts > 0
+      ? `<span class="conflict-badge" title="${data.conflicts} conflictos auto-resueltos en sync (otro tecnico trabajaba el mismo lote)">${data.conflicts}</span>`
+      : '';
     return `<tr>
-      <td><strong>${esc(name)}</strong></td>
+      <td><strong>${esc(name)}</strong>${conflict}</td>
       <td>${data.samples}</td>
       <td>${data.fields}</td>
-      <td><span class="badge ${recent ? 'badge-green' : 'badge-yellow'}">${ago}</span></td>
+      <td><span class="badge ${recent ? 'badge-green' : 'badge-yellow'}">${esc(ago)}</span></td>
     </tr>`;
   }).join('');
 }
 
-// ── RENDER FIELDS TABLE ──
+// ── RENDER FIELDS TABLE (with pagination + track button) ──
+let _fieldsCache = [];
+let _fieldsFiltered = [];
+let _fieldsPage = 1;
+const FIELDS_PER_PAGE = 10;
+
 function renderFields(fields) {
+  _fieldsCache = fields || [];
+  _fieldsFiltered = applyFiltersToFields(_fieldsCache);
+  _fieldsPage = 1;
+  renderFieldsPage();
+}
+
+function renderFieldsPage() {
   const tbody = document.getElementById('fieldsTable');
-  tbody.innerHTML = fields.map(f => {
+  const start = (_fieldsPage - 1) * FIELDS_PER_PAGE;
+  const pageItems = _fieldsFiltered.slice(start, start + FIELDS_PER_PAGE);
+
+  if (pageItems.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Sin campos con los filtros actuales</td></tr>';
+    renderFieldsPagination();
+    return;
+  }
+
+  tbody.innerHTML = pageItems.map(f => {
     const pct = f.progress_pct || 0;
     const color = pct >= 100 ? 'var(--green)' : pct > 50 ? 'var(--yellow)' : 'var(--red)';
+    // v1.1: conflict badge + track button — aprovechan campos nuevos v3.17.1
+    const conflictBadge = (f.conflicts_resolved && f.conflicts_resolved > 0)
+      ? `<span class="conflict-badge" title="${f.conflicts_resolved} conflictos auto-resueltos en sync">${f.conflicts_resolved}</span>`
+      : '';
+    const hasTrack = f.track_count && f.track_count > 0;
+    const trackBtn = hasTrack
+      ? `<button class="track-btn" data-field-id="${esc(String(f.id))}" onclick="toggleFieldTrack('${esc(String(f.id))}')" title="Ver recorrido GPS del tecnico (${f.track_count} puntos)">🛰️ Track</button>`
+      : '';
     return `<tr>
-      <td><strong>${esc(f.field_name)}</strong><br><small style="color:var(--muted)">${esc(f.project)}</small></td>
+      <td><strong>${esc(f.field_name)}</strong>${conflictBadge}<br><small style="color:var(--muted)">${esc(f.project)}</small></td>
       <td>${esc(f.client || '—')}</td>
       <td>${f.area_ha ? f.area_ha + ' ha' : '—'}</td>
       <td>
@@ -883,9 +1046,48 @@ function renderFields(fields) {
         <small style="color:var(--muted)">${f.collected_points || 0}/${f.total_points || '?'} pts</small>
       </td>
       <td><small>${esc(f.technician)}</small></td>
-      <td><button class="btn btn-sm btn-danger" onclick="deleteField('${f.id}', '${escJS(f.field_name)}')">Eliminar</button></td>
+      <td style="white-space:nowrap">${trackBtn} <button class="btn btn-sm btn-danger" onclick="deleteField('${esc(String(f.id))}', '${escJS(f.field_name)}')">X</button></td>
     </tr>`;
   }).join('');
+
+  renderFieldsPagination();
+}
+
+function renderFieldsPagination() {
+  const pagDiv = document.getElementById('fieldsPagination');
+  if (!pagDiv) return;
+  const total = _fieldsFiltered.length;
+  const pages = Math.ceil(total / FIELDS_PER_PAGE) || 1;
+  const from = total === 0 ? 0 : (_fieldsPage - 1) * FIELDS_PER_PAGE + 1;
+  const to = Math.min(_fieldsPage * FIELDS_PER_PAGE, total);
+
+  let html = `<span>Mostrando ${from}–${to} de ${total} campos</span><span>`;
+  html += `<button onclick="changeFieldsPage(-1)" ${_fieldsPage === 1 ? 'disabled' : ''}>◄ Anterior</button>`;
+  html += `<button class="active" disabled>${_fieldsPage} / ${pages}</button>`;
+  html += `<button onclick="changeFieldsPage(1)" ${_fieldsPage === pages ? 'disabled' : ''}>Siguiente ►</button>`;
+  html += `</span>`;
+  pagDiv.innerHTML = html;
+}
+
+function changeFieldsPage(delta) {
+  const pages = Math.ceil(_fieldsFiltered.length / FIELDS_PER_PAGE);
+  _fieldsPage = Math.max(1, Math.min(pages, _fieldsPage + delta));
+  renderFieldsPage();
+}
+
+function applyFiltersToFields(fields) {
+  const fromEl = document.getElementById('filterDateFrom');
+  const toEl = document.getElementById('filterDateTo');
+  const clientEl = document.getElementById('filterClient');
+  const from = fromEl && fromEl.value ? new Date(fromEl.value).getTime() : 0;
+  const to = toEl && toEl.value ? new Date(toEl.value).getTime() + 86400000 : Infinity;
+  const client = clientEl ? clientEl.value : '';
+  return fields.filter(f => {
+    const t = f.synced_at ? new Date(f.synced_at).getTime() : 0;
+    if (t < from || t > to) return false;
+    if (client && (f.client || '') !== client) return false;
+    return true;
+  });
 }
 
 async function deleteField(id, name) {
@@ -1122,6 +1324,341 @@ function downloadAllBoundaries() {
   a.href = url; a.download = name; a.click();
   URL.revokeObjectURL(url);
   toast(`${allFeatures.length} perimetros descargados: ${name}`, 'success');
+}
+
+// ═══════════════════════════════════════════════════
+// v1.1 — FILTERS + CHARTS + REALTIME + HEATMAP + TRACKS + PDF
+// ═══════════════════════════════════════════════════
+
+function applyFilters() {
+  if (!_fieldsCache || _fieldsCache.length === 0) return;
+  _fieldsFiltered = applyFiltersToFields(_fieldsCache);
+  _fieldsPage = 1;
+  renderFieldsPage();
+  renderCharts(_fieldsFiltered);
+  renderMap(_fieldsFiltered);
+  updateFilterInfo();
+}
+
+function clearFilters() {
+  const f = document.getElementById('filterDateFrom');
+  const t = document.getElementById('filterDateTo');
+  const c = document.getElementById('filterClient');
+  if (f) f.value = '';
+  if (t) t.value = '';
+  if (c) c.value = '';
+  applyFilters();
+}
+
+function updateFilterInfo() {
+  const info = document.getElementById('filterInfo');
+  if (!info) return;
+  const total = _fieldsCache.length, filt = _fieldsFiltered.length;
+  if (total === filt) info.textContent = `${total} campos`;
+  else info.textContent = `${filt} de ${total} campos (filtrado)`;
+}
+
+function populateClientFilter(fields) {
+  const sel = document.getElementById('filterClient');
+  if (!sel) return;
+  const current = sel.value;
+  const clients = [...new Set(fields.map(f => f.client).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">Todos</option>' +
+    clients.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  if (current && clients.includes(current)) sel.value = current;
+}
+
+// ── CHARTS (Chart.js) ──────────────────────────────
+function renderCharts(fields) {
+  if (typeof Chart === 'undefined') return;
+  renderChartSamplesPerDay(fields);
+  renderChartTopTechs(fields);
+  renderChartProgressPerClient(fields);
+}
+
+const _chartBaseOpts = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: { labels: { color: '#94A3B8', font: { size: 10 } } }
+  },
+  scales: {
+    x: { ticks: { color: '#94A3B8', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+    y: { ticks: { color: '#94A3B8', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.04)' }, beginAtZero: true }
+  }
+};
+
+function renderChartSamplesPerDay(fields) {
+  const byDay = {};
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  // last 30 days — zero-fill
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(today); d.setDate(d.getDate() - i);
+    const k = d.toISOString().slice(0, 10);
+    byDay[k] = 0;
+  }
+  for (const f of fields) {
+    if (!f.samples || !Array.isArray(f.samples)) continue;
+    for (const s of f.samples) {
+      const k = (s.collectedAt || f.synced_at || '').slice(0, 10);
+      if (byDay[k] !== undefined) byDay[k]++;
+    }
+  }
+  const labels = Object.keys(byDay).map(d => d.slice(5)); // MM-DD
+  const data = Object.values(byDay);
+
+  const ctx = document.getElementById('chartSamplesPerDay');
+  if (!ctx) return;
+  if (_charts.samplesPerDay) _charts.samplesPerDay.destroy();
+  _charts.samplesPerDay = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Muestras',
+        data,
+        borderColor: '#7FD633',
+        backgroundColor: 'rgba(127,214,51,0.15)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 2,
+        pointBackgroundColor: '#7FD633',
+        borderWidth: 2
+      }]
+    },
+    options: _chartBaseOpts
+  });
+}
+
+function renderChartTopTechs(fields) {
+  const byTech = {};
+  for (const f of fields) {
+    const t = f.technician || 'Sin nombre';
+    byTech[t] = (byTech[t] || 0) + (f.samples?.length || 0);
+  }
+  const sorted = Object.entries(byTech).sort((a,b) => b[1]-a[1]).slice(0, 5);
+  const labels = sorted.map(e => e[0].length > 14 ? e[0].slice(0,13)+'…' : e[0]);
+  const data = sorted.map(e => e[1]);
+  const colors = ['#7FD633','#0D9488','#3B82F6','#F59E0B','#EF4444'];
+
+  const ctx = document.getElementById('chartTopTechs');
+  if (!ctx) return;
+  if (_charts.topTechs) _charts.topTechs.destroy();
+  _charts.topTechs = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [{ data, backgroundColor: colors.slice(0, data.length), borderRadius: 4 }] },
+    options: { ..._chartBaseOpts, indexAxis: 'y', plugins: { legend: { display: false } } }
+  });
+}
+
+function renderChartProgressPerClient(fields) {
+  const byClient = {};
+  for (const f of fields) {
+    const c = f.client || 'Sin cliente';
+    if (!byClient[c]) byClient[c] = { collected: 0, total: 0 };
+    byClient[c].collected += f.collected_points || 0;
+    byClient[c].total += f.total_points || 0;
+  }
+  const entries = Object.entries(byClient).sort((a,b) => b[1].total - a[1].total).slice(0, 6);
+  const labels = entries.map(e => e[0].length > 16 ? e[0].slice(0,15)+'…' : e[0]);
+  const pct = entries.map(e => e[1].total > 0 ? Math.round(e[1].collected / e[1].total * 100) : 0);
+
+  const ctx = document.getElementById('chartProgressPerClient');
+  if (!ctx) return;
+  if (_charts.progressPerClient) _charts.progressPerClient.destroy();
+  _charts.progressPerClient = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data: pct,
+        backgroundColor: ['#7FD633','#0D9488','#3B82F6','#F59E0B','#EF4444','#8B5CF6'],
+        borderColor: '#162236',
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'right', labels: { color: '#94A3B8', font: { size: 10 }, boxWidth: 10 } },
+        tooltip: { callbacks: { label: (c) => `${c.label}: ${c.parsed}%` } }
+      }
+    }
+  });
+}
+
+// ── TRACKS (GPS breadcrumbs per field) ────────────
+function toggleFieldTrack(fieldId) {
+  if (!dashMap) return;
+  if (_trackLayers[fieldId]) {
+    dashMap.removeLayer(_trackLayers[fieldId]);
+    delete _trackLayers[fieldId];
+    document.querySelectorAll(`[data-field-id="${fieldId}"]`).forEach(b => b.classList.remove('active'));
+    return;
+  }
+  const f = _fieldsCache.find(x => String(x.id) === String(fieldId));
+  if (!f || !f.track_positions || !Array.isArray(f.track_positions) || f.track_positions.length === 0) {
+    toast('Este campo no tiene track GPS registrado', 'warn');
+    return;
+  }
+  const latlngs = f.track_positions
+    .filter(p => p && isFinite(p.lat) && isFinite(p.lng))
+    .map(p => [p.lat, p.lng]);
+  if (latlngs.length < 2) { toast('Track insuficiente para dibujar', 'warn'); return; }
+
+  const poly = L.polyline(latlngs, {
+    color: '#F59E0B',
+    weight: 3,
+    opacity: 0.85,
+    dashArray: '6 4'
+  }).addTo(dashMap);
+  const startM = L.circleMarker(latlngs[0], { radius: 5, color: '#22C55E', fillColor: '#22C55E', fillOpacity: 1 }).bindTooltip('Inicio').addTo(dashMap);
+  const endM = L.circleMarker(latlngs[latlngs.length - 1], { radius: 5, color: '#EF4444', fillColor: '#EF4444', fillOpacity: 1 }).bindTooltip('Fin').addTo(dashMap);
+
+  _trackLayers[fieldId] = L.layerGroup([poly, startM, endM]).addTo(dashMap);
+  try { dashMap.fitBounds(poly.getBounds().pad(0.1)); } catch(_){}
+  document.querySelectorAll(`[data-field-id="${fieldId}"]`).forEach(b => b.classList.add('active'));
+  toast(`Track GPS de ${esc(f.field_name)} mostrado (${latlngs.length} puntos)`, 'success');
+}
+
+function toggleAllTracks() {
+  if (!_fieldsCache || _fieldsCache.length === 0) return;
+  if (_allTracksShown) {
+    Object.keys(_trackLayers).forEach(id => {
+      if (_trackLayers[id]) dashMap.removeLayer(_trackLayers[id]);
+      delete _trackLayers[id];
+    });
+    document.querySelectorAll('.track-btn').forEach(b => b.classList.remove('active'));
+    _allTracksShown = false;
+    toast('Tracks ocultos', 'info');
+  } else {
+    let shown = 0;
+    for (const f of _fieldsCache) {
+      if (f.track_positions && Array.isArray(f.track_positions) && f.track_positions.length >= 2) {
+        toggleFieldTrack(String(f.id));
+        shown++;
+      }
+    }
+    _allTracksShown = true;
+    toast(shown > 0 ? `${shown} tracks GPS mostrados` : 'No hay tracks en los campos cargados', shown > 0 ? 'success' : 'warn');
+  }
+}
+
+// ── HEATMAP (Leaflet.heat) ────────────────────────
+function toggleHeatmap() {
+  if (!dashMap || typeof L.heatLayer !== 'function') return;
+  if (_heatmapEnabled) {
+    if (_heatLayer) dashMap.removeLayer(_heatLayer);
+    _heatmapEnabled = false;
+    document.getElementById('toggleHeatBtn')?.classList.remove('active');
+    toast('Heatmap oculto', 'info');
+    return;
+  }
+  const points = [];
+  for (const f of (_fieldsFiltered.length ? _fieldsFiltered : _fieldsCache)) {
+    if (!f.samples) continue;
+    for (const s of f.samples) {
+      if (s.lat && s.lng) points.push([s.lat, s.lng, 0.5]);
+    }
+  }
+  if (points.length === 0) { toast('Sin puntos para el heatmap', 'warn'); return; }
+  _heatLayer = L.heatLayer(points, { radius: 25, blur: 20, maxZoom: 17 }).addTo(dashMap);
+  _heatmapEnabled = true;
+  document.getElementById('toggleHeatBtn')?.classList.add('active');
+  toast(`Heatmap activo (${points.length} puntos)`, 'success');
+}
+
+// ── REALTIME (Supabase WebSocket) ──────────────────
+function enableRealtime() {
+  if (!SUPA_URL || !SUPA_KEY) return;
+  if (_realtimeCh) return;
+  try {
+    const wsUrl = SUPA_URL.replace(/^https/, 'wss') + '/realtime/v1/websocket?apikey=' + encodeURIComponent(SUPA_KEY) + '&vsn=1.0.0';
+    const ws = new WebSocket(wsUrl);
+    let heartbeat = null;
+
+    ws.onopen = () => {
+      console.log('[Realtime] connected');
+      // Subscribe to field_syncs + activity_log + devices
+      ws.send(JSON.stringify({
+        topic: 'realtime:public:field_syncs', event: 'phx_join', payload: {}, ref: '1'
+      }));
+      ws.send(JSON.stringify({
+        topic: 'realtime:public:activity_log', event: 'phx_join', payload: {}, ref: '2'
+      }));
+      ws.send(JSON.stringify({
+        topic: 'realtime:public:devices', event: 'phx_join', payload: {}, ref: '3'
+      }));
+      heartbeat = setInterval(() => {
+        try { ws.send(JSON.stringify({ topic: 'phoenix', event: 'heartbeat', payload: {}, ref: '0' })); } catch(_){}
+      }, 25000);
+      const ind = document.getElementById('rtIndicator');
+      if (ind) { ind.classList.add('on'); document.getElementById('rtLabel').textContent = 'Realtime'; }
+    };
+
+    ws.onmessage = (ev) => {
+      try {
+        const msg = JSON.parse(ev.data);
+        if (msg.event === 'INSERT' || msg.event === 'UPDATE' || msg.event === 'DELETE') {
+          // Debounce: reload after 500ms of quiescence
+          if (_realtimeReloadTimer) clearTimeout(_realtimeReloadTimer);
+          _realtimeReloadTimer = setTimeout(() => {
+            if (activeTab === 'tabPanel') loadData();
+            else if (activeTab === 'tabOrdenes') loadOrders();
+            else if (activeTab === 'tabDispositivos') loadDevices();
+            else if (activeTab === 'tabTecnicos') loadTechnicians();
+          }, 500);
+        }
+      } catch(_){}
+    };
+
+    ws.onerror = (e) => console.warn('[Realtime] error:', e);
+    ws.onclose = () => {
+      console.log('[Realtime] disconnected — falling back to polling');
+      if (heartbeat) clearInterval(heartbeat);
+      _realtimeCh = null;
+      const ind = document.getElementById('rtIndicator');
+      if (ind) { ind.classList.remove('on'); document.getElementById('rtLabel').textContent = 'Polling'; }
+      // auto-retry in 10s
+      setTimeout(enableRealtime, 10000);
+    };
+
+    _realtimeCh = ws;
+  } catch (e) {
+    console.warn('[Realtime] setup failed, keeping polling:', e.message);
+  }
+}
+let _realtimeReloadTimer = null;
+
+// ── PDF EXPORT (html2pdf.js) ─────────────────────
+function exportDashboardPDF() {
+  if (typeof html2pdf === 'undefined') { toast('html2pdf no cargado', 'err'); return; }
+  const panel = document.getElementById('tabPanel');
+  if (!panel || !panel.classList.contains('active')) {
+    toast('Cambia al tab Panel primero', 'warn');
+    return;
+  }
+  document.body.classList.add('pdf-exporting');
+  const today = new Date().toISOString().slice(0, 10);
+  const opt = {
+    margin: [10, 8, 10, 8],
+    filename: `PIX-Muestreo-Dashboard-${today}.pdf`,
+    image: { type: 'jpeg', quality: 0.92 },
+    html2canvas: { scale: 2, backgroundColor: '#0F1B2D', useCORS: true, logging: false },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+    pagebreak: { mode: ['avoid-all', 'css'] }
+  };
+  toast('Generando PDF...', 'info');
+  html2pdf().set(opt).from(panel).save().then(() => {
+    document.body.classList.remove('pdf-exporting');
+    toast('PDF exportado', 'success');
+  }).catch(err => {
+    document.body.classList.remove('pdf-exporting');
+    console.error('[PDF] export error:', err);
+    toast('Error exportando PDF: ' + err.message, 'err');
+  });
 }
 
 // ═══════════════════════════════════════════════════

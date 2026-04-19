@@ -5,7 +5,9 @@
 // v59 — v3.17.0 hardening: progressive proximity beep, GPS wake-lock, sync
 //       status card, sample conflict detection, exponential backoff retries,
 //       photo compression, track-to-cloud upload, persistent background sync.
-const CACHE_NAME = 'pix-muestreo-v59';
+// v60 — Dashboard v1.1: Chart.js + Leaflet.heat in pre-cache (offline dashboard
+//       for admin techs) + dashboard.html with 8 new features.
+const CACHE_NAME = 'pix-muestreo-v60';
 const TILE_CACHE = 'pix-tiles-v1';
 
 // Derive base path dynamically — works in both web (/pix-muestreo/) and APK WebView
@@ -24,6 +26,9 @@ const STATIC_ASSETS = [
   BASE + 'lib/html5-qrcode.min.js',
   BASE + 'lib/html2pdf.bundle.min.js',
   BASE + 'lib/qrcode-gen.min.js',
+  // v60 — dashboard v1.1 libs
+  BASE + 'lib/chart.min.js',
+  BASE + 'lib/leaflet-heat.js',
   // App JS modules (all 13)
   BASE + 'js/app.js',
   BASE + 'js/db.js',
