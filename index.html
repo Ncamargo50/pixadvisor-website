@@ -60,39 +60,50 @@
 
   <title>Pixadvisor — Agricultura de Precisión con IA propia | Bolivia y Brasil</title>
 
-  <!-- Google Analytics 4 (GA4) -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+  <!-- Analytics config — set real IDs to enable GA4 + Microsoft Clarity -->
   <script>
+    // Replace the placeholders below with your real IDs to activate tracking.
+    window.PIXADVISOR_ANALYTICS = {
+      ga4Id:    '',  // e.g. 'G-ABC1234567'
+      clarityId:''   // e.g. 'abcd1234ef'
+    };
+    // Consent Mode v2 — denied by default until user accepts cookie banner
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
-    // Consent Mode v2 — denied by default until user accepts cookie banner
     gtag('consent', 'default', {
-      'ad_storage': 'denied',
-      'ad_user_data': 'denied',
-      'ad_personalization': 'denied',
-      'analytics_storage': 'denied',
-      'functionality_storage': 'granted',
-      'security_storage': 'granted',
-      'wait_for_update': 500
+      ad_storage:           'denied',
+      ad_user_data:         'denied',
+      ad_personalization:   'denied',
+      analytics_storage:    'denied',
+      functionality_storage:'granted',
+      security_storage:     'granted',
+      wait_for_update: 500
     });
-    gtag('config', 'G-XXXXXXXXXX', { 'anonymize_ip': true, 'send_page_view': true });
-  </script>
-
-  <!-- Microsoft Clarity (heatmaps + session recording) -->
-  <script>
-    (function(c,l,a,r,i,t,y){
-      c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-      t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-      y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-    })(window, document, "clarity", "script", "XXXXXXXXXX");
+    (function(){
+      var cfg = window.PIXADVISOR_ANALYTICS || {};
+      if (cfg.ga4Id && /^G-[A-Z0-9]{8,}$/.test(cfg.ga4Id)) {
+        var s = document.createElement('script');
+        s.async = true;
+        s.src = 'https://www.googletagmanager.com/gtag/js?id=' + cfg.ga4Id;
+        document.head.appendChild(s);
+        gtag('config', cfg.ga4Id, { anonymize_ip: true, send_page_view: true });
+      }
+      if (cfg.clarityId && /^[a-z0-9]{8,}$/i.test(cfg.clarityId)) {
+        (function(c,l,a,r,i,t,y){
+          c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+          t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+          y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+        })(window, document, "clarity", "script", cfg.clarityId);
+      }
+    })();
   </script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="dns-prefetch" href="https://wa.me">
   <link rel="dns-prefetch" href="https://www.google-analytics.com">
-  <link rel="preload" as="image" href="vista_aerea_ap_hd.jpg" fetchpriority="high">
+  <link rel="preload" as="image" href="vista_aerea_ap_hd.webp" fetchpriority="high">
   <link rel="preload" as="style" href="css/main.css">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Open+Sans:wght@400;600;700&display=swap" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Open+Sans:wght@400;600;700&display=swap"></noscript>
@@ -378,7 +389,7 @@
   <main id="main">
 
     <!-- 1. HERO -->
-    <section class="hero" style="background-image:url('vista_aerea_ap_hd.jpg')">
+    <section class="hero" style="background-image:url('vista_aerea_ap_hd.webp')">
       <div class="hero-container">
         <div class="hero-badge">
           <span data-lang-es>Agricultura de Precisión</span>
@@ -559,7 +570,7 @@
             </div>
           </div>
           <div class="about-image fade-in">
-            <img src="img/agricultura-precision-drone.jpg" alt="Agricultura de precisión con drones" width="600" height="400" loading="lazy">
+            <img src="img/agricultura-precision-drone.webp" alt="Agricultura de precisión con drones" width="600" height="400" loading="lazy">
           </div>
         </div>
       </div>
@@ -583,7 +594,7 @@
           <!-- Service 1: GeoLand Advisor -->
           <a href="servicios/geoland-advisor.html" class="service-card fade-in">
             <div class="service-card-img">
-              <img src="img/paisaje-agricola-ndvi.jpg" alt="GeoLand Advisor - Mapeo de lotes" width="400" height="250" loading="lazy">
+              <img src="img/paisaje-agricola-ndvi.webp" alt="GeoLand Advisor - Mapeo de lotes" width="400" height="250" loading="lazy">
             </div>
             <div class="service-card-body">
               <span class="service-category cat-mapping">
@@ -605,7 +616,7 @@
           <!-- Service 2: SmartSoil Advisor -->
           <a href="servicios/smartsoil-advisor.html" class="service-card fade-in">
             <div class="service-card-img">
-              <img src="img/mapeamiento-fertilidad-suelo.jpg" alt="SmartSoil Advisor - Fertilidad del suelo" width="400" height="250" loading="lazy">
+              <img src="img/mapeamiento-fertilidad-suelo.webp" alt="SmartSoil Advisor - Fertilidad del suelo" width="400" height="250" loading="lazy">
             </div>
             <div class="service-card-body">
               <span class="service-category cat-mapping">
@@ -627,7 +638,7 @@
           <!-- Service 3: CheckSoil Advisor -->
           <a href="servicios/checksoil-advisor.html" class="service-card fade-in">
             <div class="service-card-img">
-              <img src="img/servicio-01.jpg" alt="CheckSoil Advisor - Diagnóstico de suelos" width="400" height="250" loading="lazy">
+              <img src="img/servicio-01.webp" alt="CheckSoil Advisor - Diagnóstico de suelos" width="400" height="250" loading="lazy">
             </div>
             <div class="service-card-body">
               <span class="service-category cat-mapping">
@@ -649,7 +660,7 @@
           <!-- Service 4: NutriBank Advisor -->
           <a href="servicios/nutribank-advisor.html" class="service-card fade-in">
             <div class="service-card-img">
-              <img src="img/mapa-aplicacion-cal.jpg" alt="NutriBank Advisor - Prescripción nutricional" width="400" height="250" loading="lazy">
+              <img src="img/mapa-aplicacion-cal.webp" alt="NutriBank Advisor - Prescripción nutricional" width="400" height="250" loading="lazy">
             </div>
             <div class="service-card-body">
               <span class="service-category cat-nutrition">
@@ -671,7 +682,7 @@
           <!-- Service 5: BioIndex Advisor -->
           <a href="servicios/bioindex-advisor.html" class="service-card fade-in">
             <div class="service-card-img">
-              <img src="img/analisis-salud-vegetacion.jpg" alt="BioIndex Advisor - Índices de vegetación" width="400" height="250" loading="lazy">
+              <img src="img/analisis-salud-vegetacion.webp" alt="BioIndex Advisor - Índices de vegetación" width="400" height="250" loading="lazy">
             </div>
             <div class="service-card-body">
               <span class="service-category cat-monitoring">
@@ -693,7 +704,7 @@
           <!-- Service 6: WaterSoil Advisor -->
           <a href="servicios/watersoil-advisor.html" class="service-card fade-in">
             <div class="service-card-img">
-              <img src="img/agricultura-precision-tecnologia.jpg" alt="WaterSoil Advisor - Gestión hídrica" width="400" height="250" loading="lazy">
+              <img src="img/agricultura-precision-tecnologia.webp" alt="WaterSoil Advisor - Gestión hídrica" width="400" height="250" loading="lazy">
             </div>
             <div class="service-card-body">
               <span class="service-category cat-monitoring">
@@ -715,7 +726,7 @@
           <!-- Service 7: CheckLeaf Advisor -->
           <a href="servicios/checkleaf-advisor.html" class="service-card fade-in">
             <div class="service-card-img">
-              <img src="img/servicio-03.jpg" alt="CheckLeaf Advisor - Análisis foliar" width="400" height="250" loading="lazy">
+              <img src="img/servicio-03.webp" alt="CheckLeaf Advisor - Análisis foliar" width="400" height="250" loading="lazy">
             </div>
             <div class="service-card-body">
               <span class="service-category cat-nutrition">
@@ -737,7 +748,7 @@
           <!-- Service 8: OnFarm Biofábricas -->
           <a href="servicios/onfarm-biofabricas.html" class="service-card fade-in">
             <div class="service-card-img">
-              <img src="img/biotanques.jpg" alt="OnFarm Biofábricas - Control biológico" width="400" height="250" loading="lazy">
+              <img src="img/biotanques.webp" alt="OnFarm Biofábricas - Control biológico" width="400" height="250" loading="lazy">
             </div>
             <div class="service-card-body">
               <span class="service-category cat-bio">
@@ -759,7 +770,7 @@
           <!-- Service 9: FieldPlanning -->
           <a href="servicios/field-planning.html" class="service-card fade-in">
             <div class="service-card-img">
-              <img src="img/field-planning.png" alt="FieldPlanning - Planificación inteligente de líneas" width="400" height="250" loading="lazy">
+              <img src="img/field-planning.webp" alt="FieldPlanning - Planificación inteligente de líneas" width="400" height="250" loading="lazy">
             </div>
             <div class="service-card-body">
               <span class="service-category cat-drones">
@@ -781,7 +792,7 @@
           <!-- Service 10: FieldControl -->
           <a href="servicios/field-control.html" class="service-card fade-in">
             <div class="service-card-img">
-              <img src="img/field-control.png" alt="FieldControl - Restitución de líneas y fallas" width="400" height="250" loading="lazy">
+              <img src="img/field-control.webp" alt="FieldControl - Restitución de líneas y fallas" width="400" height="250" loading="lazy">
             </div>
             <div class="service-card-body">
               <span class="service-category cat-drones">
@@ -803,7 +814,7 @@
           <!-- Service 11: FieldMetrics -->
           <a href="servicios/field-metrics.html" class="service-card fade-in">
             <div class="service-card-img">
-              <img src="img/field-metrics.png" alt="FieldMetrics - Detección de malezas y tasa variable" width="400" height="250" loading="lazy">
+              <img src="img/field-metrics.webp" alt="FieldMetrics - Detección de malezas y tasa variable" width="400" height="250" loading="lazy">
             </div>
             <div class="service-card-body">
               <span class="service-category cat-drones">
@@ -1035,7 +1046,7 @@
           <!-- FieldPlanning -->
           <div class="tech-card fade-in">
             <div class="tech-card-img">
-              <img src="img/fazenda-inteligente-tecnologia.jpg" alt="FieldPlanning - Planificación inteligente" width="400" height="250" loading="lazy">
+              <img src="img/fazenda-inteligente-tecnologia.webp" alt="FieldPlanning - Planificación inteligente" width="400" height="250" loading="lazy">
             </div>
             <div class="tech-card-body">
               <h3>FieldPlanning</h3>
@@ -1067,7 +1078,7 @@
           <!-- FieldMetrics -->
           <div class="tech-card fade-in">
             <div class="tech-card-img">
-              <img src="img/mapa-agricola-ndvi.jpg" alt="FieldMetrics - Métricas de campo" width="400" height="250" loading="lazy">
+              <img src="img/mapa-agricola-ndvi.webp" alt="FieldMetrics - Métricas de campo" width="400" height="250" loading="lazy">
             </div>
             <div class="tech-card-body">
               <h3>FieldMetrics</h3>
@@ -1099,7 +1110,7 @@
           <!-- FieldControl -->
           <div class="tech-card fade-in">
             <div class="tech-card-img">
-              <img src="img/analisis-salud-vegetacion.jpg" alt="FieldControl - Control de campo" width="400" height="250" loading="lazy">
+              <img src="img/analisis-salud-vegetacion.webp" alt="FieldControl - Control de campo" width="400" height="250" loading="lazy">
             </div>
             <div class="tech-card-body">
               <h3>FieldControl</h3>
@@ -1162,7 +1173,7 @@
         </div>
         <div class="gallery-grid">
           <div class="gallery-item fade-in" tabindex="0" role="button" data-category="mapas">
-            <img src="img/paisaje-agricola-ndvi.jpg" alt="Paisaje agrícola NDVI" width="400" height="300" loading="lazy">
+            <img src="img/paisaje-agricola-ndvi.webp" alt="Paisaje agrícola NDVI" width="400" height="300" loading="lazy">
             <div class="gallery-overlay">
               <p class="gallery-caption">
                 <span data-lang-es>Mapa NDVI de paisaje agrícola</span>
@@ -1171,7 +1182,7 @@
             </div>
           </div>
           <div class="gallery-item fade-in" tabindex="0" role="button" data-category="mapas">
-            <img src="img/mapa-agricola-ndvi.jpg" alt="Mapa agrícola NDVI" width="400" height="300" loading="lazy">
+            <img src="img/mapa-agricola-ndvi.webp" alt="Mapa agrícola NDVI" width="400" height="300" loading="lazy">
             <div class="gallery-overlay">
               <p class="gallery-caption">
                 <span data-lang-es>Mapa agrícola con índice NDVI</span>
@@ -1180,7 +1191,7 @@
             </div>
           </div>
           <div class="gallery-item fade-in" tabindex="0" role="button" data-category="campo">
-            <img src="img/agricultura-precision-drone.jpg" alt="Drone en agricultura de precisión" width="400" height="300" loading="lazy">
+            <img src="img/agricultura-precision-drone.webp" alt="Drone en agricultura de precisión" width="400" height="300" loading="lazy">
             <div class="gallery-overlay">
               <p class="gallery-caption">
                 <span data-lang-es>Tecnología drone en campo</span>
@@ -1189,7 +1200,7 @@
             </div>
           </div>
           <div class="gallery-item fade-in" tabindex="0" role="button" data-category="prescripcion">
-            <img src="img/mapa-aplicacion-cal.jpg" alt="Mapa de aplicación de cal" width="400" height="300" loading="lazy">
+            <img src="img/mapa-aplicacion-cal.webp" alt="Mapa de aplicación de cal" width="400" height="300" loading="lazy">
             <div class="gallery-overlay">
               <p class="gallery-caption">
                 <span data-lang-es>Prescripción VRT de encalado</span>
@@ -1198,7 +1209,7 @@
             </div>
           </div>
           <div class="gallery-item fade-in" tabindex="0" role="button" data-category="mapas">
-            <img src="img/mapeamiento-fertilidad-suelo.jpg" alt="Mapeo de fertilidad del suelo" width="400" height="300" loading="lazy">
+            <img src="img/mapeamiento-fertilidad-suelo.webp" alt="Mapeo de fertilidad del suelo" width="400" height="300" loading="lazy">
             <div class="gallery-overlay">
               <p class="gallery-caption">
                 <span data-lang-es>Mapeo de fertilidad del suelo</span>
@@ -1207,7 +1218,7 @@
             </div>
           </div>
           <div class="gallery-item fade-in" tabindex="0" role="button" data-category="campo">
-            <img src="img/tractor-mapas-datos.jpg" alt="Tractor con mapas y datos" width="400" height="300" loading="lazy">
+            <img src="img/tractor-mapas-datos.webp" alt="Tractor con mapas y datos" width="400" height="300" loading="lazy">
             <div class="gallery-overlay">
               <p class="gallery-caption">
                 <span data-lang-es>Tecnología en maquinaria agrícola</span>
@@ -1216,7 +1227,7 @@
             </div>
           </div>
           <div class="gallery-item fade-in" tabindex="0" role="button" data-category="prescripcion">
-            <img src="img/mapa-costos-agricultura.jpg" alt="Mapa de costos agrícolas" width="400" height="300" loading="lazy">
+            <img src="img/mapa-costos-agricultura.webp" alt="Mapa de costos agrícolas" width="400" height="300" loading="lazy">
             <div class="gallery-overlay">
               <p class="gallery-caption">
                 <span data-lang-es>Análisis de costos por zona</span>
@@ -1225,7 +1236,7 @@
             </div>
           </div>
           <div class="gallery-item fade-in" tabindex="0" role="button" data-category="mapas">
-            <img src="img/mapa-productividad-cebada.jpg" alt="Mapa de productividad de cebada" width="400" height="300" loading="lazy">
+            <img src="img/mapa-productividad-cebada.webp" alt="Mapa de productividad de cebada" width="400" height="300" loading="lazy">
             <div class="gallery-overlay">
               <p class="gallery-caption">
                 <span data-lang-es>Mapa de productividad - Cebada</span>
