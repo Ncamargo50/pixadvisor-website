@@ -1,0 +1,37 @@
+{
+  "name": "Pixadvisor — Agricultura de Precisión",
+  "short_name": "Pixadvisor",
+  "description": "Mapeo satelital, IA propia, muestreo inteligente y prescripción variable VRT. 11 cultivos en Bolivia y Brasil.",
+  "lang": "es-BO",
+  "dir": "ltr",
+  "start_url": "/?utm_source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0F172A",
+  "theme_color": "#0D9488",
+  "categories": ["business", "productivity", "agriculture"],
+  "icons": [
+    { "src": "img/favicon.png",          "sizes": "32x32",   "type": "image/png" },
+    { "src": "img/apple-touch-icon.png", "sizes": "180x180", "type": "image/png", "purpose": "any" },
+    { "src": "img/logo.png",             "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Servicios",
+      "short_name": "Servicios",
+      "description": "Ver servicios de agricultura de precisión",
+      "url": "/?utm_source=pwa#services",
+      "icons": [{ "src": "img/logo.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Contacto",
+      "short_name": "Contacto",
+      "description": "Solicitar demo o cotización",
+      "url": "/?utm_source=pwa#contact",
+      "icons": [{ "src": "img/logo.png", "sizes": "192x192" }]
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false
+}

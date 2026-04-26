@@ -1,75 +1,97 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+
   <url>
     <loc>https://pixadvisor.network/</loc>
-    <lastmod>2026-04-10</lastmod>
+    <lastmod>2026-04-26</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://pixadvisor.network/"/>
+    <xhtml:link rel="alternate" hreflang="es-BO" href="https://pixadvisor.network/"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://pixadvisor.network/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://pixadvisor.network/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://pixadvisor.network/"/>
   </url>
+
   <url>
-    <loc>https://pixadvisor.network/img/servicios/geoland-advisor.html</loc>
-    <lastmod>2026-04-10</lastmod>
+    <loc>https://pixadvisor.network/servicios/geoland-advisor.html</loc>
+    <lastmod>2026-04-26</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://pixadvisor.network/img/servicios/smartsoil-advisor.html</loc>
-    <lastmod>2026-04-10</lastmod>
+    <loc>https://pixadvisor.network/servicios/smartsoil-advisor.html</loc>
+    <lastmod>2026-04-26</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://pixadvisor.network/img/servicios/checksoil-advisor.html</loc>
-    <lastmod>2026-04-10</lastmod>
+    <loc>https://pixadvisor.network/servicios/checksoil-advisor.html</loc>
+    <lastmod>2026-04-26</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://pixadvisor.network/img/servicios/nutribank-advisor.html</loc>
-    <lastmod>2026-04-10</lastmod>
+    <loc>https://pixadvisor.network/servicios/nutribank-advisor.html</loc>
+    <lastmod>2026-04-26</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://pixadvisor.network/img/servicios/bioindex-advisor.html</loc>
-    <lastmod>2026-04-10</lastmod>
+    <loc>https://pixadvisor.network/servicios/bioindex-advisor.html</loc>
+    <lastmod>2026-04-26</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://pixadvisor.network/img/servicios/watersoil-advisor.html</loc>
-    <lastmod>2026-04-10</lastmod>
+    <loc>https://pixadvisor.network/servicios/watersoil-advisor.html</loc>
+    <lastmod>2026-04-26</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://pixadvisor.network/img/servicios/checkleaf-advisor.html</loc>
-    <lastmod>2026-04-10</lastmod>
+    <loc>https://pixadvisor.network/servicios/checkleaf-advisor.html</loc>
+    <lastmod>2026-04-26</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://pixadvisor.network/img/servicios/onfarm-biofabricas.html</loc>
-    <lastmod>2026-04-10</lastmod>
+    <loc>https://pixadvisor.network/servicios/onfarm-biofabricas.html</loc>
+    <lastmod>2026-04-26</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://pixadvisor.network/img/servicios/field-planning.html</loc>
-    <lastmod>2026-04-10</lastmod>
+    <loc>https://pixadvisor.network/servicios/field-planning.html</loc>
+    <lastmod>2026-04-26</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://pixadvisor.network/img/servicios/field-metrics.html</loc>
-    <lastmod>2026-04-10</lastmod>
+    <loc>https://pixadvisor.network/servicios/field-metrics.html</loc>
+    <lastmod>2026-04-26</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://pixadvisor.network/img/servicios/field-control.html</loc>
-    <lastmod>2026-04-10</lastmod>
+    <loc>https://pixadvisor.network/servicios/field-control.html</loc>
+    <lastmod>2026-04-26</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
+
+  <url>
+    <loc>https://pixadvisor.network/privacidad.html</loc>
+    <lastmod>2026-04-26</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://pixadvisor.network/terminos.html</loc>
+    <lastmod>2026-04-26</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+
 </urlset>

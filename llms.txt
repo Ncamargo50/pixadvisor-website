@@ -1,0 +1,49 @@
+# Pixadvisor — Agricultura de Precisión
+
+> Plataforma boliviano-brasileña de Agricultura de Precisión con IA propia. Mapeo satelital, muestreo inteligente, prescripción variable VRT y biofábricas on-farm para 11 cultivos en Bolivia, Brasil y Argentina.
+
+Pixadvisor combina Google Earth Engine, algoritmos geoestadísticos propios (Kriging, IDW, K-Means++), análisis foliar DRIS y biotecnología microbiana para entregar decisiones agronómicas sitio-específicas que reducen 20-40% los insumos y aumentan 10-25% la productividad.
+
+## Servicios principales
+
+- [GeoLand Advisor](https://pixadvisor.network/#services): Delimitación y mapeo satelital de lotes con clasificación de zonas productivas
+- [SmartSoil Advisor](https://pixadvisor.network/#services): Mapeo de fertilidad con interpolación geoestadística
+- [CheckSoil Advisor](https://pixadvisor.network/#services): Diagnóstico integral del suelo con muestreo dirigido
+- [NutriBank Advisor](https://pixadvisor.network/#services): Prescripción variable VRT (N, P, K, Cal, Yeso)
+- [BioIndex Advisor](https://pixadvisor.network/#services): Monitoreo NDVI/NDRE/SAVI con series temporales
+- [WaterSoil Advisor](https://pixadvisor.network/#services): Balance hídrico y mapeo de humedad
+- [CheckLeaf Advisor](https://pixadvisor.network/#services): Análisis foliar DRIS georreferenciado
+- [OnFarm Biofábricas](https://pixadvisor.network/#services): Producción on-farm de Trichoderma, Bacillus, Beauveria, Metarhizium
+- [FieldPlanning](https://pixadvisor.network/#technology): Planificación de líneas con altimetría y declividad
+- [FieldMetrics](https://pixadvisor.network/#technology): Detección de malezas con IA + tasa variable
+- [FieldControl](https://pixadvisor.network/#technology): Restitución de líneas + detección de fallas de plantío
+
+## Cultivos cubiertos
+
+Caña de azúcar, soja, maíz, sorgo, girasol, chía, tomate, pimentón, papa, maracuyá, palta — con calibraciones específicas por etapa fenológica.
+
+## Tecnología
+
+- Satélites: Sentinel-2 (10m, 5 días), Landsat 8/9 (30m, 16 días), Planet (3m, diario)
+- Procesamiento: Google Earth Engine (Python), GeoTIFF, GeoJSON, Shapefile, ISOBUS
+- Algoritmos propios: Kriging ordinario, IDW, K-Means++, FCM, cLHS, DRIS-IBN
+- Apps: PIX Admin (dashboard GIS), PIX Muestreo (PWA Android offline), PIX Monitor (alertas IA)
+- IA: Detección de malezas (YOLO), zonas de manejo (clustering), anomalías (Z-score temporal)
+
+## Cobertura geográfica
+
+- Bolivia (sede en Santa Cruz de la Sierra)
+- Brasil (regiones Centro-Oeste y Sur)
+- Argentina (Pampa húmeda y NOA)
+
+## Contacto
+
+- WhatsApp: +591 72149171
+- Email: contacto@pixadvisor.network
+- Web: https://pixadvisor.network/
+
+## Recursos
+
+- [Política de Privacidad](https://pixadvisor.network/privacidad.html)
+- [Términos de Uso](https://pixadvisor.network/terminos.html)
+- [Sitemap](https://pixadvisor.network/sitemap.xml)

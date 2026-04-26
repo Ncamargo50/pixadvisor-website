@@ -2,51 +2,313 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Pixadvisor - Agricultura de Precisión. Mapeo satelital, muestreo inteligente, IA propia y prescripción variable para maximizar cada hectárea. Bolivia y Brasil.">
-  <meta name="keywords" content="agricultura de precisión, precision agriculture, IA agrícola, NDVI, fertilización variable, muestreo inteligente, prescripción VRT, Pixadvisor, Bolivia, Brasil">
-  <meta property="og:title" content="Pixadvisor - Agricultura de Precisión">
-  <meta property="og:description" content="Tecnología que transforma resultados en el campo. Mapeo satelital, muestreo inteligente, IA propia y prescripción variable.">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0D9488" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0F766E" media="(prefers-color-scheme: dark)">
+  <meta name="color-scheme" content="light dark">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Pixadvisor">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="application-name" content="Pixadvisor">
+  <meta name="msapplication-TileColor" content="#0D9488">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+  <meta name="googlebot" content="index, follow">
+  <meta name="author" content="Pixadvisor">
+  <meta name="geo.region" content="BO-S">
+  <meta name="geo.placename" content="Santa Cruz, Bolivia">
+  <meta name="geo.position" content="-17.783327;-63.182140">
+  <meta name="ICBM" content="-17.783327, -63.182140">
+
+  <meta name="description" content="Pixadvisor - Agricultura de Precisión. Mapeo satelital, IA propia, muestreo inteligente y prescripción variable VRT para maximizar cada hectárea. 11 cultivos. Bolivia y Brasil.">
+  <meta name="keywords" content="agricultura de precisión, precision agriculture, IA agrícola, NDVI, NDRE, fertilización variable, muestreo inteligente, prescripción VRT, Pixadvisor, Bolivia, Brasil, Santa Cruz, mapeamento satelital, biofábricas, drones agrícolas, kriging, zonas de manejo">
+
+  <meta property="og:site_name" content="Pixadvisor">
+  <meta property="og:title" content="Pixadvisor — Agricultura de Precisión con IA propia">
+  <meta property="og:description" content="Tecnología que transforma resultados en el campo. Mapeo satelital, muestreo inteligente, IA propia y prescripción variable VRT. 11 cultivos en Bolivia y Brasil.">
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://pixadvisor.network/img/logo.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Pixadvisor - Agricultura de Precisión">
   <meta property="og:url" content="https://pixadvisor.network">
-  <meta property="og:locale" content="es_ES">
+  <meta property="og:locale" content="es_BO">
   <meta property="og:locale:alternate" content="pt_BR">
+  <meta property="og:locale:alternate" content="es_AR">
+
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Pixadvisor - Agricultura de Precisión">
-  <meta name="twitter:description" content="Tecnología que transforma resultados en el campo. Mapeo satelital, muestreo inteligente, IA propia y prescripción variable.">
+  <meta name="twitter:site" content="@pixadvisor">
+  <meta name="twitter:creator" content="@pixadvisor">
+  <meta name="twitter:title" content="Pixadvisor — Agricultura de Precisión con IA propia">
+  <meta name="twitter:description" content="Mapeo satelital, IA propia, muestreo inteligente y prescripción VRT. 11 cultivos en Bolivia y Brasil.">
   <meta name="twitter:image" content="https://pixadvisor.network/img/logo.png">
-  <link rel="icon" type="image/png" href="img/favicon.png">
-  <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
-  <link rel="canonical" href="https://pixadvisor.network">
-  <link rel="alternate" hreflang="es" href="https://pixadvisor.network">
-  <link rel="alternate" hreflang="pt" href="https://pixadvisor.network">
-  <link rel="alternate" hreflang="x-default" href="https://pixadvisor.network">
-  <title>Pixadvisor - Agricultura de Precisión</title>
+  <meta name="twitter:image:alt" content="Pixadvisor - Agricultura de Precisión">
+
+  <link rel="icon" type="image/png" sizes="32x32" href="img/favicon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="img/favicon.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="img/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.json">
+
+  <link rel="canonical" href="https://pixadvisor.network/">
+  <link rel="alternate" hreflang="es" href="https://pixadvisor.network/">
+  <link rel="alternate" hreflang="es-BO" href="https://pixadvisor.network/">
+  <link rel="alternate" hreflang="es-AR" href="https://pixadvisor.network/">
+  <link rel="alternate" hreflang="pt" href="https://pixadvisor.network/">
+  <link rel="alternate" hreflang="pt-BR" href="https://pixadvisor.network/">
+  <link rel="alternate" hreflang="x-default" href="https://pixadvisor.network/">
+
+  <title>Pixadvisor — Agricultura de Precisión con IA propia | Bolivia y Brasil</title>
+
+  <!-- Google Analytics 4 (GA4) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    // Consent Mode v2 — denied by default until user accepts cookie banner
+    gtag('consent', 'default', {
+      'ad_storage': 'denied',
+      'ad_user_data': 'denied',
+      'ad_personalization': 'denied',
+      'analytics_storage': 'denied',
+      'functionality_storage': 'granted',
+      'security_storage': 'granted',
+      'wait_for_update': 500
+    });
+    gtag('config', 'G-XXXXXXXXXX', { 'anonymize_ip': true, 'send_page_view': true });
+  </script>
+
+  <!-- Microsoft Clarity (heatmaps + session recording) -->
+  <script>
+    (function(c,l,a,r,i,t,y){
+      c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+      t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+      y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+    })(window, document, "clarity", "script", "XXXXXXXXXX");
+  </script>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Open+Sans:wght@400;600;700&display=swap">
-  <link rel="preload" as="image" href="vista_aerea_ap_hd.jpg">
+  <link rel="dns-prefetch" href="https://wa.me">
+  <link rel="dns-prefetch" href="https://www.google-analytics.com">
+  <link rel="preload" as="image" href="vista_aerea_ap_hd.jpg" fetchpriority="high">
+  <link rel="preload" as="style" href="css/main.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Open+Sans:wght@400;600;700&display=swap" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Open+Sans:wght@400;600;700&display=swap"></noscript>
   <link rel="stylesheet" href="css/main.css">
+
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
-    "@type": "Organization",
-    "name": "Pixadvisor",
-    "url": "https://pixadvisor.network",
-    "logo": "https://pixadvisor.network/img/logo.png",
-    "description": "Agricultura de Precisión - Mapeo satelital, muestreo inteligente, IA propia y prescripción variable.",
-    "areaServed": ["Bolivia", "Brasil"],
-    "contactPoint": {
-      "@type": "ContactPoint",
-      "telephone": "+591-72149171",
-      "contactType": "sales",
-      "availableLanguage": ["Spanish", "Portuguese"]
-    },
-    "sameAs": [
-      "https://www.facebook.com/pixadvisor",
-      "https://www.instagram.com/pixadvisor",
-      "https://www.linkedin.com/company/pixadvisor"
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://pixadvisor.network/#organization",
+        "name": "Pixadvisor",
+        "url": "https://pixadvisor.network/",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://pixadvisor.network/img/logo.png",
+          "width": 512,
+          "height": 512
+        },
+        "description": "Agricultura de Precisión con IA propia — Mapeo satelital, muestreo inteligente, prescripción variable VRT y biofábricas on-farm.",
+        "foundingDate": "2024",
+        "founder": { "@type": "Person", "name": "Nilton Camargo" },
+        "areaServed": [
+          { "@type": "Country", "name": "Bolivia" },
+          { "@type": "Country", "name": "Brasil" },
+          { "@type": "Country", "name": "Argentina" }
+        ],
+        "knowsAbout": [
+          "Agricultura de Precisión", "NDVI", "NDRE", "Kriging", "Zonas de Manejo",
+          "Prescripción Variable VRT", "Google Earth Engine", "Sentinel-2",
+          "Biofábricas", "Trichoderma", "Bacillus", "DRIS", "Análisis Foliar"
+        ],
+        "contactPoint": [{
+          "@type": "ContactPoint",
+          "telephone": "+591-72149171",
+          "contactType": "sales",
+          "areaServed": ["BO","BR","AR"],
+          "availableLanguage": ["Spanish","Portuguese"]
+        }],
+        "sameAs": [
+          "https://www.facebook.com/pixadvisor",
+          "https://www.instagram.com/pixadvisor",
+          "https://www.linkedin.com/company/pixadvisor"
+        ]
+      },
+      {
+        "@type": "LocalBusiness",
+        "@id": "https://pixadvisor.network/#localbusiness",
+        "name": "Pixadvisor — Agricultura de Precisión",
+        "image": "https://pixadvisor.network/img/logo.png",
+        "url": "https://pixadvisor.network/",
+        "telephone": "+591-72149171",
+        "email": "contacto@pixadvisor.network",
+        "priceRange": "$$",
+        "address": {
+          "@type": "PostalAddress",
+          "addressLocality": "Santa Cruz de la Sierra",
+          "addressRegion": "Santa Cruz",
+          "addressCountry": "BO"
+        },
+        "geo": {
+          "@type": "GeoCoordinates",
+          "latitude": -17.783327,
+          "longitude": -63.182140
+        },
+        "openingHoursSpecification": [{
+          "@type": "OpeningHoursSpecification",
+          "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday"],
+          "opens": "08:00",
+          "closes": "18:00"
+        }]
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://pixadvisor.network/#website",
+        "url": "https://pixadvisor.network/",
+        "name": "Pixadvisor",
+        "publisher": { "@id": "https://pixadvisor.network/#organization" },
+        "inLanguage": ["es-BO","pt-BR","es-AR"]
+      },
+      {
+        "@type": "Service",
+        "name": "GeoLand Advisor",
+        "provider": { "@id": "https://pixadvisor.network/#organization" },
+        "description": "Delimitación y mapeo de lotes agrícolas con imágenes satelitales de alta resolución y clasificación de zonas productivas.",
+        "areaServed": ["BO","BR","AR"],
+        "serviceType": "Mapeo satelital agrícola"
+      },
+      {
+        "@type": "Service",
+        "name": "SmartSoil Advisor",
+        "provider": { "@id": "https://pixadvisor.network/#organization" },
+        "description": "Mapeo de fertilidad del suelo con interpolación geoestadística y zonas de manejo para fertilización diferenciada.",
+        "areaServed": ["BO","BR","AR"],
+        "serviceType": "Mapeo de fertilidad de suelos"
+      },
+      {
+        "@type": "Service",
+        "name": "NutriBank Advisor",
+        "provider": { "@id": "https://pixadvisor.network/#organization" },
+        "description": "Prescripción nutricional variable VRT para fertilización, encalado y enmiendas, optimizando costos por hectárea.",
+        "areaServed": ["BO","BR","AR"],
+        "serviceType": "Prescripción variable VRT"
+      },
+      {
+        "@type": "Service",
+        "name": "BioIndex Advisor",
+        "provider": { "@id": "https://pixadvisor.network/#organization" },
+        "description": "Monitoreo de salud vegetal con índices NDVI, NDRE, SAVI y series temporales para detectar estrés temprano.",
+        "areaServed": ["BO","BR","AR"],
+        "serviceType": "Monitoreo satelital"
+      },
+      {
+        "@type": "Service",
+        "name": "OnFarm Biofábricas",
+        "provider": { "@id": "https://pixadvisor.network/#organization" },
+        "description": "Producción on-farm de biocontroladores y biofertilizantes con monitoreo digital y protocolos de calidad integrados.",
+        "areaServed": ["BO","BR","AR"],
+        "serviceType": "Biofábricas y bioinsumos"
+      },
+      {
+        "@type": "FAQPage",
+        "@id": "https://pixadvisor.network/#faq",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "¿Qué es la agricultura de precisión?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Es un sistema de manejo agrícola que usa datos satelitales, sensores, GPS e IA para tomar decisiones sitio-específicas — aplicar el insumo correcto, en la cantidad correcta, en el lugar correcto y en el momento correcto. El resultado típico es una reducción del 20–40% en insumos y un aumento del 10–25% en productividad."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "¿En qué cultivos trabaja Pixadvisor?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Trabajamos en 11 cultivos: caña de azúcar, soja, maíz, sorgo, girasol, chía, tomate, pimentón, papa, maracuyá y palta — con calibraciones agronómicas específicas por cultivo y etapa fenológica."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "¿Qué satélites utilizan?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Sentinel-2 (10m, 5 días), Landsat 8/9 (30m, 16 días) y Planet (3m, diario) según el caso de uso. Procesamos imágenes en Google Earth Engine con algoritmos propios para zonas de manejo, NDVI, NDRE, EVI, NDMI y otros 20+ índices espectrales."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "¿Cómo funciona la prescripción variable VRT?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Generamos mapas de aplicación variable en formato shapefile o ISOBUS compatible con maquinaria John Deere, Case, Massey, AGCO y Trimble. Cada zona de manejo recibe la dosis óptima de N, P, K, cal o yeso según su análisis de fertilidad."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "¿Qué precisión tienen los muestreos georreferenciados?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Usamos GPS con filtro Kalman y precisión submétrica (±50 cm) en la app PIX Muestreo. Cada punto se valida contra la zona de manejo planificada antes de confirmar la colecta."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "¿Puedo usar mi propio laboratorio?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Sí. Trabajamos con cualquier laboratorio que entregue resultados en CSV o PDF. También integramos directamente con IBRA megalab y otros laboratorios brasileños y bolivianos."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "¿Cuánto tiempo demora el primer informe?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "El diagnóstico satelital inicial está listo en 48–72h. El informe completo de fertilidad con prescripción variable demora 7–14 días dependiendo del tiempo de laboratorio."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "¿Las biofábricas on-farm son rentables?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Sí. Producir Trichoderma, Bacillus, Beauveria o Metarhizium en finca cuesta entre 5–10× menos que comprarlo, y con calidad equivalente bajo nuestros protocolos. El payback típico es de 1 zafra para fincas >500 ha."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "¿Trabajan con drones?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Sí — para detección de malezas con IA, conteo de plantas, restitución de líneas en caña y mapeo de altimetría con ALOS/SRTM. Compatible con DJI Mavic, Phantom, Matrice y P4 Multispectral."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "¿Cuál es el área mínima para contratar el servicio?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No hay mínimo técnico, pero el ROI típico se materializa a partir de 50 ha. Para áreas menores recomendamos empezar con un diagnóstico satelital sin compromiso."
+            }
+          }
+        ]
+      },
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Inicio", "item": "https://pixadvisor.network/" },
+          { "@type": "ListItem", "position": 2, "name": "Servicios", "item": "https://pixadvisor.network/#services" },
+          { "@type": "ListItem", "position": 3, "name": "Tecnología", "item": "https://pixadvisor.network/#technology" },
+          { "@type": "ListItem", "position": 4, "name": "Contacto", "item": "https://pixadvisor.network/#contact" }
+        ]
+      }
     ]
   }
   </script>
@@ -131,7 +393,7 @@
           <span data-lang-pt>Mapeamento satelital, amostragem inteligente, IA própria e prescrição variável para maximizar cada hectare da sua operação agrícola.</span>
         </p>
         <div class="hero-ctas">
-          <a href="https://wa.me/59172149171?text=Hola%20Pixadvisor%2C%20me%20interesa%20una%20demo%20de%20sus%20servicios." class="hero-btn-primary" target="_blank" rel="noopener">
+          <a href="https://wa.me/59172149171?text=Hola%20Pixadvisor%2C%20me%20interesa%20una%20demo%20de%20sus%20servicios." class="hero-btn-primary" target="_blank" rel="noopener noreferrer">
             <span data-lang-es>Solicitar Demo</span>
             <span data-lang-pt>Solicitar Demo</span>
           </a>
@@ -319,7 +581,7 @@
         </div>
         <div class="services-grid">
           <!-- Service 1: GeoLand Advisor -->
-          <a href="img/servicios/geoland-advisor.html" class="service-card fade-in">
+          <a href="servicios/geoland-advisor.html" class="service-card fade-in">
             <div class="service-card-img">
               <img src="img/paisaje-agricola-ndvi.jpg" alt="GeoLand Advisor - Mapeo de lotes" width="400" height="250" loading="lazy">
             </div>
@@ -341,7 +603,7 @@
             </div>
           </a>
           <!-- Service 2: SmartSoil Advisor -->
-          <a href="img/servicios/smartsoil-advisor.html" class="service-card fade-in">
+          <a href="servicios/smartsoil-advisor.html" class="service-card fade-in">
             <div class="service-card-img">
               <img src="img/mapeamiento-fertilidad-suelo.jpg" alt="SmartSoil Advisor - Fertilidad del suelo" width="400" height="250" loading="lazy">
             </div>
@@ -363,7 +625,7 @@
             </div>
           </a>
           <!-- Service 3: CheckSoil Advisor -->
-          <a href="img/servicios/checksoil-advisor.html" class="service-card fade-in">
+          <a href="servicios/checksoil-advisor.html" class="service-card fade-in">
             <div class="service-card-img">
               <img src="img/servicio-01.jpg" alt="CheckSoil Advisor - Diagnóstico de suelos" width="400" height="250" loading="lazy">
             </div>
@@ -385,7 +647,7 @@
             </div>
           </a>
           <!-- Service 4: NutriBank Advisor -->
-          <a href="img/servicios/nutribank-advisor.html" class="service-card fade-in">
+          <a href="servicios/nutribank-advisor.html" class="service-card fade-in">
             <div class="service-card-img">
               <img src="img/mapa-aplicacion-cal.jpg" alt="NutriBank Advisor - Prescripción nutricional" width="400" height="250" loading="lazy">
             </div>
@@ -407,7 +669,7 @@
             </div>
           </a>
           <!-- Service 5: BioIndex Advisor -->
-          <a href="img/servicios/bioindex-advisor.html" class="service-card fade-in">
+          <a href="servicios/bioindex-advisor.html" class="service-card fade-in">
             <div class="service-card-img">
               <img src="img/analisis-salud-vegetacion.jpg" alt="BioIndex Advisor - Índices de vegetación" width="400" height="250" loading="lazy">
             </div>
@@ -429,7 +691,7 @@
             </div>
           </a>
           <!-- Service 6: WaterSoil Advisor -->
-          <a href="img/servicios/watersoil-advisor.html" class="service-card fade-in">
+          <a href="servicios/watersoil-advisor.html" class="service-card fade-in">
             <div class="service-card-img">
               <img src="img/agricultura-precision-tecnologia.jpg" alt="WaterSoil Advisor - Gestión hídrica" width="400" height="250" loading="lazy">
             </div>
@@ -451,7 +713,7 @@
             </div>
           </a>
           <!-- Service 7: CheckLeaf Advisor -->
-          <a href="img/servicios/checkleaf-advisor.html" class="service-card fade-in">
+          <a href="servicios/checkleaf-advisor.html" class="service-card fade-in">
             <div class="service-card-img">
               <img src="img/servicio-03.jpg" alt="CheckLeaf Advisor - Análisis foliar" width="400" height="250" loading="lazy">
             </div>
@@ -473,7 +735,7 @@
             </div>
           </a>
           <!-- Service 8: OnFarm Biofábricas -->
-          <a href="img/servicios/onfarm-biofabricas.html" class="service-card fade-in">
+          <a href="servicios/onfarm-biofabricas.html" class="service-card fade-in">
             <div class="service-card-img">
               <img src="img/biotanques.jpg" alt="OnFarm Biofábricas - Control biológico" width="400" height="250" loading="lazy">
             </div>
@@ -495,7 +757,7 @@
             </div>
           </a>
           <!-- Service 9: FieldPlanning -->
-          <a href="img/servicios/field-planning.html" class="service-card fade-in">
+          <a href="servicios/field-planning.html" class="service-card fade-in">
             <div class="service-card-img">
               <img src="img/field-planning.png" alt="FieldPlanning - Planificación inteligente de líneas" width="400" height="250" loading="lazy">
             </div>
@@ -517,7 +779,7 @@
             </div>
           </a>
           <!-- Service 10: FieldControl -->
-          <a href="img/servicios/field-control.html" class="service-card fade-in">
+          <a href="servicios/field-control.html" class="service-card fade-in">
             <div class="service-card-img">
               <img src="img/field-control.png" alt="FieldControl - Restitución de líneas y fallas" width="400" height="250" loading="lazy">
             </div>
@@ -539,7 +801,7 @@
             </div>
           </a>
           <!-- Service 11: FieldMetrics -->
-          <a href="img/servicios/field-metrics.html" class="service-card fade-in">
+          <a href="servicios/field-metrics.html" class="service-card fade-in">
             <div class="service-card-img">
               <img src="img/field-metrics.png" alt="FieldMetrics - Detección de malezas y tasa variable" width="400" height="250" loading="lazy">
             </div>
@@ -666,7 +928,7 @@
                 <span data-lang-pt>1 mapa de prescrição VRT</span>
               </li>
             </ul>
-            <a href="https://wa.me/59172149171?text=Hola%20Pixadvisor%2C%20me%20interesa%20el%20paquete%20Basic." class="package-cta" target="_blank" rel="noopener">
+            <a href="https://wa.me/59172149171?text=Hola%20Pixadvisor%2C%20me%20interesa%20el%20paquete%20Basic." class="package-cta" target="_blank" rel="noopener noreferrer">
               <span data-lang-es>Solicitar</span>
               <span data-lang-pt>Solicitar</span>
             </a>
@@ -708,7 +970,7 @@
                 <span data-lang-pt>Relatório técnico completo em PDF</span>
               </li>
             </ul>
-            <a href="https://wa.me/59172149171?text=Hola%20Pixadvisor%2C%20me%20interesa%20el%20paquete%20Plus." class="package-cta" target="_blank" rel="noopener">
+            <a href="https://wa.me/59172149171?text=Hola%20Pixadvisor%2C%20me%20interesa%20el%20paquete%20Plus." class="package-cta" target="_blank" rel="noopener noreferrer">
               <span data-lang-es>Solicitar</span>
               <span data-lang-pt>Solicitar</span>
             </a>
@@ -746,7 +1008,7 @@
                 <span data-lang-pt>Acesso a PIX Admin e PIX Muestreo</span>
               </li>
             </ul>
-            <a href="https://wa.me/59172149171?text=Hola%20Pixadvisor%2C%20me%20interesa%20el%20paquete%20Premium." class="package-cta" target="_blank" rel="noopener">
+            <a href="https://wa.me/59172149171?text=Hola%20Pixadvisor%2C%20me%20interesa%20el%20paquete%20Premium." class="package-cta" target="_blank" rel="noopener noreferrer">
               <span data-lang-es>Solicitar</span>
               <span data-lang-pt>Solicitar</span>
             </a>
@@ -975,6 +1237,132 @@
       </div>
     </section>
 
+    <!-- 8.5 FAQ -->
+    <section class="faq" id="faq" aria-labelledby="faq-heading">
+      <div class="container">
+        <div class="services-header">
+          <h2 id="faq-heading">
+            <span data-lang-es>Preguntas Frecuentes</span>
+            <span data-lang-pt>Perguntas Frequentes</span>
+          </h2>
+          <div class="section-divider"></div>
+          <p>
+            <span data-lang-es>Lo que productores y agrónomos nos preguntan más</span>
+            <span data-lang-pt>O que produtores e agrônomos mais nos perguntam</span>
+          </p>
+        </div>
+        <div class="faq-list">
+          <details class="faq-item fade-in">
+            <summary><span data-lang-es>¿Qué es la agricultura de precisión?</span><span data-lang-pt>O que é agricultura de precisão?</span></summary>
+            <p><span data-lang-es>Es un sistema de manejo agrícola que usa datos satelitales, sensores, GPS e IA para tomar decisiones sitio-específicas. El resultado típico: 20-40% menos insumos y 10-25% más productividad.</span><span data-lang-pt>É um sistema de manejo agrícola que usa dados satelitais, sensores, GPS e IA para decisões sítio-específicas. Resultado típico: 20-40% menos insumos e 10-25% mais produtividade.</span></p>
+          </details>
+          <details class="faq-item fade-in">
+            <summary><span data-lang-es>¿En qué cultivos trabajan?</span><span data-lang-pt>Em quais cultivos trabalham?</span></summary>
+            <p><span data-lang-es>11 cultivos: caña de azúcar, soja, maíz, sorgo, girasol, chía, tomate, pimentón, papa, maracuyá y palta — con calibraciones específicas por etapa fenológica.</span><span data-lang-pt>11 cultivos: cana-de-açúcar, soja, milho, sorgo, girassol, chia, tomate, pimentão, batata, maracujá e abacate — com calibrações específicas por estádio fenológico.</span></p>
+          </details>
+          <details class="faq-item fade-in">
+            <summary><span data-lang-es>¿Qué satélites utilizan?</span><span data-lang-pt>Quais satélites utilizam?</span></summary>
+            <p><span data-lang-es>Sentinel-2 (10m, 5 días), Landsat 8/9 (30m, 16 días) y Planet (3m, diario). Procesamos en Google Earth Engine con 20+ índices espectrales (NDVI, NDRE, EVI, NDMI, MTCI...).</span><span data-lang-pt>Sentinel-2 (10m, 5 dias), Landsat 8/9 (30m, 16 dias) e Planet (3m, diário). Processamos no Google Earth Engine com 20+ índices espectrais.</span></p>
+          </details>
+          <details class="faq-item fade-in">
+            <summary><span data-lang-es>¿Cómo funciona la prescripción variable VRT?</span><span data-lang-pt>Como funciona a prescrição variável VRT?</span></summary>
+            <p><span data-lang-es>Generamos mapas en formato shapefile o ISOBUS compatibles con maquinaria John Deere, Case, Massey, AGCO y Trimble. Cada zona recibe la dosis óptima de N, P, K, cal o yeso según su análisis.</span><span data-lang-pt>Geramos mapas em shapefile ou ISOBUS compatíveis com John Deere, Case, Massey, AGCO e Trimble. Cada zona recebe a dose ótima de N, P, K, calcário ou gesso conforme sua análise.</span></p>
+          </details>
+          <details class="faq-item fade-in">
+            <summary><span data-lang-es>¿Qué precisión GPS tienen los muestreos?</span><span data-lang-pt>Qual a precisão GPS das amostragens?</span></summary>
+            <p><span data-lang-es>GPS con filtro Kalman y precisión submétrica (±50 cm) en la app PIX Muestreo. Cada punto se valida contra la zona de manejo planificada antes de confirmar la colecta.</span><span data-lang-pt>GPS com filtro Kalman e precisão submétrica (±50 cm) no app PIX Muestreo. Cada ponto é validado contra a zona de manejo planejada antes de confirmar a coleta.</span></p>
+          </details>
+          <details class="faq-item fade-in">
+            <summary><span data-lang-es>¿Puedo usar mi propio laboratorio?</span><span data-lang-pt>Posso usar meu próprio laboratório?</span></summary>
+            <p><span data-lang-es>Sí. Aceptamos resultados de cualquier laboratorio en CSV o PDF. También integramos directamente con IBRA megalab y otros laboratorios brasileños y bolivianos.</span><span data-lang-pt>Sim. Aceitamos resultados de qualquer laboratório em CSV ou PDF. Também integramos diretamente com IBRA megalab e outros laboratórios brasileiros e bolivianos.</span></p>
+          </details>
+          <details class="faq-item fade-in">
+            <summary><span data-lang-es>¿Cuánto demora el primer informe?</span><span data-lang-pt>Quanto demora o primeiro relatório?</span></summary>
+            <p><span data-lang-es>Diagnóstico satelital inicial: 48-72h. Informe completo de fertilidad con prescripción VRT: 7-14 días según tiempos de laboratorio.</span><span data-lang-pt>Diagnóstico satelital inicial: 48-72h. Relatório completo de fertilidade com prescrição VRT: 7-14 dias conforme tempos do laboratório.</span></p>
+          </details>
+          <details class="faq-item fade-in">
+            <summary><span data-lang-es>¿Las biofábricas on-farm son rentables?</span><span data-lang-pt>As biofábricas on-farm são rentáveis?</span></summary>
+            <p><span data-lang-es>Sí. Producir Trichoderma, Bacillus, Beauveria o Metarhizium en finca cuesta 5-10× menos que comprarlo, con calidad equivalente bajo nuestros protocolos. Payback típico: 1 zafra para fincas >500 ha.</span><span data-lang-pt>Sim. Produzir Trichoderma, Bacillus, Beauveria ou Metarhizium na fazenda custa 5-10× menos que comprar, com qualidade equivalente sob nossos protocolos. Payback típico: 1 safra para fazendas >500 ha.</span></p>
+          </details>
+          <details class="faq-item fade-in">
+            <summary><span data-lang-es>¿Trabajan con drones?</span><span data-lang-pt>Trabalham com drones?</span></summary>
+            <p><span data-lang-es>Sí — detección de malezas con IA, conteo de plantas, restitución de líneas en caña y mapeo altimétrico ALOS/SRTM. Compatible con DJI Mavic, Phantom, Matrice y P4 Multispectral.</span><span data-lang-pt>Sim — detecção de plantas daninhas com IA, contagem de plantas, restituição de linhas em cana e mapeamento altimétrico ALOS/SRTM. Compatível com DJI Mavic, Phantom, Matrice e P4 Multispectral.</span></p>
+          </details>
+          <details class="faq-item fade-in">
+            <summary><span data-lang-es>¿Cuál es el área mínima para contratar?</span><span data-lang-pt>Qual a área mínima para contratar?</span></summary>
+            <p><span data-lang-es>No hay mínimo técnico, pero el ROI típico se materializa desde 50 ha. Para áreas menores recomendamos empezar con un diagnóstico satelital sin compromiso.</span><span data-lang-pt>Não há mínimo técnico, mas o ROI típico se materializa a partir de 50 ha. Para áreas menores recomendamos começar com um diagnóstico satelital sem compromisso.</span></p>
+          </details>
+          <details class="faq-item fade-in">
+            <summary><span data-lang-es>¿Mis datos están seguros?</span><span data-lang-pt>Meus dados estão seguros?</span></summary>
+            <p><span data-lang-es>Sí. Cifrado HTTPS (TLS 1.3), CSP, autenticación 2FA, mínimo privilegio. Cumplimos LGPD (Brasil) y Ley 1581 de protección de datos. Tus datos georreferenciados son tuyos — los usamos solo para prestar el servicio contratado.</span><span data-lang-pt>Sim. Criptografia HTTPS (TLS 1.3), CSP, autenticação 2FA, mínimo privilégio. Cumprimos LGPD (Brasil) e leis de proteção de dados. Seus dados georreferenciados são seus — os usamos apenas para prestar o serviço contratado.</span></p>
+          </details>
+          <details class="faq-item fade-in">
+            <summary><span data-lang-es>¿Aceptan pagos en BRL/BOB/USD?</span><span data-lang-pt>Aceitam pagamentos em BRL/BOB/USD?</span></summary>
+            <p><span data-lang-es>Sí — transferencia bancaria (BOB, BRL, USD), tarjeta de crédito y criptomonedas (USDT, USDC). Facturación conforme a leyes fiscales bolivianas y brasileñas.</span><span data-lang-pt>Sim — transferência bancária (BOB, BRL, USD), cartão de crédito e criptomoedas (USDT, USDC). Faturamento conforme leis fiscais bolivianas e brasileiras.</span></p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8.7 ROI CALCULATOR -->
+    <section class="roi-calc" id="roi" aria-labelledby="roi-heading">
+      <div class="container">
+        <div class="services-header">
+          <h2 id="roi-heading">
+            <span data-lang-es>Calculadora de ROI</span>
+            <span data-lang-pt>Calculadora de ROI</span>
+          </h2>
+          <div class="section-divider"></div>
+          <p>
+            <span data-lang-es>Estima cuánto puedes ahorrar con prescripción variable VRT en tu operación</span>
+            <span data-lang-pt>Estime quanto você pode economizar com prescrição variável VRT na sua operação</span>
+          </p>
+        </div>
+        <div class="roi-grid">
+          <div class="roi-form fade-in">
+            <div class="form-group">
+              <label for="roi-ha"><span data-lang-es>Hectáreas</span><span data-lang-pt>Hectares</span></label>
+              <input type="number" id="roi-ha" min="1" max="100000" value="500" inputmode="numeric">
+            </div>
+            <div class="form-group">
+              <label for="roi-cost"><span data-lang-es>Costo de insumos por ha (USD)</span><span data-lang-pt>Custo de insumos por ha (USD)</span></label>
+              <input type="number" id="roi-cost" min="0" max="10000" value="450" inputmode="numeric">
+            </div>
+            <div class="form-group">
+              <label for="roi-yield"><span data-lang-es>Rendimiento actual (t/ha)</span><span data-lang-pt>Rendimento atual (t/ha)</span></label>
+              <input type="number" id="roi-yield" min="0" step="0.1" max="200" value="3.5" inputmode="decimal">
+            </div>
+            <div class="form-group">
+              <label for="roi-price"><span data-lang-es>Precio cultivo (USD/t)</span><span data-lang-pt>Preço cultivo (USD/t)</span></label>
+              <input type="number" id="roi-price" min="0" max="10000" value="380" inputmode="numeric">
+            </div>
+            <p class="roi-disclaimer">
+              <span data-lang-es>Estimación conservadora basada en 25% reducción de insumos y 12% aumento de productividad. Resultados reales varían según cultivo, clima e implementación.</span>
+              <span data-lang-pt>Estimativa conservadora baseada em 25% redução de insumos e 12% aumento de produtividade. Resultados reais variam conforme cultivo, clima e implementação.</span>
+            </p>
+          </div>
+          <div class="roi-results fade-in">
+            <div class="roi-card">
+              <span class="roi-label"><span data-lang-es>Ahorro en insumos / año</span><span data-lang-pt>Economia em insumos / ano</span></span>
+              <strong class="roi-value" id="roi-savings">$56.250</strong>
+            </div>
+            <div class="roi-card">
+              <span class="roi-label"><span data-lang-es>Ingreso adicional / año</span><span data-lang-pt>Receita adicional / ano</span></span>
+              <strong class="roi-value" id="roi-extra">$79.800</strong>
+            </div>
+            <div class="roi-card roi-card--highlight">
+              <span class="roi-label"><span data-lang-es>Beneficio total / año</span><span data-lang-pt>Benefício total / ano</span></span>
+              <strong class="roi-value" id="roi-total">$136.050</strong>
+            </div>
+            <a href="https://wa.me/59172149171?text=Hola%20Pixadvisor%2C%20quiero%20una%20cotizaci%C3%B3n%20personalizada%20basada%20en%20mi%20c%C3%A1lculo%20de%20ROI." class="hero-btn-primary" target="_blank" rel="noopener noreferrer" data-event="roi_request">
+              <span data-lang-es>Solicitar cotización</span>
+              <span data-lang-pt>Solicitar cotação</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- 9. APPS SECTION -->
     <section class="apps-section" id="apps">
       <div class="container">
@@ -1051,7 +1439,7 @@
           <span data-lang-pt>Comece a transformar sua operação agrícola com tecnologia de precisão</span>
         </p>
         <div class="cta-buttons">
-          <a href="https://wa.me/59172149171?text=Hola%20Pixadvisor%2C%20quiero%20agendar%20una%20demo." class="hero-btn-primary" target="_blank" rel="noopener">
+          <a href="https://wa.me/59172149171?text=Hola%20Pixadvisor%2C%20quiero%20agendar%20una%20demo." class="hero-btn-primary" target="_blank" rel="noopener noreferrer">
             <span data-lang-es>Solicitar Demo</span>
             <span data-lang-pt>Solicitar Demo</span>
           </a>
@@ -1080,7 +1468,7 @@
               <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
               <div>
                 <strong>WhatsApp</strong>
-                <p><a href="https://wa.me/59172149171" target="_blank" rel="noopener">+591 72149171</a></p>
+                <p><a href="https://wa.me/59172149171" target="_blank" rel="noopener noreferrer">+591 72149171</a></p>
               </div>
             </div>
             <!-- Email -->
@@ -1154,13 +1542,13 @@
             <span data-lang-pt>Agricultura de Precisão</span>
           </p>
           <div class="footer-social">
-            <a href="https://www.facebook.com/pixadvisor" target="_blank" rel="noopener" aria-label="Facebook">
+            <a href="https://www.facebook.com/pixadvisor" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
             </a>
-            <a href="https://www.instagram.com/pixadvisor" target="_blank" rel="noopener" aria-label="Instagram">
+            <a href="https://www.instagram.com/pixadvisor" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
             </a>
-            <a href="https://www.linkedin.com/company/pixadvisor" target="_blank" rel="noopener" aria-label="LinkedIn">
+            <a href="https://www.linkedin.com/company/pixadvisor" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
             </a>
           </div>
@@ -1195,7 +1583,7 @@
             <span data-lang-es>Contacto</span>
             <span data-lang-pt>Contato</span>
           </h4>
-          <a href="https://wa.me/59172149171" target="_blank" rel="noopener">+591 72149171</a>
+          <a href="https://wa.me/59172149171" target="_blank" rel="noopener noreferrer">+591 72149171</a>
           <a href="mailto:contacto@pixadvisor.network">contacto@pixadvisor.network</a>
           <a href="#contact">Santa Cruz, Bolivia</a>
         </div>
@@ -1205,12 +1593,61 @@
           <span data-lang-es>Todos los derechos reservados.</span>
           <span data-lang-pt>Todos os direitos reservados.</span>
         </p>
+        <div class="footer-legal">
+          <a href="privacidad.html"><span data-lang-es>Privacidad</span><span data-lang-pt>Privacidade</span></a>
+          <a href="terminos.html"><span data-lang-es>Términos</span><span data-lang-pt>Termos</span></a>
+          <a href="#" data-cookie-reopen><span data-lang-es>Cookies</span><span data-lang-pt>Cookies</span></a>
+          <a href="sitemap.xml">Sitemap</a>
+        </div>
       </div>
     </div>
   </footer>
 
+  <!-- Cookie Consent Banner (LGPD/GDPR compliant) -->
+  <div class="cookie-banner" id="cookieBanner" role="dialog" aria-labelledby="cookie-title" aria-describedby="cookie-desc" hidden>
+    <div class="cookie-content">
+      <h3 id="cookie-title">
+        <span data-lang-es>Tu privacidad importa</span>
+        <span data-lang-pt>Sua privacidade importa</span>
+      </h3>
+      <p id="cookie-desc">
+        <span data-lang-es>Usamos cookies esenciales para el funcionamiento del sitio y, con tu consentimiento, cookies de analítica para mejorar la experiencia. Cumplimos LGPD (Brasil) y normativa de protección de datos.</span>
+        <span data-lang-pt>Usamos cookies essenciais para o funcionamento do site e, com seu consentimento, cookies de analítica para melhorar a experiência. Cumprimos a LGPD (Brasil) e normas de proteção de dados.</span>
+        <a href="privacidad.html"><span data-lang-es>Ver política</span><span data-lang-pt>Ver política</span></a>
+      </p>
+      <div class="cookie-actions">
+        <button type="button" class="cookie-btn cookie-btn--reject" data-cookie="reject">
+          <span data-lang-es>Rechazar</span><span data-lang-pt>Rejeitar</span>
+        </button>
+        <button type="button" class="cookie-btn cookie-btn--customize" data-cookie="customize">
+          <span data-lang-es>Personalizar</span><span data-lang-pt>Personalizar</span>
+        </button>
+        <button type="button" class="cookie-btn cookie-btn--accept" data-cookie="accept">
+          <span data-lang-es>Aceptar todas</span><span data-lang-pt>Aceitar todas</span>
+        </button>
+      </div>
+      <div class="cookie-customize" id="cookieCustomize" hidden>
+        <label class="cookie-toggle">
+          <input type="checkbox" checked disabled>
+          <span><span data-lang-es>Esenciales</span><span data-lang-pt>Essenciais</span> <em>(<span data-lang-es>siempre activas</span><span data-lang-pt>sempre ativas</span>)</em></span>
+        </label>
+        <label class="cookie-toggle">
+          <input type="checkbox" id="cookieAnalytics" checked>
+          <span><span data-lang-es>Analítica</span><span data-lang-pt>Analítica</span> <em>(GA4, Clarity)</em></span>
+        </label>
+        <label class="cookie-toggle">
+          <input type="checkbox" id="cookieMarketing">
+          <span><span data-lang-es>Marketing</span><span data-lang-pt>Marketing</span></span>
+        </label>
+        <button type="button" class="cookie-btn cookie-btn--accept" data-cookie="save">
+          <span data-lang-es>Guardar preferencias</span><span data-lang-pt>Salvar preferências</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- WhatsApp Float -->
-  <a href="https://wa.me/59172149171" target="_blank" rel="noopener" class="whatsapp-float" aria-label="WhatsApp">
+  <a href="https://wa.me/59172149171" target="_blank" rel="noopener noreferrer" class="whatsapp-float" aria-label="WhatsApp">
     <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="#fff"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
   </a>
 
@@ -1350,7 +1787,98 @@
       document.getElementById('contactForm').reset();
     });
 
-    // ===== PIX ADMIN/MUESTREO: acceso solo por URL directo (sin botones públicos) =====
+    // ===== ROI CALCULATOR =====
+    function calcROI() {
+      var ha = parseFloat(document.getElementById('roi-ha').value) || 0;
+      var cost = parseFloat(document.getElementById('roi-cost').value) || 0;
+      var yld = parseFloat(document.getElementById('roi-yield').value) || 0;
+      var price = parseFloat(document.getElementById('roi-price').value) || 0;
+      var savings = ha * cost * 0.25;            // 25% reducción insumos
+      var extraYield = ha * yld * 0.12 * price;  // 12% aumento productividad
+      var total = savings + extraYield;
+      var fmt = function(v) {
+        return '$' + Math.round(v).toLocaleString('es-BO');
+      };
+      document.getElementById('roi-savings').textContent = fmt(savings);
+      document.getElementById('roi-extra').textContent = fmt(extraYield);
+      document.getElementById('roi-total').textContent = fmt(total);
+    }
+    ['roi-ha','roi-cost','roi-yield','roi-price'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.addEventListener('input', calcROI);
+    });
+    calcROI();
+
+    // ===== COOKIE BANNER (LGPD/GDPR Consent Mode v2) =====
+    (function() {
+      var banner = document.getElementById('cookieBanner');
+      var customize = document.getElementById('cookieCustomize');
+      var STORAGE_KEY = 'pixadvisor-cookie-consent';
+      var saved = null;
+      try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); } catch (e) {}
+      function applyConsent(consent) {
+        if (typeof gtag === 'function') {
+          gtag('consent', 'update', {
+            'analytics_storage': consent.analytics ? 'granted' : 'denied',
+            'ad_storage': consent.marketing ? 'granted' : 'denied',
+            'ad_user_data': consent.marketing ? 'granted' : 'denied',
+            'ad_personalization': consent.marketing ? 'granted' : 'denied'
+          });
+        }
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(consent));
+        banner.hidden = true;
+      }
+      if (!saved) {
+        banner.hidden = false;
+      } else {
+        applyConsent(saved);
+      }
+      banner.addEventListener('click', function(e) {
+        var act = e.target.closest('[data-cookie]');
+        if (!act) return;
+        var action = act.dataset.cookie;
+        if (action === 'accept') applyConsent({ analytics: true, marketing: true, ts: Date.now() });
+        else if (action === 'reject') applyConsent({ analytics: false, marketing: false, ts: Date.now() });
+        else if (action === 'customize') customize.hidden = !customize.hidden;
+        else if (action === 'save') {
+          applyConsent({
+            analytics: document.getElementById('cookieAnalytics').checked,
+            marketing: document.getElementById('cookieMarketing').checked,
+            ts: Date.now()
+          });
+        }
+      });
+      // Allow re-opening from footer
+      document.addEventListener('click', function(e) {
+        if (e.target.closest('[data-cookie-reopen]')) {
+          e.preventDefault();
+          banner.hidden = false;
+          customize.hidden = false;
+        }
+      });
+    })();
+
+    // ===== SERVICE WORKER REGISTRATION =====
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('/sw.js').catch(function(err) {
+          console.warn('SW registration failed:', err);
+        });
+      });
+    }
+
+    // ===== ANALYTICS EVENT TRACKING =====
+    document.querySelectorAll('a[href*="wa.me"], [data-event]').forEach(function(el) {
+      el.addEventListener('click', function() {
+        var name = el.dataset.event || 'whatsapp_click';
+        if (typeof gtag === 'function') {
+          gtag('event', name, {
+            event_category: 'engagement',
+            event_label: el.href || el.textContent.trim().slice(0, 60)
+          });
+        }
+      });
+    });
   </script>
 </body>
 </html>
