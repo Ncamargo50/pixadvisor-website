@@ -7,9 +7,17 @@
 //       photo compression, track-to-cloud upload, persistent background sync.
 // v60 — Dashboard v1.1: Chart.js + Leaflet.heat in pre-cache (offline dashboard
 //       for admin techs) + dashboard.html with 8 new features.
-// v61 — deleteTechnician: silent-DELETE detection + soft-delete fallback
-//       when RLS blocks anon DELETE on technicians table (matches deleteOrder).
-const CACHE_NAME = 'pix-muestreo-v61';
+// v61 — deleteTechnician fallback (silent-DELETE detection + soft-delete).
+// v62 — v3.17.2: arrival alarm beeps continuously while inside 3m radius
+//       (GPS jitter compensation) + dashboard fix synced from website.
+// v63 — v3.17.3: auto cloud sync after each saveSample (3s debounced) +
+//       immediate cloud push on lote completion in nextZone(). Fixes
+//       supervisor not seeing samples until manual sync. Also wires
+//       cloud.deleteFieldSync from deleteField/deleteProjectSilent.
+// v64 — v3.17.4: P1 hardening — initial sync on app load if pending samples,
+//       multi-técnico conflict toasts, 401/auth-expired user-facing alert,
+//       APP_VERSION + SW cache aligned with versionCode bump.
+const CACHE_NAME = 'pix-muestreo-v64';
 const TILE_CACHE = 'pix-tiles-v1';
 
 // Derive base path dynamically — works in both web (/pix-muestreo/) and APK WebView

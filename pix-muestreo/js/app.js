@@ -598,6 +598,10 @@ class PixApp {
     pixMap.updatePointStatus(point.id, 'current');
     this.isNavigating = true;
     this._arrivedNotified = false; // Reset arrival flag for new target
+    if (this._arrivalBeepInterval) {
+      clearInterval(this._arrivalBeepInterval);
+      this._arrivalBeepInterval = null;
+    }
     // v3.17: acquire screen wake-lock so GPS + audio keep working when técnico
     // puts phone in pocket during a long walk. Released on arrival / zone end.
     this._acquireWakeLock().catch(() => {});
@@ -687,17 +691,28 @@ class PixApp {
       }
     }
 
-    // Auto-alert when arriving at point (vibration + beep + toast) — 3m radius trigger
-    // (v3.17.1: progressive proximity beep REMOVED per user request —
-    //  la alarma suena sólo al llegar a <3m, como era originalmente)
-    if (dist < 3 && this.isNavigating && !this._arrivedNotified) {
-      this._arrivedNotified = true;
-      // Strong vibration pattern
-      if (navigator.vibrate) navigator.vibrate([300, 100, 300, 100, 300]);
-      // Audible beep using Web Audio API
-      this._playArrivalBeep();
-      this.toast('Llegaste al punto!', 'success');
-      // Flag is reset when navigation target changes (onPointClick / nextPoint)
+    // Arrival alarm: when entering the 3m radius, fire the fanfare once
+    // (vibration + arrival beep + toast) and start a continuous beep loop
+    // that keeps sounding while the técnico stays inside 3m. The loop stops
+    // automatically when they walk out of range (e.g. GPS jitter), when
+    // they collect the sample, or when navigation moves to the next point.
+    if (dist < 3 && this.isNavigating) {
+      if (!this._arrivedNotified) {
+        this._arrivedNotified = true;
+        if (navigator.vibrate) navigator.vibrate([300, 100, 300, 100, 300]);
+        this._playArrivalBeep();
+        this.toast('Llegaste al punto!', 'success');
+        // Start continuous tick beep — soft 660Hz pulse every 600ms while inside.
+        this._arrivalBeepInterval = setInterval(() => {
+          this._playApproachBeep();
+        }, 600);
+      }
+    } else if (this._arrivedNotified) {
+      // Walked out of the 3m radius — stop the loop and re-arm so it
+      // re-triggers (with vibration) if the técnico walks back in.
+      clearInterval(this._arrivalBeepInterval);
+      this._arrivalBeepInterval = null;
+      this._arrivedNotified = false;
     }
   }
 
@@ -1255,6 +1270,12 @@ class PixApp {
     // ═══ AUTO-COMPLETE: check if ALL points in field are done ═══
     this._checkAndCompleteOrder(this.currentField).catch(e =>
       console.warn('[App] Auto-complete check:', e.message));
+
+    // v3.17.3 FIX: push the new sample to Supabase so the supervisor
+    // dashboard reflects field progress in (near) real-time. Debounced 3s
+    // so rapid saves don't spam the network. Silent failure when offline —
+    // the existing online-event auto-sync (5s debounce) will catch up.
+    this._triggerCloudSyncDebounced();
 
     // Check if current zone is complete → show QR modal only on principal point
     const currentZone = this._detectZone(this.currentPoint);
@@ -2954,7 +2975,23 @@ ${detailHTML}
   async _checkAutoSync() {
     const lastSync = await pixDB.getSetting('lastSyncTime');
     const now = Date.now();
-    if (!lastSync) {
+
+    // v3.17.4 FIX (P1-1): always check for unsynced samples on app load and
+    // flush them if online. Without this, samples collected on a previous
+    // offline session sit at synced=0 forever (until 24h elapses or the
+    // técnico goes offline → online again, which won't happen if they're
+    // already online when opening the app).
+    let pendingSamples = 0;
+    try {
+      const allSamples = await pixDB.getAll('samples');
+      pendingSamples = allSamples.filter(s => !s.synced || s.synced === 0).length;
+    } catch (_) { /* ignore */ }
+
+    if (pendingSamples > 0 && navigator.onLine) {
+      console.log(`[AutoSync] ${pendingSamples} pending sample(s) on app load — triggering sync`);
+      this.addSyncLog(`⏰ ${pendingSamples} muestra(s) pendiente(s) — sincronizando...`);
+      setTimeout(() => this._runAutoSync(), 1500);
+    } else if (!lastSync) {
       // First login ever — sync immediately to pull orders
       console.log('[AutoSync] First login — auto-triggering sync');
       this.addSyncLog('⏰ Primer inicio: sincronizando...');
@@ -2984,6 +3021,15 @@ ${detailHTML}
         try {
           const result = await pixCloud.syncAll();
           this.addSyncLog(`☁ Auto-sync: ${result.synced} campos`);
+          // v3.17.4: surface conflicts and auth failures in the auto-sync path too.
+          if (result.conflicts > 0) {
+            this.toast(`⚠ ${result.conflicts} muestra(s) sobreescrita(s) por otro técnico`, 'warning', 6000);
+            this.addSyncLog(`⚠ Auto-sync: ${result.conflicts} conflicto(s) resuelto(s)`);
+          }
+          if (result.authFailed) {
+            this.toast('⛔ Sesión nube vencida — reconfigurá en Ajustes para sincronizar', 'error', 8000);
+            this.addSyncLog('⛔ Auto-sync: sesión nube vencida');
+          }
         } catch (e) { console.warn('[AutoSync] Cloud:', e.message); }
         // Upload pending boundaries + auxiliary syncs (each independently guarded)
         try { await this._syncBoundariesToCloud(); } catch (e) { /* silent */ }
@@ -3584,6 +3630,7 @@ ${detailHTML}
     gpsNav.clearTarget();
     pixMap.clearNavigationLine();
     this.isNavigating = false;
+    if (this._arrivalBeepInterval) { clearInterval(this._arrivalBeepInterval); this._arrivalBeepInterval = null; }
     this._releaseWakeLock && this._releaseWakeLock().catch(() => {});
     const _ov = document.getElementById('mapDistOverlay'); if (_ov) _ov.style.display = 'none';
 
@@ -3662,6 +3709,7 @@ ${detailHTML}
       gpsNav.clearTarget();
       pixMap.clearNavigationLine();
       this.isNavigating = false;
+      if (this._arrivalBeepInterval) { clearInterval(this._arrivalBeepInterval); this._arrivalBeepInterval = null; }
       this._releaseWakeLock && this._releaseWakeLock().catch(() => {});
       const _ov2 = document.getElementById('mapDistOverlay'); if (_ov2) _ov2.style.display = 'none';
 
@@ -3669,6 +3717,35 @@ ${detailHTML}
       this._autoSaveFieldReports(this.currentField).catch(e => {
         console.warn('[AutoSave] Report error:', e.message);
       });
+
+      // v3.17.3 FIX: explicit immediate cloud push on lote completion.
+      // Don't wait for the 3s debounce — the técnico is hitting the final
+      // button and expects the supervisor to see the work immediately.
+      // Cancel any pending debounced sync to avoid a duplicate round-trip.
+      if (this._cloudSyncDebounceTimer) {
+        clearTimeout(this._cloudSyncDebounceTimer);
+        this._cloudSyncDebounceTimer = null;
+      }
+      if (pixCloud && pixCloud.isEnabled && pixCloud.isEnabled() && navigator.onLine) {
+        pixCloud.syncAll().then(r => {
+          if (r && r.synced > 0) {
+            this.toast(`✅ Datos enviados al supervisor (${r.synced} campo${r.synced > 1 ? 's' : ''})`, 'success');
+          }
+          if (r && r.conflicts > 0) {
+            this.toast(`⚠ ${r.conflicts} muestra(s) en conflicto con otro técnico`, 'warning', 6000);
+          }
+          if (r && r.authFailed) {
+            this.toast('⛔ Sesión nube vencida — reconfigurá en Ajustes', 'error', 8000);
+          }
+        }).catch(e => {
+          if (!String(e.message || '').includes('en progreso')) {
+            this.toast('⚠ No se pudo enviar al supervisor — se reintentará cuando haya señal', 'warning');
+            console.warn('[Sync] Lote-complete sync failed:', e.message);
+          }
+        });
+      } else if (!navigator.onLine) {
+        this.toast('📡 Sin señal — datos guardados, se enviarán al recuperar conexión', 'info');
+      }
     } else {
       // Navigate to next zone's principal
       this.nextPoint();
@@ -3923,6 +4000,8 @@ ${detailHTML}
   // A11 FIX: Also delete service orders + tracks associated with the project
   // Silent delete (no confirm) — used by duplicate replacement
   async deleteProjectSilent(projectId) {
+    const project = await pixDB.get('projects', projectId);
+    const projectName = project ? project.name : null;
     const fields = await pixDB.getAllByIndex('fields', 'projectId', projectId);
     for (const f of fields) {
       const points = await pixDB.getAllByIndex('points', 'fieldId', f.id);
@@ -3932,6 +4011,11 @@ ${detailHTML}
       const tracks = await pixDB.getAllByIndex('tracks', 'fieldId', f.id);
       for (const t of tracks) await pixDB.delete('tracks', t.id);
       await pixDB.delete('fields', f.id);
+      // v3.17.3: also remove the cloud field_syncs row so it disappears
+      // from the supervisor dashboard. Non-blocking: local delete already done.
+      if (projectName && f.name && typeof pixCloud !== 'undefined' && pixCloud.isEnabled && pixCloud.isEnabled()) {
+        pixCloud.deleteFieldSync(projectName, f.name).catch(() => {});
+      }
     }
     const orders = await pixDB.getAllByIndex('serviceOrders', 'projectId', projectId);
     for (const o of orders) await pixDB.delete('serviceOrders', o.id);
@@ -3958,6 +4042,12 @@ ${detailHTML}
     if (!ok) return;
 
     try {
+      // v3.17.3: capture project name BEFORE deleting field, for cloud cleanup
+      let projectName = null;
+      if (field && field.projectId) {
+        const proj = await pixDB.get('projects', field.projectId);
+        projectName = proj ? proj.name : null;
+      }
       // Delete all points of this field
       const points = await pixDB.getAllByIndex('points', 'fieldId', fieldId);
       for (const p of points) await pixDB.delete('points', p.id);
@@ -3969,6 +4059,12 @@ ${detailHTML}
       for (const t of tracks) await pixDB.delete('tracks', t.id);
       // Delete the field itself
       await pixDB.delete('fields', fieldId);
+
+      // v3.17.3 FIX: also remove the cloud field_syncs row so the supervisor
+      // dashboard stops seeing the deleted field as "pendiente". Non-blocking.
+      if (projectName && fieldName && typeof pixCloud !== 'undefined' && pixCloud.isEnabled && pixCloud.isEnabled()) {
+        pixCloud.deleteFieldSync(projectName, fieldName).catch(() => {});
+      }
 
       // If this was the current field on the map, clear it
       if (this.currentField && this.currentField.id === fieldId) {
@@ -3986,6 +4082,27 @@ ${detailHTML}
       this.toast(`"${fieldName}" eliminado`, '');
     } catch (e) {
       this.toast('Error al eliminar: ' + e.message, 'error');
+    }
+  }
+
+  // Short soft beep used during the approach (5m → 3m). Single 660Hz tone,
+  // 80ms long, lower gain than arrival beep so it doesn't startle.
+  _playApproachBeep() {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 660;
+      osc.type = 'sine';
+      gain.gain.value = 0.15;
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.08);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.08);
+      setTimeout(() => ctx.close(), 200);
+    } catch (e) {
+      console.warn('[Audio] Approach beep failed:', e.message);
     }
   }
 
@@ -4518,6 +4635,52 @@ ${detailHTML}
     } catch (e) {
       console.warn('[App] Credential sync:', e.message);
     }
+  }
+
+  // ═══════════════════════════════════════════════
+  // AUTO CLOUD SYNC AFTER EACH SAMPLE (v3.17.3)
+  // ═══════════════════════════════════════════════
+  // Called after every sample save and zone completion. Pushes field_syncs
+  // rows so the supervisor dashboard sees field progress without waiting for
+  // the 24h auto-sync timer or the técnico's manual "Sincronizar" tap.
+  //
+  // Debounced 3000ms so a fast collector saving 4 samples in 30s only
+  // triggers one network round-trip. Silent failure when offline — local
+  // data stays at synced=0 and the existing online-event handler will retry.
+  _triggerCloudSyncDebounced() {
+    if (this._cloudSyncDebounceTimer) clearTimeout(this._cloudSyncDebounceTimer);
+    this._cloudSyncDebounceTimer = setTimeout(async () => {
+      this._cloudSyncDebounceTimer = null;
+      if (!pixCloud || !pixCloud.isEnabled || !pixCloud.isEnabled()) return;
+      if (!navigator.onLine) {
+        console.log('[Sync] Offline — skipping debounced cloud sync, will retry on online event');
+        return;
+      }
+      try {
+        const result = await pixCloud.syncAll();
+        if (result) {
+          if (result.synced > 0) {
+            console.log(`[Sync] Auto-pushed ${result.synced} field(s) to Supabase`);
+            this.addSyncLog && this.addSyncLog(`✅ ${result.synced} campo(s) sincronizado(s) automaticamente`);
+          }
+          // v3.17.4: surface multi-técnico conflicts so the user knows
+          // their data was overwritten by another técnico's newer work.
+          if (result.conflicts > 0) {
+            this.toast(`⚠ ${result.conflicts} muestra(s) en conflicto — datos de otro técnico prevalecieron`, 'warning', 6000);
+            this.addSyncLog && this.addSyncLog(`⚠ ${result.conflicts} muestra(s) sobreescrita(s) por otro técnico`);
+          }
+          // v3.17.4: visible auth failure — silent 401 was P1 audit finding.
+          if (result.authFailed) {
+            this.toast('⛔ Sesión nube vencida — reconfigurá en Ajustes para sincronizar', 'error', 8000);
+          }
+        }
+      } catch (e) {
+        // "Sync ya en progreso" is benign — manual or 24h sync already running
+        if (!String(e.message || '').includes('en progreso')) {
+          console.warn('[Sync] Auto-sync after sample failed:', e.message);
+        }
+      }
+    }, 3000);
   }
 
   // ═══════════════════════════════════════════════
