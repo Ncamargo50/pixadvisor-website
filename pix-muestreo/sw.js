@@ -7,7 +7,9 @@
 //       photo compression, track-to-cloud upload, persistent background sync.
 // v60 — Dashboard v1.1: Chart.js + Leaflet.heat in pre-cache (offline dashboard
 //       for admin techs) + dashboard.html with 8 new features.
-const CACHE_NAME = 'pix-muestreo-v60';
+// v61 — deleteTechnician: silent-DELETE detection + soft-delete fallback
+//       when RLS blocks anon DELETE on technicians table (matches deleteOrder).
+const CACHE_NAME = 'pix-muestreo-v61';
 const TILE_CACHE = 'pix-tiles-v1';
 
 // Derive base path dynamically — works in both web (/pix-muestreo/) and APK WebView

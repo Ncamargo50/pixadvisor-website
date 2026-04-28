@@ -2252,10 +2252,14 @@ async function resetTechPassword(id, name) {
 }
 
 async function deleteTechnician(id, name) {
-  if (!await pixConfirm('Eliminar tecnico "' + name + '" permanentemente?\n\nEsta accion NO se puede deshacer.')) return;
+  if (!await pixConfirm('Eliminar tecnico "' + name + '"?\n\nDesaparecera del listado. Sus datos historicos (syncs, actividad) se conservan.')) return;
   try {
     await supaDelete('/technicians?id=eq.' + id);
-    toast('Tecnico "' + name + '" eliminado permanentemente');
+    const check = await supaFetch('/technicians?id=eq.' + id + '&select=id');
+    if (check.length > 0) {
+      await supaPost('/technicians?id=eq.' + id, { active: false, updated_at: new Date().toISOString() }, 'PATCH');
+    }
+    toast('Tecnico "' + name + '" eliminado');
     loadTechnicians();
   } catch (e) {
     toast('Error: ' + e.message, 'err');
