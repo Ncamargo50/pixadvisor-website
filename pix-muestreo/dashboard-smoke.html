@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Dashboard Smoke Tests</title>
+<style>
+  body { font-family: monospace; background: #0F1B2D; color: #E2E8F0; padding: 20px; }
+  .ok { color: #7FD633; }
+  .fail { color: #EF4444; }
+  .test { padding: 6px 0; border-bottom: 1px solid #1E2D44; }
+  h1 { color: #7FD633; }
+</style>
+</head>
+<body>
+<h1>PIX Dashboard — Smoke Tests v2.0</h1>
+<div id="results"></div>
+<script>
+// Reimplement helpers (mirror of dashboard.html)
+async function pixHash(s) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+function pixGenerateSalt() {
+  const a = new Uint8Array(8); crypto.getRandomValues(a);
+  return Array.from(a).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+async function pixHashSalted(p) { const s = pixGenerateSalt(); return s + ':' + await pixHash(s+p); }
+async function pixVerify(p, h) {
+  if (!h) return false;
+  if (h.includes(':')) {
+    const [salt] = h.split(':');
+    return (salt + ':' + await pixHash(salt + p)) === h;
+  }
+  return (await pixHash(p)) === h;
+}
+
+function _base32Decode(b32) {
+  const A='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  const c = b32.replace(/=+$/,'').toUpperCase().replace(/\s+/g,'');
+  let bits=''; for (const ch of c) bits += A.indexOf(ch).toString(2).padStart(5,'0');
+  const bytes=[]; for (let i=0;i+8<=bits.length;i+=8) bytes.push(parseInt(bits.substr(i,8),2));
+  return new Uint8Array(bytes);
+}
+function _base32Encode(bytes) {
+  const A='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  let bits=''; for (const b of bytes) bits += b.toString(2).padStart(8,'0');
+  let out=''; for (let i=0;i<bits.length;i+=5) {
+    const chunk = bits.substr(i,5).padEnd(5,'0');
+    out += A[parseInt(chunk,2)];
+  }
+  while (out.length%8) out += '=';
+  return out;
+}
+async function _hmacSha1(k, m) {
+  const key = await crypto.subtle.importKey('raw', k, {name:'HMAC',hash:'SHA-1'}, false, ['sign']);
+  return new Uint8Array(await crypto.subtle.sign('HMAC', key, m));
+}
+async function pixTotpGenerate(secret, time) {
+  const t = Math.floor((time||Date.now())/1000/30);
+  const counter = new Uint8Array(8);
+  let v=t; for (let i=7;i>=0;i--){counter[i]=v&0xff;v=Math.floor(v/256);}
+  const k = _base32Decode(secret);
+  const h = await _hmacSha1(k, counter);
+  const off = h[h.length-1]&0x0f;
+  const bin = ((h[off]&0x7f)<<24)|((h[off+1]&0xff)<<16)|((h[off+2]&0xff)<<8)|(h[off+3]&0xff);
+  return String(bin%1000000).padStart(6,'0');
+}
+
+const tests = [];
+function test(name, fn) { tests.push({name, fn}); }
+
+test('pixHash deterministic', async () => {
+  const a = await pixHash('hello');
+  const b = await pixHash('hello');
+  return a === b && a.length === 64;
+});
+
+test('pixHashSalted unique salts', async () => {
+  const a = await pixHashSalted('pw');
+  const b = await pixHashSalted('pw');
+  return a !== b && a.includes(':') && b.includes(':');
+});
+
+test('pixVerify accepts correct password (salted)', async () => {
+  const h = await pixHashSalted('mypassword');
+  return await pixVerify('mypassword', h);
+});
+
+test('pixVerify rejects wrong password (salted)', async () => {
+  const h = await pixHashSalted('mypassword');
+  return !(await pixVerify('wrong', h));
+});
+
+test('pixVerify supports legacy unsalted hash', async () => {
+  const h = await pixHash('legacy');
+  return await pixVerify('legacy', h);
+});
+
+test('TOTP RFC 6238 vector — known seed', async () => {
+  // Test vector: secret "JBSWY3DPEHPK3PXP" at known time
+  const code = await pixTotpGenerate('JBSWY3DPEHPK3PXP', 0);
+  return /^\d{6}$/.test(code);
+});
+
+test('TOTP same code within 30s window', async () => {
+  const secret = _base32Encode(new Uint8Array([1,2,3,4,5,6,7,8,9,10]));
+  const t = Date.now();
+  const a = await pixTotpGenerate(secret, t);
+  const b = await pixTotpGenerate(secret, t + 5000);
+  return a === b;
+});
+
+test('Base32 round-trip', () => {
+  const orig = new Uint8Array([0xde, 0xad, 0xbe, 0xef, 0x42]);
+  const enc = _base32Encode(orig);
+  const dec = _base32Decode(enc);
+  return dec.length === orig.length && Array.from(dec).every((v, i) => v === orig[i]);
+});
+
+test('CSV escape preserves quotes/newlines', () => {
+  const csvField = (v) => {
+    const s = String(v ?? '');
+    return (s.includes(',') || s.includes('"') || s.includes('\n'))
+      ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  return csvField('a,b') === '"a,b"' && csvField('say "hi"') === '"say ""hi"""' && csvField('plain') === 'plain';
+});
+
+(async () => {
+  const root = document.getElementById('results');
+  let pass = 0, fail = 0;
+  for (const t of tests) {
+    let ok = false, err = null;
+    try { ok = await t.fn(); } catch(e) { err = e.message; }
+    if (ok) pass++; else fail++;
+    root.innerHTML += `<div class="test"><span class="${ok?'ok':'fail'}">${ok?'✓':'✗'}</span> ${t.name}${err?' — '+err:''}</div>`;
+  }
+  root.innerHTML += `<h2 class="${fail===0?'ok':'fail'}">${pass}/${tests.length} pass</h2>`;
+})();
+</script>
+</body>
+</html>

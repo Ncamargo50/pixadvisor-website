@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.supabase.co wss://*.supabase.co; img-src 'self' data: blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://mt0.google.com https://mt1.google.com https://mt2.google.com https://mt3.google.com; worker-src 'self' blob:;">
-<title>PIX Muestreo — Panel de Supervision v1.1</title>
+<title>PIX Muestreo — Panel de Supervision v2.0</title>
 <link rel="icon" type="image/png" href="icons/icon-192.png">
 <link rel="stylesheet" href="lib/leaflet.css">
 <style>
@@ -190,6 +190,36 @@
   /* v1.1 — Export PDF hidden during capture */
   .pdf-exporting .refresh-bar, .pdf-exporting .section-header button,
   .pdf-exporting .nav-tabs, .pdf-exporting .header button { display: none !important; }
+
+  /* v2.0 — Mobile responsive tables (collapse to cards under 768px) */
+  @media (max-width: 768px) {
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .table-wrap table { min-width: 600px; font-size: 11px; }
+    .table-wrap th, .table-wrap td { padding: 6px 8px; }
+    .header h1 { font-size: 14px; }
+    .header { padding: 10px 12px; gap: 8px; flex-wrap: wrap; }
+    .nav-tabs { overflow-x: auto; padding: 0 8px; -webkit-overflow-scrolling: touch; }
+    .nav-tab { padding: 10px 12px; font-size: 12px; white-space: nowrap; }
+    #adminBadge { font-size: 10px; padding: 4px 8px; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .filter-bar { flex-direction: column; align-items: stretch; }
+    .pagination { flex-direction: column; gap: 8px; align-items: center; }
+  }
+
+  /* v2.0 — Focus visible (a11y) */
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible,
+  .nav-tab:focus-visible {
+    outline: 2px solid var(--green) !important;
+    outline-offset: 2px;
+  }
+
+  /* v2.0 — Leaderboard */
+  .leaderboard { display: grid; gap: 6px; }
+  .leaderboard-row { display: grid; grid-template-columns: 28px 1fr 80px 60px; gap: 10px; align-items: center; padding: 8px 12px; background: var(--bg3); border-radius: 8px; font-size: 12px; }
+  .leaderboard-row.top1 { background: linear-gradient(90deg, rgba(127,214,51,0.15), var(--bg3)); }
+  .leaderboard-rank { font-weight: 700; color: var(--green); }
+  .leaderboard-bar { height: 4px; background: rgba(127,214,51,0.15); border-radius: 2px; overflow: hidden; }
+  .leaderboard-bar-fill { height: 100%; background: linear-gradient(90deg, var(--green), var(--teal)); }
 </style>
 </head>
 <body>
@@ -199,23 +229,26 @@
 <!-- HEADER -->
 <div class="header">
   <img src="icons/icon-192.png" alt="PIX">
-  <h1>Panel de Supervision <small style="font-size:11px;font-weight:400;color:var(--muted)">v1.1</small></h1>
+  <h1>Panel de Supervision <small style="font-size:11px;font-weight:400;color:var(--muted)">v2.0</small></h1>
   <span class="rt-pulse" id="rtIndicator" title="Supabase realtime channel"><span class="rt-dot"></span><span id="rtLabel">Polling</span></span>
+  <span id="adminBadge" style="display:none;align-items:center;gap:6px;padding:6px 12px;border:1px solid rgba(127,214,51,0.25);background:rgba(127,214,51,0.08);color:var(--green);border-radius:8px;font-size:11px;font-weight:600;white-space:nowrap" title="Admin con sesión iniciada"></span>
   <button id="pdfExportBtn" onclick="exportDashboardPDF()" style="padding:8px 14px;border:1px solid rgba(127,214,51,0.3);background:rgba(127,214,51,0.1);color:var(--green);border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap" title="Exportar dashboard a PDF">📄 PDF</button>
   <button id="exportBtn" onclick="exportReports()" style="padding:8px 14px;border:1px solid rgba(127,214,51,0.3);background:rgba(127,214,51,0.1);color:var(--green);border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap;display:none" title="Exportar reportes a carpeta local">📁 Exportar</button>
   <div class="status" id="connStatus">
     <span class="dot dot-off" id="connDot"></span>
     <span id="connText">Desconectado</span>
   </div>
-  <button onclick="dashLogout()" style="padding:6px 12px;border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.1);color:var(--red);border-radius:8px;cursor:pointer;font-size:11px;font-weight:600;" title="Cerrar sesion">Salir</button>
+  <button onclick="dashLogout()" style="padding:6px 12px;border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.1);color:var(--red);border-radius:8px;cursor:pointer;font-size:11px;font-weight:600;" title="Cerrar sesion" aria-label="Cerrar sesión">Salir</button>
 </div>
 
 <!-- TAB NAVIGATION -->
-<div class="nav-tabs" id="navTabs" style="display:none">
-  <button class="nav-tab active" data-tab="tabPanel" onclick="showTab('tabPanel')">📊 Panel</button>
-  <button class="nav-tab" data-tab="tabOrdenes" onclick="showTab('tabOrdenes')">📋 Ordenes</button>
-  <button class="nav-tab" data-tab="tabTecnicos" onclick="showTab('tabTecnicos')">👥 Tecnicos</button>
-  <button class="nav-tab" data-tab="tabDispositivos" onclick="showTab('tabDispositivos')">📱 Dispositivos</button>
+<div class="nav-tabs" id="navTabs" style="display:none" role="tablist">
+  <button class="nav-tab active" data-tab="tabPanel" onclick="showTab('tabPanel')" role="tab" aria-selected="true">📊 Panel</button>
+  <button class="nav-tab" data-tab="tabOrdenes" onclick="showTab('tabOrdenes')" role="tab">📋 Ordenes</button>
+  <button class="nav-tab" data-tab="tabTecnicos" onclick="showTab('tabTecnicos')" role="tab">👥 Tecnicos</button>
+  <button class="nav-tab" data-tab="tabDispositivos" onclick="showTab('tabDispositivos')" role="tab">📱 Dispositivos</button>
+  <button class="nav-tab" data-tab="tabAdmins" onclick="showTab('tabAdmins')" role="tab">🛡️ Admins</button>
+  <button class="nav-tab" data-tab="tabAuditoria" onclick="showTab('tabAuditoria')" role="tab">📜 Auditoría</button>
 </div>
 
 <!-- SETUP PANEL (shown if no credentials) -->
@@ -339,11 +372,29 @@
         </div>
       </div>
 
+      <!-- LEADERBOARD (v2.0 — full ranking) -->
+      <div class="panel" style="margin-bottom:20px">
+        <div class="panel-title" style="display:flex;align-items:center;justify-content:space-between">
+          <span>🏆 Ranking de Técnicos</span>
+          <small style="font-weight:400;color:var(--muted)">Por muestras totales</small>
+        </div>
+        <div class="panel-body" style="max-height:340px;overflow-y:auto">
+          <div class="leaderboard" id="leaderboardList">
+            <div style="color:var(--muted);font-size:12px;padding:12px;text-align:center">Cargando...</div>
+          </div>
+        </div>
+      </div>
+
       <!-- ACTIVITY (full width) -->
       <div class="panel" style="margin-bottom:20px">
-        <div class="panel-title">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-          Actividad Reciente
+        <div class="panel-title" style="display:flex;align-items:center;justify-content:space-between">
+          <span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Actividad Reciente
+          </span>
+          <span>
+            <label style="font-size:11px;color:var(--muted);margin-right:6px"><input type="checkbox" id="activityShowAdmin" onchange="loadData()" checked> Incluir acciones admin</label>
+          </span>
         </div>
         <div class="panel-body" style="max-height:300px;overflow-y:auto" id="activityList">
           <div style="color:var(--muted);font-size:13px;padding:20px;text-align:center">Cargando...</div>
@@ -454,6 +505,7 @@
             </tbody>
           </table>
         </div>
+        <div class="pagination" id="ordersPagination"></div>
       </div>
 
     </div>
@@ -465,7 +517,22 @@
 
       <div class="section-header">
         <h2>Gestion de Tecnicos</h2>
-        <button class="btn btn-primary" onclick="toggleTechForm()">+ Nuevo Tecnico</button>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="search" id="techsSearchInput" placeholder="🔍 Buscar nombre, usuario, email…" oninput="_techsSearch=this.value;applyTechFilters()" aria-label="Buscar técnico" style="padding:8px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:var(--bg3);color:var(--text);font-size:12px;min-width:240px;font-family:inherit">
+          <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted)">
+            <input type="checkbox" id="techsShowInactive" onchange="_techsShowInactive=this.checked;loadTechnicians()"> Mostrar inactivos
+          </label>
+          <button class="btn btn-secondary btn-sm" onclick="exportTechsCSV()" title="Exportar lista CSV">⬇ CSV</button>
+          <button class="btn btn-secondary btn-sm" onclick="exportTechsJSON()" title="Exportar lista JSON">⬇ JSON</button>
+          <button class="btn btn-primary" onclick="toggleTechForm()">+ Nuevo Técnico</button>
+        </div>
+      </div>
+
+      <!-- Bulk action bar (visible only when items selected) -->
+      <div id="techsBulkBar" style="display:none;padding:10px 14px;background:rgba(13,148,136,0.12);border:1px solid rgba(13,148,136,0.3);border-radius:10px;margin-bottom:12px;align-items:center;gap:12px">
+        <span id="techsBulkCount" style="font-size:13px;font-weight:600;color:var(--teal)">0 seleccionados</span>
+        <button class="btn btn-sm btn-danger" onclick="bulkDeactivateTechs()">Desactivar seleccionados</button>
+        <button class="btn btn-sm btn-secondary" onclick="clearTechSelection()">Limpiar selección</button>
       </div>
 
       <!-- New Technician Form -->
@@ -518,6 +585,7 @@
           <table>
             <thead>
               <tr>
+                <th style="width:32px"><input type="checkbox" onchange="if(this.checked){document.querySelectorAll('#techsTableBody input[type=checkbox]').forEach(cb=>{cb.checked=true;toggleTechSelected(cb.closest('tr').dataset.id||'',true)})}else{clearTechSelection()}" aria-label="Seleccionar todos"></th>
                 <th>Nombre</th>
                 <th>Username</th>
                 <th>Rol</th>
@@ -530,10 +598,11 @@
               </tr>
             </thead>
             <tbody id="techsTableBody">
-              <tr><td colspan="9" style="text-align:center;color:var(--muted);padding:30px">Cargando tecnicos...</td></tr>
+              <tr><td colspan="10" style="text-align:center;color:var(--muted);padding:30px">Cargando técnicos...</td></tr>
             </tbody>
           </table>
         </div>
+        <div class="pagination" id="techsPagination"></div>
       </div>
 
     </div>
@@ -570,27 +639,176 @@
             </tbody>
           </table>
         </div>
+        <div class="pagination" id="devicesPagination"></div>
       </div>
 
+    </div>
+  </div>
+
+  <!-- ═══ TAB: ADMINS (Per-admin user accounts) ═══ -->
+  <div id="tabAdmins" class="tab-content">
+    <div class="container">
+
+      <div class="section-header">
+        <h2>Administradores</h2>
+        <button class="btn btn-primary" onclick="toggleAdminForm()">+ Nuevo Admin</button>
+      </div>
+
+      <div class="form-panel" id="adminFormPanel">
+        <h3 style="font-size:14px;margin-bottom:14px" id="adminFormTitle">Nuevo Administrador</h3>
+        <input type="hidden" id="adminEditId" value="">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Usuario *</label>
+            <input type="text" id="adminUsername" placeholder="usuario" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label>Nombre Completo *</label>
+            <input type="text" id="adminFullName" placeholder="Nombre y apellido">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="adminEmail" placeholder="email@dominio.com">
+          </div>
+          <div class="form-group">
+            <label>Rol</label>
+            <select id="adminRole">
+              <option value="admin">Admin (full)</option>
+              <option value="supervisor">Supervisor (no destructivo)</option>
+              <option value="viewer">Viewer (solo lectura)</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group full">
+            <label id="adminPwLabel">Clave * (mín 8 caracteres)</label>
+            <input type="password" id="adminPassword" placeholder="Clave segura" autocomplete="new-password">
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" id="adminSubmitBtn" onclick="submitAdmin()">Crear Admin</button>
+          <button class="btn btn-secondary" onclick="toggleAdminForm()">Cancelar</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-body table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Usuario</th>
+                <th>Nombre</th>
+                <th>Email</th>
+                <th>Rol</th>
+                <th>2FA</th>
+                <th>Activo</th>
+                <th>Último login</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="adminsTableBody">
+              <tr><td colspan="8" style="text-align:center;color:var(--muted);padding:30px">Cargando…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: AUDITORÍA (Admin action log) ═══ -->
+  <div id="tabAuditoria" class="tab-content">
+    <div class="container">
+
+      <div class="section-header">
+        <h2>Auditoría de acciones</h2>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select id="auditFilterAction" onchange="loadAudit()" class="status-select">
+            <option value="">Todas las acciones</option>
+            <option value="login">Login</option>
+            <option value="login_failed">Login fallido</option>
+            <option value="logout">Logout</option>
+            <option value="create_tech">Crear técnico</option>
+            <option value="update_tech">Editar técnico</option>
+            <option value="delete_tech">Eliminar técnico</option>
+            <option value="reset_pw">Reset password</option>
+            <option value="toggle_active">Activar/desactivar</option>
+            <option value="delete_order">Eliminar orden</option>
+            <option value="delete_device">Eliminar dispositivo</option>
+            <option value="create_admin">Crear admin</option>
+            <option value="delete_admin">Eliminar admin</option>
+          </select>
+          <button class="btn btn-secondary" onclick="exportAuditCSV()">⬇ CSV</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-body table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha/hora</th>
+                <th>Admin</th>
+                <th>Acción</th>
+                <th>Objetivo</th>
+                <th>Detalle</th>
+              </tr>
+            </thead>
+            <tbody id="auditTableBody">
+              <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:30px">Cargando…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination" id="auditPagination"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TECHNICIAN DETAIL DRAWER ═══ -->
+  <div id="techDetailDrawer" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9990" onclick="if(event.target===this)closeTechDetail()">
+    <div style="position:absolute;top:0;right:0;bottom:0;width:min(560px,90vw);background:var(--bg2);border-left:1px solid rgba(255,255,255,0.08);box-shadow:-12px 0 32px rgba(0,0,0,0.4);overflow-y:auto;padding:24px" id="techDetailBody">
+      <button onclick="closeTechDetail()" style="position:absolute;top:12px;right:12px;background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer" aria-label="Cerrar">×</button>
+      <div id="techDetailContent">Cargando…</div>
     </div>
   </div>
 
 </div>
 
 <!-- Dashboard Auth Overlay -->
-<div id="dashAuthOverlay" style="display:none;position:fixed;inset:0;background:#0F1B2D;z-index:99999;align-items:center;justify-content:center;font-family:Inter,sans-serif;">
-  <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(127,214,51,0.15);border-radius:24px;padding:48px 36px;max-width:360px;width:90%;text-align:center;backdrop-filter:blur(20px);">
+<div id="dashAuthOverlay" style="display:none;position:fixed;inset:0;background:#0F1B2D;z-index:99999;align-items:center;justify-content:center;font-family:Inter,sans-serif;" role="dialog" aria-labelledby="dashAuthTitle" aria-modal="true">
+  <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(127,214,51,0.15);border-radius:24px;padding:48px 36px;max-width:380px;width:90%;text-align:center;backdrop-filter:blur(20px);">
     <img src="icons/icon-192.png" alt="PIX" style="width:72px;height:72px;border-radius:16px;filter:drop-shadow(0 0 20px rgba(127,214,51,0.3));margin-bottom:16px;">
-    <h2 style="color:white;font-size:1.5rem;font-weight:700;margin:0 0 4px;">Panel de Supervision</h2>
-    <p style="color:#94a3b8;font-size:0.85rem;margin:0 0 28px;">Ingresa la clave de administrador</p>
-    <input type="password" id="dashAuthPass" placeholder="Clave de acceso"
-      onkeydown="if(event.key==='Enter')dashAuthLogin()"
-      style="width:100%;padding:14px 16px;border-radius:12px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.06);color:white;font-size:15px;outline:none;box-sizing:border-box;margin-bottom:12px;font-family:Inter,sans-serif;">
-    <div id="dashAuthError" style="display:none;color:#ef4444;font-size:13px;margin-bottom:12px;">Clave incorrecta</div>
-    <button onclick="dashAuthLogin()" style="width:100%;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#7FD633,#0d9488);color:#0F1B2D;font-size:15px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;">
-      Ingresar
-    </button>
-    <p style="color:#475569;font-size:0.7rem;margin-top:16px;">Pixadvisor — Dashboard Admin</p>
+    <h2 id="dashAuthTitle" style="color:white;font-size:1.5rem;font-weight:700;margin:0 0 4px;">Panel de Supervision</h2>
+    <p style="color:#94a3b8;font-size:0.85rem;margin:0 0 28px;">Ingresá tus credenciales de administrador</p>
+
+    <!-- Step 1: username + password -->
+    <div id="dashAuthStep1">
+      <input type="text" id="dashAuthUser" placeholder="Usuario" autocomplete="username"
+        onkeydown="if(event.key==='Enter')document.getElementById('dashAuthPass').focus()"
+        aria-label="Usuario"
+        style="width:100%;padding:14px 16px;border-radius:12px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.06);color:white;font-size:15px;outline:none;box-sizing:border-box;margin-bottom:10px;font-family:Inter,sans-serif;">
+      <input type="password" id="dashAuthPass" placeholder="Clave" autocomplete="current-password"
+        onkeydown="if(event.key==='Enter')dashAuthLogin()"
+        aria-label="Clave"
+        style="width:100%;padding:14px 16px;border-radius:12px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.06);color:white;font-size:15px;outline:none;box-sizing:border-box;margin-bottom:12px;font-family:Inter,sans-serif;">
+      <button onclick="dashAuthLogin()" style="width:100%;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#7FD633,#0d9488);color:#0F1B2D;font-size:15px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;">
+        Ingresar
+      </button>
+    </div>
+
+    <!-- Step 2: TOTP 2FA code (only shown if user has 2FA enabled) -->
+    <div id="dashAuthStep2" style="display:none">
+      <p style="color:#94a3b8;font-size:0.8rem;margin:0 0 12px;">Ingresá el código de 6 dígitos de tu app autenticadora (Google Authenticator / Authy)</p>
+      <input type="text" id="dashAuthTotp" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="000000"
+        onkeydown="if(event.key==='Enter')dashAuthVerifyTotp()"
+        aria-label="Código 2FA"
+        style="width:100%;padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.06);color:white;font-size:24px;letter-spacing:8px;text-align:center;outline:none;box-sizing:border-box;margin-bottom:12px;font-family:Inter,sans-serif;">
+      <button onclick="dashAuthVerifyTotp()" style="width:100%;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#7FD633,#0d9488);color:#0F1B2D;font-size:15px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;">Verificar</button>
+    </div>
+
+    <div id="dashAuthError" role="alert" style="display:none;color:#ef4444;font-size:13px;margin-top:12px;">Credenciales incorrectas</div>
+    <p style="color:#475569;font-size:0.7rem;margin-top:16px;">Pixadvisor — Dashboard Admin v2.0</p>
   </div>
 </div>
 
@@ -628,75 +846,99 @@
 <script>
 // ═══════════════════════════════════════════════════
 // PIX Muestreo Dashboard — Supabase Direct REST
-// Full Admin Panel with Tabs — v1.1 upgrade
+// Full Admin Panel with Tabs — v2.0
+// v2.0 (2026-05-01): +Per-admin accounts, +Audit log, +Salted pw,
+//                    +TOTP 2FA, +Auto-logout, +Pagination all,
+//                    +Search, +Bulk ops, +Tech detail, +Realtime v2,
+//                    +Browser notifs, +Marker cluster, +A11y
 // v1.1 (2026-04-19): +Charts, +Realtime, +Heatmap, +GPS tracks,
-//                    +PDF export, +pagination, +date/client filters,
-//                    +conflict badges, +sessionStorage creds
+//                    +PDF export, +pagination, +date/client filters
 // ═══════════════════════════════════════════════════
 
-// ── DASHBOARD AUTH ──
-// SHA-256 hash of the dashboard access password
-const DASH_AUTH_HASH = 'ff10a74d3ebf2a182657249e55b350c0a5688350155ff67b3d65056246f0f9c0'; // pixadvisor2026!
+// ── CONSTANTS ──
+const ONE_MINUTE = 60000;
+const ONE_HOUR   = 3600000;
+const ONE_DAY    = 86400000;
+const INACTIVITY_TIMEOUT = 30 * ONE_MINUTE;     // auto-logout after 30 min idle
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOGIN_LOCKOUT_BASE = 60 * 1000;           // 60s base lockout (exponential)
 
-async function _sha256(str) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+// ── CRYPTO HELPERS (unified — replaces _sha256 + sha256 duplicates) ──
+async function pixHash(str) {
+  if (typeof crypto !== 'undefined' && crypto.subtle) {
+    try {
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    } catch (_) { /* fall through */ }
+  }
+  // No fallback in dashboard context — modern browsers only
+  throw new Error('crypto.subtle not available — use a modern browser');
 }
 
+function pixGenerateSalt() {
+  const arr = new Uint8Array(8);
+  crypto.getRandomValues(arr);
+  return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function pixHashSalted(plain) {
+  const salt = pixGenerateSalt();
+  const hash = await pixHash(salt + plain);
+  return salt + ':' + hash;
+}
+
+async function pixVerify(plain, storedHash) {
+  if (!storedHash) return false;
+  if (storedHash.includes(':')) {
+    const [salt, _hash] = storedHash.split(':');
+    const computed = await pixHash(salt + plain);
+    return (salt + ':' + computed) === storedHash;
+  }
+  // Legacy unsalted SHA-256 (backward compat)
+  const computed = await pixHash(plain);
+  return computed === storedHash;
+}
+
+// ── ADMIN AUTH STATE ──
+let _adminUser = null;          // { id, username, full_name, role }
 let _authAttempts = 0;
 let _authLockUntil = 0;
+let _pendingTotpUser = null;    // user pending TOTP verification
 
-async function dashAuthLogin() {
-  // Rate limiting: 5 attempts then 60s lockout (doubles each time)
-  if (Date.now() < _authLockUntil) {
-    const secs = Math.ceil((_authLockUntil - Date.now()) / 1000);
-    document.getElementById('dashAuthError').textContent = `Demasiados intentos. Espere ${secs}s`;
-    document.getElementById('dashAuthError').style.display = 'block';
-    return;
-  }
-  const pass = document.getElementById('dashAuthPass').value;
-  if (!pass || pass.length < 4) {
-    document.getElementById('dashAuthError').textContent = 'Clave muy corta';
-    document.getElementById('dashAuthError').style.display = 'block';
-    return;
-  }
-  const hash = await _sha256(pass);
-  if (hash === DASH_AUTH_HASH) {
-    _authAttempts = 0;
-    sessionStorage.setItem('pix_dash_auth', 'true');
-    document.getElementById('dashAuthOverlay').style.display = 'none';
-    initDashboard();
-  } else {
-    _authAttempts++;
-    document.getElementById('dashAuthPass').value = '';
-    if (_authAttempts >= 5) {
-      const lockSecs = 60 * Math.pow(2, Math.floor(_authAttempts / 5) - 1);
-      _authLockUntil = Date.now() + lockSecs * 1000;
-      document.getElementById('dashAuthError').textContent = `Bloqueado por ${lockSecs}s (demasiados intentos)`;
-    } else {
-      document.getElementById('dashAuthError').textContent = `Clave incorrecta (${5 - _authAttempts} intentos restantes)`;
-    }
-    document.getElementById('dashAuthError').style.display = 'block';
-  }
+// ── INACTIVITY TIMER (auto-logout) ──
+let _inactivityTimer = null;
+function _resetInactivityTimer() {
+  if (_inactivityTimer) clearTimeout(_inactivityTimer);
+  if (!_adminUser) return;
+  _inactivityTimer = setTimeout(() => {
+    pixToast('Sesión expirada por inactividad', 'warn');
+    setTimeout(dashLogout, 1500);
+  }, INACTIVITY_TIMEOUT);
 }
+['mousemove','keydown','click','touchstart'].forEach(ev =>
+  document.addEventListener(ev, _resetInactivityTimer, { passive: true })
+);
 
-function dashLogout() {
-  sessionStorage.removeItem('pix_dash_auth');
-  location.reload();
-}
-
-// Custom confirm modal (replaces window.confirm)
-function pixConfirm(msg) {
+// ── CUSTOM MODALS (replace native confirm/prompt/alert) ──
+function pixConfirm(msg, opts) {
+  opts = opts || {};
   return new Promise(resolve => {
     const modal = document.getElementById('confirmModal');
     document.getElementById('confirmModalMsg').textContent = msg;
+    const okBtn = document.getElementById('confirmModalOk');
+    const cancelBtn = document.getElementById('confirmModalCancel');
+    okBtn.textContent = opts.okLabel || 'Confirmar';
+    cancelBtn.textContent = opts.cancelLabel || 'Cancelar';
+    okBtn.style.background = opts.danger === false ? 'var(--green)' : 'var(--red)';
+    okBtn.style.color = opts.danger === false ? 'var(--bg)' : 'white';
     modal.style.display = 'flex';
-    document.getElementById('confirmModalOk').onclick = () => { modal.style.display = 'none'; resolve(true); };
-    document.getElementById('confirmModalCancel').onclick = () => { modal.style.display = 'none'; resolve(false); };
+    const close = (val) => { modal.style.display = 'none'; resolve(val); };
+    okBtn.onclick = () => close(true);
+    cancelBtn.onclick = () => close(false);
+    setTimeout(() => okBtn.focus(), 50);
   });
 }
 
-// Custom input modal (replaces window.prompt)
 function pixPrompt(msg, type) {
   return new Promise(resolve => {
     const modal = document.getElementById('inputModal');
@@ -705,40 +947,278 @@ function pixPrompt(msg, type) {
     field.type = type || 'text';
     field.value = '';
     modal.style.display = 'flex';
-    field.focus();
-    document.getElementById('inputModalOk').onclick = () => { modal.style.display = 'none'; resolve(field.value); };
-    document.getElementById('inputModalCancel').onclick = () => { modal.style.display = 'none'; resolve(null); };
+    setTimeout(() => field.focus(), 50);
+    const close = (val) => { modal.style.display = 'none'; resolve(val); };
+    document.getElementById('inputModalOk').onclick = () => close(field.value);
+    document.getElementById('inputModalCancel').onclick = () => close(null);
+    field.onkeydown = (e) => { if (e.key === 'Enter') close(field.value); };
   });
+}
+
+function pixAlert(msg) {
+  return pixConfirm(msg, { okLabel: 'OK', cancelLabel: '', danger: false }).then(() => undefined);
+}
+
+// Toast w/ optional Undo button (returns Promise that resolves true on undo, false on auto-dismiss)
+function pixToast(msg, type, undoCb) {
+  const el = document.getElementById('toast');
+  const cls = type === 'err' || type === 'error' ? 'toast-err'
+            : type === 'warning' || type === 'warn' ? 'toast-warn'
+            : 'toast-ok';
+  if (undoCb) {
+    el.innerHTML = `<span>${esc(msg)}</span> <button onclick="window._pixUndo()" style="margin-left:10px;padding:2px 10px;border:1px solid currentColor;background:transparent;color:inherit;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600">↶ Deshacer</button>`;
+    let undone = false;
+    window._pixUndo = () => { undone = true; el.classList.remove('show'); undoCb(); };
+    el.className = 'toast ' + cls + ' show';
+    setTimeout(() => {
+      el.classList.remove('show');
+      delete window._pixUndo;
+    }, 5000);
+  } else {
+    el.textContent = msg;
+    el.className = 'toast ' + cls + ' show';
+    setTimeout(() => { el.classList.remove('show'); }, 3000);
+  }
+}
+// Backward-compat alias used elsewhere in this file
+const toast = pixToast;
+
+// ── ADMIN LOGIN ──
+async function dashAuthLogin() {
+  // Rate limiting (per-browser)
+  if (Date.now() < _authLockUntil) {
+    const secs = Math.ceil((_authLockUntil - Date.now()) / 1000);
+    document.getElementById('dashAuthError').textContent = `Demasiados intentos. Espere ${secs}s`;
+    document.getElementById('dashAuthError').style.display = 'block';
+    return;
+  }
+  const username = (document.getElementById('dashAuthUser').value || '').trim().toLowerCase();
+  const pass = document.getElementById('dashAuthPass').value;
+  if (!username || !pass || pass.length < 4) {
+    document.getElementById('dashAuthError').textContent = 'Usuario o clave inválidos';
+    document.getElementById('dashAuthError').style.display = 'block';
+    return;
+  }
+  // Lookup admin via REST (uses anon key — RLS allows SELECT on active=true)
+  try {
+    const resp = await fetch(SUPA_URL + '/rest/v1/admin_users?username=eq.' + encodeURIComponent(username) + '&active=eq.true&select=id,username,full_name,role,password_hash,totp_enabled,totp_secret', {
+      headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }
+    });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const rows = await resp.json();
+    const user = rows && rows[0];
+    if (!user || !(await pixVerify(pass, user.password_hash))) {
+      _failedLogin(username);
+      return;
+    }
+    // 2FA: if TOTP enabled, prompt for code instead of completing login
+    if (user.totp_enabled && user.totp_secret) {
+      _pendingTotpUser = user;
+      document.getElementById('dashAuthStep1').style.display = 'none';
+      document.getElementById('dashAuthStep2').style.display = 'block';
+      document.getElementById('dashAuthError').style.display = 'none';
+      setTimeout(() => document.getElementById('dashAuthTotp').focus(), 50);
+      return;
+    }
+    await _completeLogin(user);
+  } catch (e) {
+    document.getElementById('dashAuthError').textContent = 'Error de conexión: ' + e.message;
+    document.getElementById('dashAuthError').style.display = 'block';
+  }
+}
+
+async function dashAuthVerifyTotp() {
+  const code = (document.getElementById('dashAuthTotp').value || '').trim();
+  if (!/^\d{6}$/.test(code)) {
+    document.getElementById('dashAuthError').textContent = 'Código de 6 dígitos requerido';
+    document.getElementById('dashAuthError').style.display = 'block';
+    return;
+  }
+  if (!_pendingTotpUser) return;
+  const ok = await pixTotpVerify(_pendingTotpUser.totp_secret, code);
+  if (!ok) {
+    _failedLogin(_pendingTotpUser.username);
+    document.getElementById('dashAuthTotp').value = '';
+    return;
+  }
+  await _completeLogin(_pendingTotpUser);
+  _pendingTotpUser = null;
+}
+
+function _failedLogin(username) {
+  _authAttempts++;
+  document.getElementById('dashAuthPass').value = '';
+  if (_authAttempts >= MAX_LOGIN_ATTEMPTS) {
+    const factor = Math.pow(2, Math.floor(_authAttempts / MAX_LOGIN_ATTEMPTS) - 1);
+    const lockSecs = Math.round(LOGIN_LOCKOUT_BASE * factor / 1000);
+    _authLockUntil = Date.now() + lockSecs * 1000;
+    document.getElementById('dashAuthError').textContent = `Bloqueado por ${lockSecs}s (demasiados intentos)`;
+    // Best-effort audit log of failed login (no admin_id since unknown)
+    _logAudit({ admin_user: username || 'unknown', action: 'login_failed', details: { attempts: _authAttempts } });
+  } else {
+    document.getElementById('dashAuthError').textContent = `Credenciales incorrectas (${MAX_LOGIN_ATTEMPTS - _authAttempts} intentos)`;
+  }
+  document.getElementById('dashAuthError').style.display = 'block';
+}
+
+async function _completeLogin(user) {
+  _authAttempts = 0;
+  _adminUser = { id: user.id, username: user.username, full_name: user.full_name, role: user.role };
+  // Persist minimal session data — never store password hash client-side beyond memory
+  sessionStorage.setItem('pix_dash_admin', JSON.stringify(_adminUser));
+  document.getElementById('dashAuthOverlay').style.display = 'none';
+  // Audit log + bookkeeping (fire-and-forget)
+  _logAudit({ action: 'login', target_type: 'admin_user', target_id: user.id, target_name: user.username });
+  fetch(SUPA_URL + '/rest/v1/admin_users?id=eq.' + user.id, {
+    method: 'PATCH',
+    headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ last_login_at: new Date().toISOString() })
+  }).catch(() => {});
+  _resetInactivityTimer();
+  initDashboard();
+  _renderAdminBadge();
+}
+
+function _renderAdminBadge() {
+  const el = document.getElementById('adminBadge');
+  if (!el || !_adminUser) return;
+  el.textContent = (_adminUser.full_name || _adminUser.username) + ' · ' + _adminUser.role;
+  el.style.display = 'inline-flex';
+}
+
+function dashLogout() {
+  if (_adminUser) {
+    _logAudit({ action: 'logout', target_type: 'admin_user', target_id: _adminUser.id, target_name: _adminUser.username });
+  }
+  sessionStorage.removeItem('pix_dash_admin');
+  if (_inactivityTimer) clearTimeout(_inactivityTimer);
+  location.reload();
+}
+
+// ── AUDIT LOG (fire-and-forget; failures should not block UX) ──
+async function _logAudit(entry) {
+  try {
+    const body = {
+      admin_user: entry.admin_user || (_adminUser ? _adminUser.username : 'anonymous'),
+      admin_id:   entry.admin_id   || (_adminUser ? _adminUser.id : null),
+      action:     entry.action,
+      target_type: entry.target_type || null,
+      target_id:   entry.target_id   ? String(entry.target_id) : null,
+      target_name: entry.target_name || null,
+      details:     entry.details     || null,
+      user_agent:  navigator.userAgent.slice(0, 200)
+    };
+    await fetch(SUPA_URL + '/rest/v1/audit_log', {
+      method: 'POST',
+      headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+      body: JSON.stringify(body)
+    });
+  } catch (e) {
+    console.warn('[Audit] failed to log:', e.message);
+  }
+}
+
+// ── TOTP (RFC 6238 — SHA-1, 30s window, 6 digits) ──
+function _base32Decode(b32) {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  const cleaned = b32.replace(/=+$/, '').toUpperCase().replace(/\s+/g, '');
+  let bits = '';
+  for (const c of cleaned) {
+    const idx = alphabet.indexOf(c);
+    if (idx < 0) throw new Error('Invalid base32');
+    bits += idx.toString(2).padStart(5, '0');
+  }
+  const bytes = [];
+  for (let i = 0; i + 8 <= bits.length; i += 8) bytes.push(parseInt(bits.substr(i, 8), 2));
+  return new Uint8Array(bytes);
+}
+
+function _base32Encode(bytes) {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  let bits = '';
+  for (const b of bytes) bits += b.toString(2).padStart(8, '0');
+  let out = '';
+  for (let i = 0; i < bits.length; i += 5) {
+    const chunk = bits.substr(i, 5).padEnd(5, '0');
+    out += alphabet[parseInt(chunk, 2)];
+  }
+  while (out.length % 8) out += '=';
+  return out;
+}
+
+async function _hmacSha1(keyBytes, msgBytes) {
+  const key = await crypto.subtle.importKey('raw', keyBytes, { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key, msgBytes);
+  return new Uint8Array(sig);
+}
+
+async function pixTotpGenerate(secret, time) {
+  const t = Math.floor((time || Date.now()) / 1000 / 30);
+  const counter = new Uint8Array(8);
+  for (let i = 7; i >= 0; i--) { counter[i] = t & 0xff; /* shift */ }
+  let v = t;
+  for (let i = 7; i >= 0; i--) { counter[i] = v & 0xff; v = Math.floor(v / 256); }
+  const key = _base32Decode(secret);
+  const hmac = await _hmacSha1(key, counter);
+  const offset = hmac[hmac.length - 1] & 0x0f;
+  const bin = ((hmac[offset] & 0x7f) << 24) | ((hmac[offset+1] & 0xff) << 16) | ((hmac[offset+2] & 0xff) << 8) | (hmac[offset+3] & 0xff);
+  return String(bin % 1000000).padStart(6, '0');
+}
+
+async function pixTotpVerify(secret, code) {
+  // Accept current ± 1 window to tolerate clock drift
+  const now = Date.now();
+  for (const drift of [0, -30000, 30000]) {
+    if (await pixTotpGenerate(secret, now + drift) === code) return true;
+  }
+  return false;
+}
+
+function pixTotpRandomSecret() {
+  const bytes = new Uint8Array(20);
+  crypto.getRandomValues(bytes);
+  return _base32Encode(bytes);
 }
 
 // ── Auth gate on load ──
 (function() {
-  if (sessionStorage.getItem('pix_dash_auth') === 'true') {
-    document.addEventListener('DOMContentLoaded', initDashboard);
-  } else {
-    document.addEventListener('DOMContentLoaded', () => {
-      document.getElementById('dashAuthOverlay').style.display = 'flex';
-      document.getElementById('dashAuthPass').focus();
-    });
-  }
+  document.addEventListener('DOMContentLoaded', () => {
+    // Register SW for offline dashboard shell (best-effort)
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('dashboard-sw.js').catch(e =>
+        console.warn('[SW] register failed:', e.message));
+    }
+    // Restore persisted admin session
+    try {
+      const persisted = sessionStorage.getItem('pix_dash_admin');
+      if (persisted) {
+        _adminUser = JSON.parse(persisted);
+        _renderAdminBadge();
+        _resetInactivityTimer();
+        initDashboard();
+        return;
+      }
+    } catch (_) {}
+    document.getElementById('dashAuthOverlay').style.display = 'flex';
+    setTimeout(() => document.getElementById('dashAuthUser').focus(), 100);
+  });
 })();
 
 // ── SUPABASE CONFIG ──
-// IMPORTANT: These credentials must match _CLOUD_DEFAULT_URL and _CLOUD_DEFAULT_KEY in js/cloud.js
+// IMPORTANT: SUPA_URL must match _CLOUD_DEFAULT_URL in js/cloud.js
+// SUPA_KEY (anon) is intentionally hardcoded ONLY as a convenience for the
+// gh-pages deployment; rotation requires both this file and js/cloud.js bump.
+// For tighter security, set sessionStorage 'pix_dash_key' before page load.
 const _DEFAULT_URL = 'https://fnoocboaupjmxpkhdnij.supabase.co';
 const _DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZub29jYm9hdXBqbXhwa2hkbmlqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3NzA3MTYsImV4cCI6MjA5MTM0NjcxNn0.WCoLdveWAwpcwzWpvLFSgQeXeot6X263DTffdEWoCfg';
 
-
-
-// v1.1: credentials MOVED FROM localStorage → sessionStorage — mitigates XSS
-// (migration: read old key once, write to sessionStorage, delete old).
+// Migrate legacy localStorage creds (XSS hardening) — sessionStorage only from now on
 (function migrateCreds() {
   try {
     const oldUrl = localStorage.getItem('pix_dash_url');
     const oldKey = localStorage.getItem('pix_dash_key');
     if (oldUrl && !sessionStorage.getItem('pix_dash_url')) sessionStorage.setItem('pix_dash_url', oldUrl);
     if (oldKey && !sessionStorage.getItem('pix_dash_key')) sessionStorage.setItem('pix_dash_key', oldKey);
-    // Remove old localStorage copies (cleanup legacy exposure surface)
     localStorage.removeItem('pix_dash_url');
     localStorage.removeItem('pix_dash_key');
   } catch (_) {}
@@ -771,9 +1251,11 @@ function showTab(tabId) {
   activeTab = tabId;
   localStorage.setItem('pix_dash_tab', tabId);
 
-  // Update tab buttons
+  // Update tab buttons + ARIA
   document.querySelectorAll('.nav-tab').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.tab === tabId);
+    const on = btn.dataset.tab === tabId;
+    btn.classList.toggle('active', on);
+    btn.setAttribute('aria-selected', on ? 'true' : 'false');
   });
 
   // Update tab content
@@ -791,6 +1273,10 @@ function showTab(tabId) {
     loadTechnicians();
   } else if (tabId === 'tabDispositivos') {
     loadDevices();
+  } else if (tabId === 'tabAdmins') {
+    loadAdmins();
+  } else if (tabId === 'tabAuditoria') {
+    loadAudit();
   }
 }
 
@@ -816,14 +1302,14 @@ async function connectSupabase() {
   }
 
   try {
-    // Test connection
     const resp = await fetch(url + '/rest/v1/field_syncs?select=count', {
       headers: { 'apikey': key, 'Authorization': 'Bearer ' + key }
     });
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
 
-    localStorage.setItem('pix_dash_url', url);
-    localStorage.setItem('pix_dash_key', key);
+    // P0-5 fix: write to sessionStorage (matches read path on reload)
+    sessionStorage.setItem('pix_dash_url', url);
+    sessionStorage.setItem('pix_dash_key', key);
     SUPA_URL = url;
     SUPA_KEY = key;
 
@@ -911,10 +1397,12 @@ async function supaPost(path, body, method = 'POST') {
 
 async function loadData() {
   try {
-    const [fields, activities, devices] = await Promise.all([
+    const showAdmin = document.getElementById('activityShowAdmin')?.checked !== false;
+    const [fields, activities, devices, auditEntries] = await Promise.all([
       supaFetch('/field_syncs?select=*&client=neq._ELIMINADO_&order=synced_at.desc'),
       supaFetch('/activity_log?select=*&order=created_at.desc&limit=30'),
-      supaFetch('/devices?select=*&order=last_seen.desc')
+      supaFetch('/devices?select=*&order=last_seen.desc'),
+      showAdmin ? supaFetch('/audit_log?select=*&order=created_at.desc&limit=20').catch(() => []) : Promise.resolve([])
     ]);
 
     _devicesCache = devices || [];
@@ -922,12 +1410,13 @@ async function loadData() {
     populateClientFilter(fields);
     renderStats(fields);
     renderTechs(fields);
-    renderFields(fields);                    // v1.1: sets _fieldsCache + renders page 1
+    renderLeaderboard(fields);                          // v2.0
+    renderFields(fields);
     renderMap(_fieldsFiltered.length ? _fieldsFiltered : fields);
     renderTechGPS(devices);
-    renderActivity(activities);
-    renderCharts(_fieldsFiltered.length ? _fieldsFiltered : fields);  // v1.1
-    updateFilterInfo();                      // v1.1
+    renderActivity(activities, auditEntries);           // v2.0: merged
+    renderCharts(_fieldsFiltered.length ? _fieldsFiltered : fields);
+    updateFilterInfo();
     loadBoundaries();
     setConnected(true);
 
@@ -939,6 +1428,36 @@ async function loadData() {
     setConnected(false);
     document.getElementById('refreshBar').textContent = 'Error: ' + e.message;
   }
+}
+
+// v2.0 — Full leaderboard
+function renderLeaderboard(fields) {
+  const el = document.getElementById('leaderboardList');
+  if (!el) return;
+  const byTech = {};
+  for (const f of fields) {
+    const t = f.technician || 'Sin nombre';
+    if (!byTech[t]) byTech[t] = { samples: 0, fields: 0, conflicts: 0 };
+    byTech[t].samples += f.samples?.length || 0;
+    byTech[t].fields++;
+    byTech[t].conflicts += f.conflicts_resolved || 0;
+  }
+  const ranked = Object.entries(byTech).sort((a, b) => b[1].samples - a[1].samples);
+  if (ranked.length === 0) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:12px;text-align:center">Sin datos</div>';
+    return;
+  }
+  const max = ranked[0][1].samples || 1;
+  el.innerHTML = ranked.map(([name, d], i) => {
+    const pct = Math.round((d.samples / max) * 100);
+    const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i+1);
+    return `<div class="leaderboard-row ${i===0?'top1':''}">
+      <span class="leaderboard-rank">${medal}</span>
+      <span><strong>${esc(name)}</strong> <small style="color:var(--muted)">· ${d.fields} campos${d.conflicts>0?' · ⚡'+d.conflicts:''}</small><div class="leaderboard-bar" style="margin-top:4px"><div class="leaderboard-bar-fill" style="width:${pct}%"></div></div></span>
+      <span style="text-align:right;font-weight:700">${d.samples}</span>
+      <span style="text-align:right;color:var(--muted);font-size:11px">muestras</span>
+    </div>`;
+  }).join('');
 }
 
 // ── RENDER STATS ──
@@ -1153,16 +1672,17 @@ function renderMap(fields) {
   }
 }
 
-// ── RENDER TECH GPS MARKERS ON MAP ──
+// ── RENDER TECH GPS MARKERS ON MAP (with proximity clustering) ──
 function renderTechGPS(devices) {
   // Clear old tech markers
   techMarkers.forEach(m => dashMap.removeLayer(m));
   techMarkers = [];
   if (!devices || !dashMap) return;
 
-  const ONE_HOUR = 3600000;
   const onlineBounds = [];
 
+  // Collect all tech points first
+  const points = [];
   for (const d of devices) {
     let lat = null, lng = null;
     if (d.last_location && typeof d.last_location === 'object' && d.last_location.lat) {
@@ -1171,29 +1691,85 @@ function renderTechGPS(devices) {
       lat = d.last_lat; lng = d.last_lng;
     }
     if (!lat || !lng) continue;
-
     const lastSeen = d.last_seen ? new Date(d.last_seen) : null;
     const isOnline = lastSeen && (Date.now() - lastSeen.getTime()) < ONE_HOUR;
-    const color = isOnline ? '#3B82F6' : '#64748B';
-    const name = d.technician_name || d.technician || 'Sin nombre';
-    const ago = lastSeen ? timeAgo(lastSeen) : 'Desconocido';
+    points.push({
+      lat, lng,
+      name: d.technician_name || d.technician || 'Sin nombre',
+      isOnline, lastSeen,
+      model: d.phone_model || '—', version: d.app_version || '?'
+    });
+  }
 
-    const marker = L.circleMarker([lat, lng], {
-      radius: isOnline ? 9 : 6,
-      color: '#fff', weight: 2,
-      fillColor: color, fillOpacity: isOnline ? 0.9 : 0.5
-    }).bindPopup(
-      `<b>${esc(name)}</b><br>` +
-      `<span style="color:${isOnline ? '#22C55E' : '#EF4444'}">${isOnline ? '🟢 Online' : '🔴 Offline'}</span><br>` +
-      `📱 ${esc(d.phone_model || '—')}<br>` +
-      `📡 v${esc(d.app_version || '?')}<br>` +
-      `🕐 ${ago}<br>` +
-      `📍 ${lat.toFixed(5)}, ${lng.toFixed(5)}`
-    ).bindTooltip(name, { permanent: isOnline, direction: 'top', offset: [0, -10], className: 'tech-tooltip' });
+  // P2-23: simple proximity clustering — if zoom < 12 and 2+ points within ~80px,
+  // render a single cluster marker showing the count
+  const zoom = dashMap.getZoom();
+  const clusterThresholdPx = 50;
+  const clusters = [];
+  const used = new Set();
+  if (zoom < 12 && points.length > 1) {
+    for (let i = 0; i < points.length; i++) {
+      if (used.has(i)) continue;
+      const group = [i];
+      const pi = dashMap.latLngToContainerPoint([points[i].lat, points[i].lng]);
+      for (let j = i + 1; j < points.length; j++) {
+        if (used.has(j)) continue;
+        const pj = dashMap.latLngToContainerPoint([points[j].lat, points[j].lng]);
+        if (pi.distanceTo(pj) < clusterThresholdPx) {
+          group.push(j);
+          used.add(j);
+        }
+      }
+      used.add(i);
+      clusters.push(group);
+    }
+  } else {
+    for (let i = 0; i < points.length; i++) clusters.push([i]);
+  }
 
-    marker.addTo(dashMap);
-    techMarkers.push(marker);
-    if (isOnline) onlineBounds.push(L.latLng(lat, lng));
+  for (const grp of clusters) {
+    if (grp.length === 1) {
+      const p = points[grp[0]];
+      const color = p.isOnline ? '#3B82F6' : '#64748B';
+      const ago = p.lastSeen ? timeAgo(p.lastSeen) : 'Desconocido';
+      const marker = L.circleMarker([p.lat, p.lng], {
+        radius: p.isOnline ? 9 : 6,
+        color: '#fff', weight: 2,
+        fillColor: color, fillOpacity: p.isOnline ? 0.9 : 0.5
+      }).bindPopup(
+        `<b>${esc(p.name)}</b><br>` +
+        `<span style="color:${p.isOnline ? '#22C55E' : '#EF4444'}">${p.isOnline ? '🟢 Online' : '🔴 Offline'}</span><br>` +
+        `📱 ${esc(p.model)}<br>📡 v${esc(p.version)}<br>🕐 ${ago}<br>` +
+        `📍 ${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`
+      ).bindTooltip(p.name, { permanent: p.isOnline, direction: 'top', offset: [0, -10], className: 'tech-tooltip' });
+      marker.addTo(dashMap);
+      techMarkers.push(marker);
+      if (p.isOnline) onlineBounds.push(L.latLng(p.lat, p.lng));
+    } else {
+      // Cluster: average position, badge with count
+      const avgLat = grp.reduce((s, idx) => s + points[idx].lat, 0) / grp.length;
+      const avgLng = grp.reduce((s, idx) => s + points[idx].lng, 0) / grp.length;
+      const onlineCount = grp.filter(idx => points[idx].isOnline).length;
+      const names = grp.map(idx => points[idx].name).join('<br>');
+      const cluster = L.marker([avgLat, avgLng], {
+        icon: L.divIcon({
+          className: 'tech-cluster',
+          html: `<div style="background:${onlineCount>0?'#3B82F6':'#64748B'};color:white;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);font-size:13px">${grp.length}</div>`,
+          iconSize: [36, 36], iconAnchor: [18, 18]
+        })
+      }).bindPopup(`<b>${grp.length} técnicos</b> (${onlineCount} online)<br><small>${names}</small><br><small style="color:#666">Acercá zoom para separar</small>`);
+      cluster.on('click', () => {
+        dashMap.setView([avgLat, avgLng], Math.min(16, dashMap.getZoom() + 3));
+      });
+      cluster.addTo(dashMap);
+      techMarkers.push(cluster);
+      if (onlineCount > 0) onlineBounds.push(L.latLng(avgLat, avgLng));
+    }
+  }
+  // Re-cluster on zoom change
+  if (!dashMap._techGPSZoomHook) {
+    dashMap._techGPSZoomHook = true;
+    dashMap.on('zoomend', () => { if (_devicesCache) renderTechGPS(_devicesCache); });
   }
 
   // Extend map view to include online technicians
@@ -1212,27 +1788,33 @@ function renderTechGPS(devices) {
   }
 }
 
-// ── RENDER ACTIVITY ──
-function renderActivity(activities) {
+// ── RENDER ACTIVITY (merged: tech sync events + admin audit log) ──
+function renderActivity(activities, auditEntries) {
   const el = document.getElementById('activityList');
-  if (!activities || activities.length === 0) {
+  // Normalize both into common shape: { ts, who, kind, text, isAdmin }
+  const normalized = [];
+  for (const a of (activities || [])) {
+    const d = a.details || {};
+    const text = a.action === 'sync'
+      ? `<strong>${esc(a.technician)}</strong> sincronizó <strong>${esc(d.field || '?')}</strong> (${d.samples || 0} muestras)`
+      : `<strong>${esc(a.technician)}</strong>: ${esc(a.action)}`;
+    normalized.push({ ts: new Date(a.created_at), who: a.technician || '?', text, isAdmin: false });
+  }
+  for (const a of (auditEntries || [])) {
+    const tgt = a.target_name || a.target_id || '';
+    const text = `<strong style="color:var(--yellow)">🛡️ ${esc(a.admin_user)}</strong> · ${esc(a.action)}${tgt ? ' → ' + esc(tgt) : ''}`;
+    normalized.push({ ts: new Date(a.created_at), who: a.admin_user, text, isAdmin: true });
+  }
+  normalized.sort((a, b) => b.ts - a.ts);
+  const top = normalized.slice(0, 50);
+  if (top.length === 0) {
     el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:20px;text-align:center">Sin actividad registrada</div>';
     return;
   }
-  el.innerHTML = activities.map(a => {
-    const t = new Date(a.created_at);
-    const d = a.details || {};
-    let text = '';
-    if (a.action === 'sync') {
-      text = `<strong>${esc(a.technician)}</strong> sincronizo <strong>${esc(d.field || '?')}</strong> (${d.samples || 0} muestras)`;
-    } else {
-      text = `<strong>${esc(a.technician)}</strong>: ${esc(a.action)}`;
-    }
-    return `<div class="activity-item">
-      <span class="activity-time">${t.toLocaleTimeString('es', {hour:'2-digit',minute:'2-digit'})}</span>
-      <span class="activity-text">${text}</span>
-    </div>`;
-  }).join('');
+  el.innerHTML = top.map(a => `<div class="activity-item" ${a.isAdmin ? 'style="background:rgba(245,158,11,0.04)"' : ''}>
+    <span class="activity-time">${a.ts.toLocaleTimeString('es', {hour:'2-digit',minute:'2-digit'})}</span>
+    <span class="activity-text">${a.text}</span>
+  </div>`).join('');
 }
 
 // ═══════════════════════════════════════════════════
@@ -1927,16 +2509,38 @@ async function submitOrder() {
   btn.disabled = true;
   btn.textContent = 'Guardando...';
 
+  // P1-16: validate technician is active before assigning
+  if (techId) {
+    try {
+      const techCheck = await supaFetch('/technicians?id=eq.' + techId + '&select=active,full_name');
+      if (!techCheck || techCheck.length === 0) {
+        toast('El técnico seleccionado no existe', 'err');
+        btn.disabled = false; btn.textContent = editId ? 'Actualizar Orden' : 'Crear Orden';
+        return;
+      }
+      if (!techCheck[0].active) {
+        const ok = await pixConfirm(`El técnico "${techCheck[0].full_name}" está inactivo.\n\n¿Asignar igualmente?`);
+        if (!ok) {
+          btn.disabled = false; btn.textContent = editId ? 'Actualizar Orden' : 'Crear Orden';
+          return;
+        }
+      }
+    } catch (_) { /* non-fatal */ }
+  }
+
   try {
     if (editId) {
       body.updated_at = new Date().toISOString();
       await supaPost('/service_orders?id=eq.' + editId, body, 'PATCH');
+      _logAudit({ action: 'update_order', target_type: 'order', target_id: editId, target_name: title });
       toast('Orden actualizada');
     } else {
       // If a technician is assigned at creation, mark as 'asignada' (not 'pendiente')
       body.status = techId ? 'asignada' : 'pendiente';
       body.created_at = new Date().toISOString();
-      await supaPost('/service_orders', body);
+      const created = await supaPost('/service_orders', body);
+      const newId = created && created[0] && created[0].id;
+      _logAudit({ action: 'create_order', target_type: 'order', target_id: newId, target_name: title, details: { tech_id: techId, priority: body.priority } });
       toast(techId ? 'Orden creada y asignada' : 'Orden creada');
     }
     toggleOrderForm(false);
@@ -1949,10 +2553,16 @@ async function submitOrder() {
   }
 }
 
+let _ordersAll = [];
+let _ordersPage = 1;
+const ORDERS_PER_PAGE = 15;
+
 async function loadOrders() {
   try {
     const orders = await supaFetch('/service_orders?select=*&status=neq.cancelada&order=created_at.desc');
-    renderOrders(orders);
+    _ordersAll = orders || [];
+    _ordersPage = 1;
+    renderOrdersPage();
   } catch (e) {
     console.error('[Orders] Load error:', e);
     document.getElementById('ordersTableBody').innerHTML =
@@ -1960,13 +2570,38 @@ async function loadOrders() {
   }
 }
 
+function renderOrdersPage() {
+  const start = (_ordersPage - 1) * ORDERS_PER_PAGE;
+  const slice = _ordersAll.slice(start, start + ORDERS_PER_PAGE);
+  renderOrders(slice);
+  const total = _ordersAll.length;
+  const pages = Math.max(1, Math.ceil(total / ORDERS_PER_PAGE));
+  const pag = document.getElementById('ordersPagination');
+  if (pag) {
+    const from = total === 0 ? 0 : start + 1;
+    const to = Math.min(start + ORDERS_PER_PAGE, total);
+    pag.innerHTML = `<span>Mostrando ${from}–${to} de ${total}</span>` +
+      `<span><button onclick="changeOrdersPage(-1)" ${_ordersPage===1?'disabled':''}>◄</button>` +
+      `<button class="active" disabled>${_ordersPage} / ${pages}</button>` +
+      `<button onclick="changeOrdersPage(1)" ${_ordersPage===pages?'disabled':''}>►</button></span>`;
+  }
+}
+
+function changeOrdersPage(delta) {
+  const pages = Math.max(1, Math.ceil(_ordersAll.length / ORDERS_PER_PAGE));
+  _ordersPage = Math.max(1, Math.min(pages, _ordersPage + delta));
+  renderOrdersPage();
+}
+
 async function updateOrderStatus(id, status) {
+  if (!_requireRole('admin','supervisor')) return;
   try {
     const body = { status, updated_at: new Date().toISOString() };
     // Match APK: set timestamps for lifecycle transitions
     if (status === 'en_progreso') body.started_at = new Date().toISOString();
     if (status === 'completada') body.completed_at = new Date().toISOString();
     await supaPost('/service_orders?id=eq.' + id, body, 'PATCH');
+    _logAudit({ action: 'change_status', target_type: 'order', target_id: id, details: { new_status: status } });
     toast('Estado actualizado: ' + status);
     loadOrders();
   } catch (e) {
@@ -1975,6 +2610,7 @@ async function updateOrderStatus(id, status) {
 }
 
 async function deleteOrder(id, title) {
+  if (!_requireRole('admin','supervisor')) return;
   if (!await pixConfirm('Eliminar la orden "' + title + '"?')) return;
   try {
     // Try real DELETE first (requires RLS DELETE policy)
@@ -1984,6 +2620,9 @@ async function deleteOrder(id, title) {
     if (check.length > 0) {
       // DELETE policy not applied — fallback to status change
       await supaPost('/service_orders?id=eq.' + id, { status: 'cancelada', updated_at: new Date().toISOString() }, 'PATCH');
+      _logAudit({ action: 'delete_order', target_type: 'order', target_id: id, target_name: title, details: { soft: true } });
+    } else {
+      _logAudit({ action: 'delete_order', target_type: 'order', target_id: id, target_name: title, details: { hard: true } });
     }
     toast('Orden eliminada: ' + title);
     loadOrders();
@@ -2124,12 +2763,10 @@ function clearTechForm() {
   document.getElementById('techPassword').required = true;
 }
 
-async function sha256(text) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-}
+// (sha256 helper removed — use pixHash / pixHashSalted from top of file)
 
 async function submitTechnician() {
+  if (!_requireRole('admin','supervisor')) return;
   const fullName = document.getElementById('techFullName').value.trim();
   const username = document.getElementById('techUsername').value.trim();
   const password = document.getElementById('techPassword').value;
@@ -2143,6 +2780,10 @@ async function submitTechnician() {
     toast('El password es obligatorio para nuevos tecnicos', 'err');
     return;
   }
+  if (password && password.length < 6) {
+    toast('Clave mínima 6 caracteres', 'err');
+    return;
+  }
 
   const body = {
     full_name: fullName,
@@ -2153,7 +2794,8 @@ async function submitTechnician() {
   };
 
   if (password) {
-    body.password_hash = await sha256(password);
+    // P0-1: salted SHA-256 — auth.js verifyPassword supports salt:hash format
+    body.password_hash = await pixHashSalted(password);
   }
 
   const btn = document.getElementById('techSubmitBtn');
@@ -2164,6 +2806,7 @@ async function submitTechnician() {
     if (editId) {
       body.updated_at = new Date().toISOString();
       await supaPost('/technicians?id=eq.' + editId, body, 'PATCH');
+      _logAudit({ action: 'update_tech', target_type: 'technician', target_id: editId, target_name: fullName, details: { fields: Object.keys(body), pw_changed: !!password } });
       toast('Tecnico actualizado');
     } else {
       // Check if username already exists (active or inactive)
@@ -2183,7 +2826,9 @@ async function submitTechnician() {
       }
       body.active = true;
       body.created_at = new Date().toISOString();
-      await supaPost('/technicians', body);
+      const created = await supaPost('/technicians', body);
+      const newId = (created && created[0] && created[0].id) || null;
+      _logAudit({ action: 'create_tech', target_type: 'technician', target_id: newId, target_name: fullName, details: { username, role: body.role } });
       toast('Tecnico creado');
     }
     toggleTechForm(false);
@@ -2196,25 +2841,94 @@ async function submitTechnician() {
   }
 }
 
+// Role gate — viewers can only read; supervisors can edit but not delete admins
+function _requireRole(...allowed) {
+  if (!_adminUser) { pixAlert('Sesión expirada'); dashLogout(); return false; }
+  if (!allowed.includes(_adminUser.role)) {
+    toast('No tenés permisos para esta acción (rol: ' + _adminUser.role + ')', 'err');
+    return false;
+  }
+  return true;
+}
+
+// ── Tech state for search/pagination/bulk ──
+let _techsAll = [];                  // raw fetch
+let _techsFiltered = [];
+let _techsPage = 1;
+const TECHS_PER_PAGE = 15;
+let _techsShowInactive = false;
+let _techsSearch = '';
+let _techsSelected = new Set();      // bulk selection
+
 async function loadTechnicians() {
   try {
+    // Load active + inactive when toggle on
+    const filter = _techsShowInactive ? '' : '&active=eq.true';
     const [techs, devices] = await Promise.all([
-      supaFetch('/technicians?select=*&active=eq.true&order=created_at.desc'),
+      supaFetch('/technicians?select=*' + filter + '&order=created_at.desc'),
       supaFetch('/devices?select=*&order=last_seen.desc')
     ]);
     _devicesCache = devices || [];
-    renderTechnicians(techs, devices);
+    _techsAll = techs || [];
+    applyTechFilters();
   } catch (e) {
     console.error('[Technicians] Load error:', e);
     document.getElementById('techsTableBody').innerHTML =
-      `<tr><td colspan="9" style="text-align:center;color:var(--red);padding:20px">Error: ${esc(e.message)}</td></tr>`;
+      `<tr><td colspan="10" style="text-align:center;color:var(--red);padding:20px">Error: ${esc(e.message)}</td></tr>`;
+  }
+}
+
+function applyTechFilters() {
+  const q = (_techsSearch || '').toLowerCase().trim();
+  _techsFiltered = !q ? _techsAll.slice() : _techsAll.filter(t => {
+    const hay = [t.full_name, t.username, t.email, t.phone, t.role].filter(Boolean).join(' ').toLowerCase();
+    return hay.includes(q);
+  });
+  _techsPage = 1;
+  renderTechniciansPage();
+}
+
+function changeTechsPage(delta) {
+  const pages = Math.max(1, Math.ceil(_techsFiltered.length / TECHS_PER_PAGE));
+  _techsPage = Math.max(1, Math.min(pages, _techsPage + delta));
+  renderTechniciansPage();
+}
+
+function renderTechniciansPage() {
+  const start = (_techsPage - 1) * TECHS_PER_PAGE;
+  const slice = _techsFiltered.slice(start, start + TECHS_PER_PAGE);
+  renderTechnicians(slice, _devicesCache);
+  // pagination footer
+  const total = _techsFiltered.length;
+  const pages = Math.max(1, Math.ceil(total / TECHS_PER_PAGE));
+  const from = total === 0 ? 0 : start + 1;
+  const to = Math.min(start + TECHS_PER_PAGE, total);
+  const pag = document.getElementById('techsPagination');
+  if (pag) {
+    pag.innerHTML = `<span>Mostrando ${from}–${to} de ${total} ${_techsShowInactive ? '(incluye inactivos)' : ''}</span>` +
+      `<span><button onclick="changeTechsPage(-1)" ${_techsPage===1?'disabled':''}>◄</button>` +
+      `<button class="active" disabled>${_techsPage} / ${pages}</button>` +
+      `<button onclick="changeTechsPage(1)" ${_techsPage===pages?'disabled':''}>►</button></span>`;
   }
 }
 
 async function toggleTechnicianActive(id, currentActive) {
+  if (!_requireRole('admin','supervisor')) return;
+  // P2-22 undo: optimistic toggle with 5s revert window
+  const prev = currentActive;
+  const next = !currentActive;
+  const t = (_techsCache || []).find(x => x.id === id);
+  const techName = t ? t.full_name : id;
   try {
-    await supaPost('/technicians?id=eq.' + id, { active: !currentActive, updated_at: new Date().toISOString() }, 'PATCH');
-    toast(currentActive ? 'Tecnico desactivado' : 'Tecnico activado');
+    await supaPost('/technicians?id=eq.' + id, { active: next, updated_at: new Date().toISOString() }, 'PATCH');
+    _logAudit({ action: 'toggle_active', target_type: 'technician', target_id: id, target_name: techName, details: { from: prev, to: next } });
+    toast(next ? 'Técnico activado' : 'Técnico desactivado', 'ok', async () => {
+      try {
+        await supaPost('/technicians?id=eq.' + id, { active: prev, updated_at: new Date().toISOString() }, 'PATCH');
+        _logAudit({ action: 'toggle_active', target_type: 'technician', target_id: id, target_name: techName, details: { from: next, to: prev, undo: true } });
+        loadTechnicians();
+      } catch(_){}
+    });
     loadTechnicians();
   } catch (e) {
     toast('Error: ' + e.message, 'err');
@@ -2239,27 +2953,63 @@ function editTechnician(tech) {
 }
 
 async function resetTechPassword(id, name) {
-  const newPw = await pixPrompt('Nueva contrasena para ' + name + ':', 'password');
-  if (!newPw || !newPw.trim()) return;
+  if (!_requireRole('admin','supervisor')) return;
+  const newPw = await pixPrompt('Nueva contraseña para ' + name + ' (mín 6):', 'password');
+  if (newPw == null) return;                     // cancelled
+  const trimmed = newPw.trim();
+  if (trimmed.length < 6) { toast('Mínimo 6 caracteres', 'warn'); return; }
 
   try {
-    const hash = await sha256(newPw.trim());
+    // P0-1 salted hash
+    const hash = await pixHashSalted(trimmed);
     await supaPost('/technicians?id=eq.' + id, { password_hash: hash, updated_at: new Date().toISOString() }, 'PATCH');
-    toast('Contrasena actualizada para ' + name);
+    _logAudit({ action: 'reset_pw', target_type: 'technician', target_id: id, target_name: name });
+    toast('Contraseña actualizada para ' + name);
   } catch (e) {
     toast('Error: ' + e.message, 'err');
   }
 }
 
 async function deleteTechnician(id, name) {
-  if (!await pixConfirm('Eliminar tecnico "' + name + '"?\n\nDesaparecera del listado. Sus datos historicos (syncs, actividad) se conservan.')) return;
+  if (!_requireRole('admin','supervisor')) return;
+  // P0-7: soft-delete by default (preserves FK + history). Admin can opt-in to hard delete.
+  if (!await pixConfirm('Desactivar técnico "' + name + '"?\n\nEl técnico ya no aparecerá ni podrá iniciar sesión. Sus datos históricos se conservan. Para eliminar definitivamente usá "Borrar permanente".')) return;
+  try {
+    const now = new Date().toISOString();
+    await supaPost('/technicians?id=eq.' + id, { active: false, deleted_at: now, updated_at: now }, 'PATCH');
+    _logAudit({ action: 'delete_tech', target_type: 'technician', target_id: id, target_name: name, details: { soft: true } });
+    toast('Técnico "' + name + '" desactivado', 'ok', async () => {
+      try {
+        await supaPost('/technicians?id=eq.' + id, { active: true, deleted_at: null, updated_at: new Date().toISOString() }, 'PATCH');
+        _logAudit({ action: 'restore_tech', target_type: 'technician', target_id: id, target_name: name });
+        loadTechnicians();
+      } catch(_){}
+    });
+    loadTechnicians();
+  } catch (e) {
+    toast('Error: ' + e.message, 'err');
+  }
+}
+
+// Hard delete — only admin role, requires double confirmation, only on already-soft-deleted techs
+async function purgeTechnician(id, name) {
+  if (!_requireRole('admin')) return;
+  const typed = await pixPrompt('BORRAR PERMANENTE "' + name + '"\n\nEsta acción NO se puede deshacer. Escribí el username del técnico para confirmar:');
+  if (typed == null) return;
+  const tech = (_techsCache || []).find(x => x.id === id);
+  if (!tech || typed.trim() !== tech.username) {
+    toast('Username no coincide — abortado', 'warn');
+    return;
+  }
   try {
     await supaDelete('/technicians?id=eq.' + id);
     const check = await supaFetch('/technicians?id=eq.' + id + '&select=id');
     if (check.length > 0) {
-      await supaPost('/technicians?id=eq.' + id, { active: false, updated_at: new Date().toISOString() }, 'PATCH');
+      toast('No se pudo eliminar (RLS); permanece desactivado', 'warn');
+    } else {
+      _logAudit({ action: 'purge_tech', target_type: 'technician', target_id: id, target_name: name, details: { hard: true } });
+      toast('Técnico "' + name + '" borrado permanentemente');
     }
-    toast('Tecnico "' + name + '" eliminado');
     loadTechnicians();
   } catch (e) {
     toast('Error: ' + e.message, 'err');
@@ -2274,12 +3024,11 @@ function renderTechnicians(techs, devices) {
   const tbody = document.getElementById('techsTableBody');
 
   if (!techs || techs.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:30px">No hay tecnicos registrados</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:30px">No hay técnicos con los filtros actuales</td></tr>';
     return;
   }
 
   // Build device lookup by technician_name for session info
-  const ONE_HOUR = 3600000;
   const devByName = {};
   if (devices) {
     for (const d of devices) {
@@ -2308,35 +3057,112 @@ function renderTechnicians(techs, devices) {
         ? `<span class="badge badge-muted">Offline</span> <small style="color:var(--muted)">${timeAgo(lastSeen)}</small>`
         : `<span class="badge badge-muted">Sin conexion</span>`;
     const deviceInfo = dev ? `${esc(dev.phone_model || '?')} v${esc(dev.app_version || '?')}` : '—';
+    const checked = _techsSelected.has(t.id) ? 'checked' : '';
+    const isInactive = !t.active;
+    const purgeBtn = isInactive
+      ? `<button class="btn btn-sm btn-danger" style="margin-left:4px;background:rgba(239,68,68,0.3)" onclick="event.stopPropagation();purgeTechnician('${t.id}', '${escJS(t.full_name)}')" title="Borrar permanente">🗑</button>`
+      : '';
 
-    return `<tr>
+    return `<tr style="cursor:pointer;${isInactive?'opacity:0.55':''}" onclick="openTechDetail('${t.id}')">
+      <td onclick="event.stopPropagation()"><input type="checkbox" ${checked} onchange="toggleTechSelected('${t.id}',this.checked)" aria-label="Seleccionar ${esc(t.full_name)}"></td>
       <td><strong>${esc(t.full_name)}</strong></td>
       <td>${esc(t.username)}</td>
       <td><span class="badge ${rBadge}">${t.role || 'tecnico'}</span></td>
       <td>${esc(t.phone || '—')}</td>
       <td>${esc(t.email || '—')}</td>
-      <td>
+      <td onclick="event.stopPropagation()">
         <span class="badge ${activeClass}" style="cursor:pointer" onclick="toggleTechnicianActive('${t.id}', ${t.active})" title="Clic para cambiar">${activeText}</span>
       </td>
       <td>${sessionHTML}</td>
       <td><small style="color:var(--muted)">${deviceInfo}</small></td>
-      <td>
+      <td onclick="event.stopPropagation()">
         <button class="btn btn-sm btn-secondary" onclick="editTechnician(_techsCache[${idx}])">Editar</button>
         <button class="btn btn-sm btn-danger" onclick="resetTechPassword('${t.id}', '${escJS(t.full_name)}')">Reset PW</button>
-        <button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="deleteTechnician('${t.id}', '${escJS(t.full_name)}')">Eliminar</button>
+        <button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="deleteTechnician('${t.id}', '${escJS(t.full_name)}')">${isInactive ? 'Reactivar' : 'Desactivar'}</button>
+        ${purgeBtn}
       </td>
     </tr>`;
   }).join('');
+}
+
+function toggleTechSelected(id, checked) {
+  if (checked) _techsSelected.add(id); else _techsSelected.delete(id);
+  const bar = document.getElementById('techsBulkBar');
+  if (bar) bar.style.display = _techsSelected.size > 0 ? 'flex' : 'none';
+  const ct = document.getElementById('techsBulkCount');
+  if (ct) ct.textContent = _techsSelected.size + ' seleccionados';
+}
+
+function clearTechSelection() {
+  _techsSelected.clear();
+  document.querySelectorAll('#techsTableBody input[type=checkbox]').forEach(cb => cb.checked = false);
+  toggleTechSelected();
+}
+
+async function bulkDeactivateTechs() {
+  if (!_requireRole('admin','supervisor')) return;
+  if (_techsSelected.size === 0) return;
+  if (!await pixConfirm('Desactivar ' + _techsSelected.size + ' técnicos seleccionados?')) return;
+  const ids = Array.from(_techsSelected);
+  const now = new Date().toISOString();
+  let ok = 0, fail = 0;
+  for (const id of ids) {
+    try {
+      await supaPost('/technicians?id=eq.' + id, { active: false, deleted_at: now, updated_at: now }, 'PATCH');
+      ok++;
+    } catch (_) { fail++; }
+  }
+  _logAudit({ action: 'bulk_deactivate', target_type: 'technician', details: { ok, fail, ids } });
+  toast(`${ok} desactivados${fail ? ', ' + fail + ' fallaron' : ''}`);
+  clearTechSelection();
+  loadTechnicians();
+}
+
+function exportTechsCSV() {
+  if (_techsAll.length === 0) { toast('Nada que exportar', 'warn'); return; }
+  const header = 'Username,Nombre,Rol,Email,Telefono,Activo,Creado,Actualizado';
+  const rows = _techsAll.map(t => [
+    t.username, t.full_name, t.role, t.email || '', t.phone || '',
+    t.active ? 'si' : 'no',
+    t.created_at || '', t.updated_at || ''
+  ].map(v => {
+    const s = String(v ?? '');
+    return (s.includes(',') || s.includes('"')) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }).join(','));
+  const blob = new Blob([header + '\n' + rows.join('\n')], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `tecnicos_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+  URL.revokeObjectURL(url);
+  _logAudit({ action: 'export_techs', details: { count: _techsAll.length } });
+  toast(`${_techsAll.length} técnicos exportados`);
+}
+
+function exportTechsJSON() {
+  if (_techsAll.length === 0) { toast('Nada que exportar', 'warn'); return; }
+  const blob = new Blob([JSON.stringify(_techsAll, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `tecnicos_${new Date().toISOString().slice(0,10)}.json`; a.click();
+  URL.revokeObjectURL(url);
+  _logAudit({ action: 'export_techs_json', details: { count: _techsAll.length } });
+  toast('Exportado JSON');
 }
 
 // ═══════════════════════════════════════════════════
 // DISPOSITIVOS TAB — Device Management
 // ═══════════════════════════════════════════════════
 
+let _devicesAll = [];
+let _devicesPage = 1;
+const DEVICES_PER_PAGE = 15;
+
 async function loadDevices() {
   try {
     const devices = await supaFetch('/devices?select=*&active=eq.true&order=last_seen.desc');
-    renderDevices(devices);
+    _devicesAll = devices || [];
+    _devicesPage = 1;
+    renderDevicesPage();
     document.getElementById('devicesRefreshInfo').textContent =
       'Actualizado: ' + new Date().toLocaleTimeString('es') + ' — auto-refresh cada 30s';
   } catch (e) {
@@ -2346,6 +3172,29 @@ async function loadDevices() {
   }
 }
 
+function renderDevicesPage() {
+  const start = (_devicesPage - 1) * DEVICES_PER_PAGE;
+  const slice = _devicesAll.slice(start, start + DEVICES_PER_PAGE);
+  renderDevices(slice);
+  const total = _devicesAll.length;
+  const pages = Math.max(1, Math.ceil(total / DEVICES_PER_PAGE));
+  const pag = document.getElementById('devicesPagination');
+  if (pag) {
+    const from = total === 0 ? 0 : start + 1;
+    const to = Math.min(start + DEVICES_PER_PAGE, total);
+    pag.innerHTML = `<span>Mostrando ${from}–${to} de ${total}</span>` +
+      `<span><button onclick="changeDevicesPage(-1)" ${_devicesPage===1?'disabled':''}>◄</button>` +
+      `<button class="active" disabled>${_devicesPage} / ${pages}</button>` +
+      `<button onclick="changeDevicesPage(1)" ${_devicesPage===pages?'disabled':''}>►</button></span>`;
+  }
+}
+
+function changeDevicesPage(delta) {
+  const pages = Math.max(1, Math.ceil(_devicesAll.length / DEVICES_PER_PAGE));
+  _devicesPage = Math.max(1, Math.min(pages, _devicesPage + delta));
+  renderDevicesPage();
+}
+
 function renderDevices(devices) {
   const tbody = document.getElementById('devicesTableBody');
 
@@ -2353,8 +3202,6 @@ function renderDevices(devices) {
     tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:30px">No hay dispositivos registrados</td></tr>';
     return;
   }
-
-  const ONE_HOUR = 3600000;
 
   tbody.innerHTML = devices.map(d => {
     const lastSeen = d.last_seen ? new Date(d.last_seen) : null;
@@ -2397,15 +3244,534 @@ function renderDevices(devices) {
 }
 
 async function deleteDevice(id, label) {
+  if (!_requireRole('admin','supervisor')) return;
   if (!await pixConfirm('Eliminar dispositivo "' + label + '"?')) return;
   try {
     await supaPost('/devices?id=eq.' + id, { active: false }, 'PATCH');
-    toast('Dispositivo eliminado');
+    _logAudit({ action: 'delete_device', target_type: 'device', target_id: id, target_name: label });
+    toast('Dispositivo eliminado', 'ok', async () => {
+      try {
+        await supaPost('/devices?id=eq.' + id, { active: true }, 'PATCH');
+        loadDevices();
+      } catch(_){}
+    });
     loadDevices();
   } catch (e) {
     toast('Error: ' + e.message, 'err');
   }
 }
+
+// ═══════════════════════════════════════════════════
+// ADMINS TAB — Per-admin user accounts
+// ═══════════════════════════════════════════════════
+
+let _adminsCache = [];
+
+async function loadAdmins() {
+  if (!_requireRole('admin')) {
+    document.getElementById('adminsTableBody').innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:30px">Solo el rol admin puede ver esta sección.</td></tr>';
+    return;
+  }
+  try {
+    const admins = await supaFetch('/admin_users?select=*&order=created_at.desc');
+    _adminsCache = admins || [];
+    renderAdmins(admins);
+  } catch (e) {
+    console.error('[Admins] Load error:', e);
+    document.getElementById('adminsTableBody').innerHTML =
+      `<tr><td colspan="8" style="text-align:center;color:var(--red);padding:20px">Error: ${esc(e.message)}</td></tr>`;
+  }
+}
+
+function renderAdmins(admins) {
+  const tbody = document.getElementById('adminsTableBody');
+  if (!admins || admins.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:30px">No hay administradores</td></tr>';
+    return;
+  }
+  const roleMap = { admin: 'badge-red', supervisor: 'badge-yellow', viewer: 'badge-teal' };
+  tbody.innerHTML = admins.map((a, i) => {
+    const last = a.last_login_at ? timeAgo(new Date(a.last_login_at)) : 'Nunca';
+    const tfa = a.totp_enabled ? `<span class="badge badge-green">✓ Activo</span>` : `<span class="badge badge-muted">No</span>`;
+    const activeBadge = a.active ? 'badge-green' : 'badge-red';
+    const isSelf = _adminUser && _adminUser.id === a.id;
+    return `<tr>
+      <td><strong>${esc(a.username)}</strong>${isSelf ? ' <small style="color:var(--green)">(vos)</small>' : ''}</td>
+      <td>${esc(a.full_name || '—')}</td>
+      <td>${esc(a.email || '—')}</td>
+      <td><span class="badge ${roleMap[a.role] || 'badge-teal'}">${a.role}</span></td>
+      <td>${tfa} ${a.totp_enabled ? '' : `<button class="btn btn-sm btn-outline" onclick="setupTotp('${a.id}','${escJS(a.username)}')">Activar 2FA</button>`}</td>
+      <td><span class="badge ${activeBadge}">${a.active ? 'Activo' : 'Inactivo'}</span></td>
+      <td><small>${last}</small></td>
+      <td>
+        <button class="btn btn-sm btn-secondary" onclick="editAdmin(_adminsCache[${i}])">Editar</button>
+        <button class="btn btn-sm btn-danger" onclick="resetAdminPw('${a.id}','${escJS(a.username)}')">Reset PW</button>
+        ${!isSelf ? `<button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="deleteAdmin('${a.id}','${escJS(a.username)}')">Desactivar</button>` : ''}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function toggleAdminForm() {
+  const p = document.getElementById('adminFormPanel');
+  if (p.classList.contains('show')) {
+    p.classList.remove('show');
+    clearAdminForm();
+  } else {
+    clearAdminForm();
+    p.classList.add('show');
+  }
+}
+
+function clearAdminForm() {
+  ['adminEditId','adminUsername','adminFullName','adminEmail','adminPassword'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('adminRole').value = 'admin';
+  document.getElementById('adminFormTitle').textContent = 'Nuevo Administrador';
+  document.getElementById('adminSubmitBtn').textContent = 'Crear Admin';
+  document.getElementById('adminPwLabel').textContent = 'Clave * (mín 8 caracteres)';
+}
+
+function editAdmin(a) {
+  if (!_requireRole('admin')) return;
+  document.getElementById('adminEditId').value = a.id;
+  document.getElementById('adminUsername').value = a.username || '';
+  document.getElementById('adminFullName').value = a.full_name || '';
+  document.getElementById('adminEmail').value = a.email || '';
+  document.getElementById('adminRole').value = a.role || 'admin';
+  document.getElementById('adminPassword').value = '';
+  document.getElementById('adminPwLabel').textContent = 'Clave (vacío = no cambiar)';
+  document.getElementById('adminFormTitle').textContent = 'Editar Administrador';
+  document.getElementById('adminSubmitBtn').textContent = 'Actualizar';
+  document.getElementById('adminFormPanel').classList.add('show');
+}
+
+async function submitAdmin() {
+  if (!_requireRole('admin')) return;
+  const editId   = document.getElementById('adminEditId').value;
+  const username = document.getElementById('adminUsername').value.trim().toLowerCase();
+  const fullName = document.getElementById('adminFullName').value.trim();
+  const email    = document.getElementById('adminEmail').value.trim() || null;
+  const role     = document.getElementById('adminRole').value;
+  const password = document.getElementById('adminPassword').value;
+  if (!username || !fullName) { toast('Usuario y nombre son obligatorios', 'err'); return; }
+  if (!editId && (!password || password.length < 8)) { toast('Clave mínima 8 caracteres', 'err'); return; }
+  if (password && password.length < 8) { toast('Clave mínima 8 caracteres', 'err'); return; }
+
+  const body = { username, full_name: fullName, email, role, updated_at: new Date().toISOString() };
+  if (password) body.password_hash = await pixHashSalted(password);
+  try {
+    if (editId) {
+      await supaPost('/admin_users?id=eq.' + editId, body, 'PATCH');
+      _logAudit({ action: 'update_admin', target_type: 'admin_user', target_id: editId, target_name: username });
+      toast('Admin actualizado');
+    } else {
+      body.active = true;
+      const created = await supaPost('/admin_users', body);
+      const newId = created && created[0] && created[0].id;
+      _logAudit({ action: 'create_admin', target_type: 'admin_user', target_id: newId, target_name: username });
+      toast('Admin creado');
+    }
+    toggleAdminForm();
+    loadAdmins();
+  } catch (e) {
+    toast('Error: ' + e.message, 'err');
+  }
+}
+
+async function deleteAdmin(id, username) {
+  if (!_requireRole('admin')) return;
+  if (!await pixConfirm('Desactivar admin "' + username + '"?')) return;
+  try {
+    await supaPost('/admin_users?id=eq.' + id, { active: false, updated_at: new Date().toISOString() }, 'PATCH');
+    _logAudit({ action: 'delete_admin', target_type: 'admin_user', target_id: id, target_name: username });
+    toast('Admin desactivado');
+    loadAdmins();
+  } catch (e) {
+    toast('Error: ' + e.message, 'err');
+  }
+}
+
+async function resetAdminPw(id, username) {
+  if (!_requireRole('admin')) return;
+  const pw = await pixPrompt('Nueva clave para ' + username + ' (mín 8):', 'password');
+  if (pw == null) return;
+  if (pw.length < 8) { toast('Mínimo 8 caracteres', 'err'); return; }
+  try {
+    const hash = await pixHashSalted(pw);
+    await supaPost('/admin_users?id=eq.' + id, { password_hash: hash, updated_at: new Date().toISOString() }, 'PATCH');
+    _logAudit({ action: 'reset_admin_pw', target_type: 'admin_user', target_id: id, target_name: username });
+    toast('Clave actualizada');
+  } catch (e) {
+    toast('Error: ' + e.message, 'err');
+  }
+}
+
+// 2FA setup — generate TOTP secret + show QR + verify before enabling
+async function setupTotp(id, username) {
+  if (!_requireRole('admin')) return;
+  const secret = pixTotpRandomSecret();
+  const issuer = encodeURIComponent('PIX Muestreo Admin');
+  const label  = encodeURIComponent('PIX:' + username);
+  const otpauth = `otpauth://totp/${label}?secret=${secret}&issuer=${issuer}&algorithm=SHA1&digits=6&period=30`;
+  const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(otpauth);
+  // Modal-like flow using a custom dialog
+  const html = `<div style="text-align:center"><h3 style="margin:0 0 8px">Configurar 2FA</h3><p style="font-size:12px;color:var(--muted);margin-bottom:12px">Escaneá este QR con Google Authenticator o Authy, luego ingresá el código de 6 dígitos.</p><img src="${qrUrl}" alt="QR" style="display:block;margin:0 auto 12px;border:8px solid white;border-radius:8px"><div style="font-size:11px;color:var(--muted);margin-bottom:8px;word-break:break-all">Secret: <code>${secret}</code></div></div>`;
+  // Show in inputModal with override
+  const code = await _customDialog(html, 'numeric');
+  if (!code) return;
+  if (!(await pixTotpVerify(secret, code.trim()))) {
+    toast('Código incorrecto. Intentá de nuevo.', 'err');
+    return;
+  }
+  try {
+    await supaPost('/admin_users?id=eq.' + id, { totp_secret: secret, totp_enabled: true, updated_at: new Date().toISOString() }, 'PATCH');
+    _logAudit({ action: 'enable_2fa', target_type: 'admin_user', target_id: id, target_name: username });
+    toast('2FA activado para ' + username);
+    loadAdmins();
+  } catch (e) {
+    toast('Error: ' + e.message, 'err');
+  }
+}
+
+function _customDialog(htmlContent, fieldType) {
+  return new Promise(resolve => {
+    const modal = document.getElementById('inputModal');
+    const msg = document.getElementById('inputModalMsg');
+    const field = document.getElementById('inputModalField');
+    msg.innerHTML = htmlContent;          // intentional innerHTML — controlled content only
+    field.type = 'text';
+    field.inputMode = fieldType === 'numeric' ? 'numeric' : 'text';
+    field.placeholder = '000000';
+    field.value = '';
+    modal.style.display = 'flex';
+    setTimeout(() => field.focus(), 50);
+    const close = (val) => {
+      modal.style.display = 'none';
+      msg.textContent = '';
+      field.removeAttribute('inputmode');
+      field.placeholder = '';
+      resolve(val);
+    };
+    document.getElementById('inputModalOk').onclick = () => close(field.value);
+    document.getElementById('inputModalCancel').onclick = () => close(null);
+    field.onkeydown = (e) => { if (e.key === 'Enter') close(field.value); };
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// AUDITORÍA TAB
+// ═══════════════════════════════════════════════════
+
+let _auditAll = [];
+let _auditPage = 1;
+const AUDIT_PER_PAGE = 30;
+
+async function loadAudit() {
+  try {
+    const filter = document.getElementById('auditFilterAction')?.value || '';
+    const path = '/audit_log?select=*&order=created_at.desc&limit=500' + (filter ? '&action=eq.' + filter : '');
+    _auditAll = await supaFetch(path);
+    _auditPage = 1;
+    renderAuditPage();
+  } catch (e) {
+    document.getElementById('auditTableBody').innerHTML =
+      `<tr><td colspan="5" style="text-align:center;color:var(--red);padding:20px">Error: ${esc(e.message)}</td></tr>`;
+  }
+}
+
+function renderAuditPage() {
+  const tbody = document.getElementById('auditTableBody');
+  const start = (_auditPage - 1) * AUDIT_PER_PAGE;
+  const slice = _auditAll.slice(start, start + AUDIT_PER_PAGE);
+  if (slice.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:30px">Sin entradas</td></tr>';
+  } else {
+    tbody.innerHTML = slice.map(a => {
+      const dt = new Date(a.created_at);
+      const target = a.target_name ? `${esc(a.target_name)}` : (a.target_id ? `<code>${esc(a.target_id.substr(0,8))}</code>` : '—');
+      const detail = a.details ? `<code style="font-size:10px">${esc(JSON.stringify(a.details).slice(0,80))}</code>` : '—';
+      const actBadge = a.action.includes('failed') ? 'badge-red'
+                     : a.action.startsWith('delete') || a.action.startsWith('purge') ? 'badge-yellow'
+                     : 'badge-teal';
+      return `<tr>
+        <td><small>${dt.toLocaleString('es')}</small></td>
+        <td><strong>${esc(a.admin_user)}</strong></td>
+        <td><span class="badge ${actBadge}">${esc(a.action)}</span></td>
+        <td>${esc(a.target_type || '')} ${target}</td>
+        <td>${detail}</td>
+      </tr>`;
+    }).join('');
+  }
+  const total = _auditAll.length;
+  const pages = Math.max(1, Math.ceil(total / AUDIT_PER_PAGE));
+  const pag = document.getElementById('auditPagination');
+  if (pag) {
+    pag.innerHTML = `<span>${total} entradas (últimas 500)</span><span>` +
+      `<button onclick="changeAuditPage(-1)" ${_auditPage===1?'disabled':''}>◄</button>` +
+      `<button class="active" disabled>${_auditPage} / ${pages}</button>` +
+      `<button onclick="changeAuditPage(1)" ${_auditPage===pages?'disabled':''}>►</button></span>`;
+  }
+}
+
+function changeAuditPage(delta) {
+  const pages = Math.max(1, Math.ceil(_auditAll.length / AUDIT_PER_PAGE));
+  _auditPage = Math.max(1, Math.min(pages, _auditPage + delta));
+  renderAuditPage();
+}
+
+function exportAuditCSV() {
+  if (!_auditAll || _auditAll.length === 0) { toast('Sin datos', 'warn'); return; }
+  const header = 'Fecha,Admin,Accion,Tipo,ID,Nombre,Detalle';
+  const csvField = (v) => {
+    const s = String(v ?? '');
+    return (s.includes(',') || s.includes('"') || s.includes('\n'))
+      ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  const rows = _auditAll.map(a => [
+    a.created_at, a.admin_user, a.action, a.target_type || '', a.target_id || '',
+    a.target_name || '', a.details ? JSON.stringify(a.details) : ''
+  ].map(csvField).join(','));
+  const blob = new Blob([header + '\n' + rows.join('\n')], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `auditoria_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('Auditoría exportada');
+}
+
+// ═══════════════════════════════════════════════════
+// TECHNICIAN DETAIL DRAWER
+// ═══════════════════════════════════════════════════
+
+async function openTechDetail(id) {
+  const drawer = document.getElementById('techDetailDrawer');
+  const content = document.getElementById('techDetailContent');
+  content.innerHTML = 'Cargando…';
+  drawer.style.display = 'block';
+  try {
+    const t = (_techsAll || []).find(x => x.id === id);
+    if (!t) { content.innerHTML = 'Técnico no encontrado'; return; }
+    // Load samples + activity for this technician (by full_name match — same lookup as panel)
+    const [fields, activity] = await Promise.all([
+      supaFetch('/field_syncs?select=field_name,project,client,samples,collected_points,total_points,progress_pct,synced_at,conflicts_resolved&technician=eq.' + encodeURIComponent(t.full_name) + '&order=synced_at.desc&limit=20'),
+      supaFetch('/activity_log?select=action,details,created_at&technician=eq.' + encodeURIComponent(t.full_name) + '&order=created_at.desc&limit=30')
+    ]);
+    const totalSamples = fields.reduce((s, f) => s + (f.samples?.length || 0), 0);
+    const totalConflicts = fields.reduce((s, f) => s + (f.conflicts_resolved || 0), 0);
+    content.innerHTML = `
+      <h2 style="margin:0 0 4px">${esc(t.full_name)}</h2>
+      <div style="color:var(--muted);font-size:12px;margin-bottom:16px">@${esc(t.username)} · ${esc(t.role)} · ${t.active ? 'activo' : 'inactivo'}</div>
+      <div class="stats" style="grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">
+        <div class="stat-card"><div class="stat-value" style="font-size:20px">${fields.length}</div><div class="stat-label">Campos</div></div>
+        <div class="stat-card"><div class="stat-value" style="font-size:20px">${totalSamples}</div><div class="stat-label">Muestras</div></div>
+        <div class="stat-card"><div class="stat-value" style="font-size:20px;color:${totalConflicts>0?'var(--yellow)':''};-webkit-text-fill-color:${totalConflicts>0?'var(--yellow)':''};${totalConflicts>0?'background:none':''}">${totalConflicts}</div><div class="stat-label">Conflictos</div></div>
+      </div>
+      <h3 style="font-size:13px;margin:16px 0 8px;color:var(--muted)">Últimos campos</h3>
+      <div style="max-height:200px;overflow-y:auto">
+        ${fields.length === 0 ? '<div style="color:var(--muted);font-size:12px">Sin campos sincronizados</div>' : fields.map(f => `
+          <div style="padding:8px 10px;background:var(--bg3);border-radius:8px;margin-bottom:6px;font-size:12px">
+            <strong>${esc(f.field_name)}</strong> · ${esc(f.client || '')}<br>
+            <small style="color:var(--muted)">${f.collected_points || 0}/${f.total_points || '?'} pts · ${f.progress_pct || 0}% · ${timeAgo(new Date(f.synced_at))}</small>
+          </div>`).join('')}
+      </div>
+      <h3 style="font-size:13px;margin:16px 0 8px;color:var(--muted)">Actividad reciente</h3>
+      <div style="max-height:200px;overflow-y:auto">
+        ${activity.length === 0 ? '<div style="color:var(--muted);font-size:12px">Sin actividad</div>' : activity.map(a => `
+          <div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:12px">
+            <small style="color:var(--muted)">${new Date(a.created_at).toLocaleString('es')}</small> ·
+            ${esc(a.action)}
+          </div>`).join('')}
+      </div>
+      <div style="margin-top:18px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-secondary" onclick="editTechnician(_techsAll.find(x=>x.id==='${t.id}'))">Editar</button>
+        <button class="btn btn-secondary" onclick="resetTechPassword('${t.id}','${escJS(t.full_name)}')">Reset PW</button>
+      </div>
+    `;
+  } catch (e) {
+    content.innerHTML = 'Error: ' + esc(e.message);
+  }
+}
+
+function closeTechDetail() {
+  document.getElementById('techDetailDrawer').style.display = 'none';
+}
+
+// ═══════════════════════════════════════════════════
+// REALTIME v2 (postgres_changes — Supabase Realtime current protocol)
+// Replaces v1 phx_join "realtime:public:*" syntax — not delivered by current Supabase
+// ═══════════════════════════════════════════════════
+
+let _realtimeBackoff = 0;     // seconds to wait before next reconnect
+
+// Override the v1 enableRealtime() defined earlier
+window.enableRealtime = function() {
+  if (!SUPA_URL || !SUPA_KEY) return;
+  if (_realtimeCh && _realtimeCh.readyState === 1) return;
+  try {
+    const wsUrl = SUPA_URL.replace(/^https/, 'wss') + '/realtime/v1/websocket?apikey=' + encodeURIComponent(SUPA_KEY) + '&vsn=1.0.0';
+    const ws = new WebSocket(wsUrl);
+    let heartbeat = null;
+    let joinRef = 0;
+
+    ws.onopen = () => {
+      console.log('[Realtime v2] connected');
+      _realtimeBackoff = 0;
+      // postgres_changes — current Supabase Realtime protocol
+      const subs = ['field_syncs','activity_log','devices','service_orders','technicians','audit_log'];
+      subs.forEach(table => {
+        joinRef++;
+        ws.send(JSON.stringify({
+          topic: 'realtime:public:' + table,
+          event: 'phx_join',
+          payload: {
+            config: {
+              postgres_changes: [{ event: '*', schema: 'public', table }]
+            }
+          },
+          ref: String(joinRef)
+        }));
+      });
+      heartbeat = setInterval(() => {
+        try { ws.send(JSON.stringify({ topic: 'phoenix', event: 'heartbeat', payload: {}, ref: '0' })); } catch(_){}
+      }, 25000);
+      const ind = document.getElementById('rtIndicator');
+      if (ind) { ind.classList.add('on'); document.getElementById('rtLabel').textContent = 'Realtime v2'; }
+    };
+
+    ws.onmessage = (ev) => {
+      try {
+        const msg = JSON.parse(ev.data);
+        // Ignore phx_reply / heartbeat
+        if (msg.event === 'phx_reply' || msg.event === 'heartbeat' || msg.event === 'presence_state') return;
+        // postgres_changes: payload.data.type ∈ INSERT|UPDATE|DELETE
+        const evType = (msg.payload && msg.payload.data && msg.payload.data.type) || msg.event;
+        if (evType === 'INSERT' || evType === 'UPDATE' || evType === 'DELETE') {
+          if (_realtimeReloadTimer) clearTimeout(_realtimeReloadTimer);
+          _realtimeReloadTimer = setTimeout(() => {
+            if (activeTab === 'tabPanel') loadData();
+            else if (activeTab === 'tabOrdenes') loadOrders();
+            else if (activeTab === 'tabDispositivos') loadDevices();
+            else if (activeTab === 'tabTecnicos') loadTechnicians();
+            else if (activeTab === 'tabAdmins') loadAdmins();
+            else if (activeTab === 'tabAuditoria') loadAudit();
+          }, 500);
+          // Browser notification for urgent priority orders + new audit alerts
+          if (evType === 'INSERT' && msg.topic && msg.topic.includes(':service_orders')) {
+            const rec = msg.payload.data && msg.payload.data.record;
+            if (rec && rec.priority === 'urgente') _browserNotify('Orden urgente', `${rec.title || 'Nueva'}: cliente ${rec.client || '—'}`);
+          }
+        }
+      } catch(_){}
+    };
+
+    ws.onerror = (e) => console.warn('[Realtime v2] error:', e);
+    ws.onclose = () => {
+      console.log('[Realtime v2] disconnected');
+      if (heartbeat) clearInterval(heartbeat);
+      _realtimeCh = null;
+      const ind = document.getElementById('rtIndicator');
+      if (ind) { ind.classList.remove('on'); document.getElementById('rtLabel').textContent = 'Polling'; }
+      // Exponential backoff: 5,10,20,40,80,160 (cap 300s)
+      _realtimeBackoff = Math.min(300, _realtimeBackoff ? _realtimeBackoff * 2 : 5);
+      setTimeout(enableRealtime, _realtimeBackoff * 1000);
+    };
+
+    _realtimeCh = ws;
+  } catch (e) {
+    console.warn('[Realtime v2] setup failed:', e.message);
+  }
+};
+
+// ═══════════════════════════════════════════════════
+// BROWSER NOTIFICATIONS
+// ═══════════════════════════════════════════════════
+
+function _browserNotify(title, body) {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'granted') {
+    try { new Notification(title, { body, icon: 'icons/icon-192.png', tag: 'pix-' + Date.now() }); } catch(_){}
+  } else if (Notification.permission !== 'denied') {
+    Notification.requestPermission().then(p => {
+      if (p === 'granted') _browserNotify(title, body);
+    });
+  }
+}
+
+// Request permission once on first interaction (user gesture required for some browsers)
+document.addEventListener('click', function _onceNotifReq() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission().catch(() => {});
+  }
+  document.removeEventListener('click', _onceNotifReq);
+}, { once: true });
+
+// ═══════════════════════════════════════════════════
+// TELEMETRY (lightweight — non-blocking)
+// ═══════════════════════════════════════════════════
+
+const _telemetry = {
+  sessionStart: Date.now(),
+  pageLoadMs: null,
+  actions: 0,
+  errors: 0,
+  lastError: null
+};
+
+window.addEventListener('load', () => {
+  if (window.performance && performance.timing) {
+    _telemetry.pageLoadMs = performance.timing.domComplete - performance.timing.navigationStart;
+  } else if (window.performance && performance.getEntriesByType) {
+    const nav = performance.getEntriesByType('navigation')[0];
+    if (nav) _telemetry.pageLoadMs = Math.round(nav.duration);
+  }
+});
+
+window.addEventListener('error', (e) => {
+  _telemetry.errors++;
+  _telemetry.lastError = { msg: e.message, file: e.filename, line: e.lineno, ts: Date.now() };
+});
+window.addEventListener('unhandledrejection', (e) => {
+  _telemetry.errors++;
+  _telemetry.lastError = { msg: String(e.reason), ts: Date.now() };
+});
+
+// Wrap supaPost / supaFetch / supaDelete to count actions + measure time
+(function() {
+  const origSupaPost = window.supaPost;
+  window.supaPost = async function() {
+    _telemetry.actions++;
+    const t0 = performance.now();
+    try { return await origSupaPost.apply(null, arguments); }
+    finally {
+      const dt = Math.round(performance.now() - t0);
+      if (dt > 2000) console.warn(`[telemetry] slow supaPost: ${dt}ms`, arguments[0]);
+    }
+  };
+})();
+
+window.pixTelemetry = () => ({ ..._telemetry, uptimeMs: Date.now() - _telemetry.sessionStart });
+
+// ═══════════════════════════════════════════════════
+// KEYBOARD SHORTCUTS
+// ═══════════════════════════════════════════════════
+document.addEventListener('keydown', (e) => {
+  // Esc closes modals + drawer
+  if (e.key === 'Escape') {
+    ['confirmModal','inputModal'].forEach(id => {
+      const m = document.getElementById(id);
+      if (m && m.style.display === 'flex') m.style.display = 'none';
+    });
+    const drawer = document.getElementById('techDetailDrawer');
+    if (drawer && drawer.style.display === 'block') closeTechDetail();
+  }
+  // Ctrl/Cmd + K → focus search on tabTecnicos
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k' && activeTab === 'tabTecnicos') {
+    e.preventDefault();
+    const inp = document.getElementById('techsSearchInput');
+    if (inp) inp.focus();
+  }
+});
 
 // ═══════════════════════════════════════════════════
 // HELPERS
@@ -2431,15 +3797,7 @@ function setConnected(ok) {
   if (eb) eb.style.display = ok ? '' : 'none';
 }
 
-function toast(msg, type) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  const cls = type === 'err' || type === 'error' ? 'toast-err'
-            : type === 'warning' ? 'toast-warn'
-            : 'toast-ok';
-  el.className = 'toast ' + cls + ' show';
-  setTimeout(() => { el.classList.remove('show'); }, 3000);
-}
+// (legacy toast() removed — pixToast aliased as `toast` at top of script)
 
 // ═══════════════════════════════════════════════════
 // EXPORT REPORTS TO LOCAL FOLDER
@@ -2473,7 +3831,7 @@ async function writeFile(dir, filename, content) {
 
 async function exportReports() {
   if (!window.showDirectoryPicker) {
-    alert('Tu navegador no soporta File System Access API. Usa Google Chrome actualizado.');
+    await pixAlert('Tu navegador no soporta File System Access API. Usá Google Chrome actualizado.');
     return;
   }
 
@@ -2488,7 +3846,7 @@ async function exportReports() {
     const activities = await supaFetch('/activity_log?select=*&order=created_at.desc&limit=100');
 
     if (!fields || fields.length === 0) {
-      alert('No hay datos de campo para exportar.');
+      await pixAlert('No hay datos de campo para exportar.');
       btn.textContent = origText; btn.disabled = false;
       return;
     }
@@ -2546,7 +3904,7 @@ async function exportReports() {
   } catch (e) {
     if (e.name !== 'AbortError') {
       console.error('[Export]', e);
-      alert('Error al exportar: ' + e.message);
+      toast('Error al exportar: ' + e.message, 'err');
     }
     btn.textContent = origText;
     btn.disabled = false;
