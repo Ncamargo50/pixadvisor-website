@@ -1,8 +1,11 @@
 // PIX Muestreo Dashboard — Service Worker (offline shell)
 // Caches the dashboard HTML + assets; bypasses Supabase REST/Realtime
-const CACHE = 'pix-dash-v1';
+// v2 — added dashboard.js + dashboard-config.js after split
+const CACHE = 'pix-dash-v2';
 const ASSETS = [
   'dashboard.html',
+  'dashboard.js',
+  'dashboard-config.js',
   'lib/leaflet.css',
   'lib/leaflet.js',
   'lib/leaflet-heat.js',
