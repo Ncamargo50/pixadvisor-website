@@ -1997,6 +1997,41 @@ class PixApp {
       const stale = ageMs > 24 * 3600 * 1000;
       staleWarn.style.display = stale ? 'block' : 'none';
     }
+
+    // v3.17.5 / P1-1: stuck-fields banner — shown only when one or more
+    // fields hit the retry counter ceiling (MAX_FIELD_SYNC_ATTEMPTS).
+    try {
+      const stuckWarn = document.getElementById('syncStuckWarn');
+      const stuckCountEl = document.getElementById('syncStuckCount');
+      if (stuckWarn && stuckCountEl && pixCloud && typeof pixCloud.getStuckFieldCount === 'function') {
+        const stuck = await pixCloud.getStuckFieldCount();
+        if (stuck > 0) {
+          stuckCountEl.textContent = String(stuck);
+          stuckWarn.style.display = 'block';
+        } else {
+          stuckWarn.style.display = 'none';
+        }
+      }
+    } catch (_) { /* non-fatal */ }
+  }
+
+  // v3.17.5 / P1-1: clear all retry counters and immediately attempt a fresh
+  // sync. Wired to the "Reintentar fallidos" button in the sync view.
+  async resetStuckFields() {
+    if (!pixCloud || typeof pixCloud.resetFailureCounters !== 'function') return;
+    try {
+      const cleared = await pixCloud.resetFailureCounters();
+      this.toast(`✅ ${cleared} contador(es) de fallo reiniciado(s) — sincronizando...`, 'success', 4000);
+      this.addSyncLog && this.addSyncLog(`🔄 Reintento manual: ${cleared} campo(s) liberado(s)`);
+      // Hide banner immediately; updateSyncStats will redraw if needed.
+      const stuckWarn = document.getElementById('syncStuckWarn');
+      if (stuckWarn) stuckWarn.style.display = 'none';
+      // Trigger a fresh sync. _runAutoSync is mutex-guarded.
+      this._runAutoSync().catch(e => console.warn('[Sync] resetStuckFields → autoSync failed:', e.message));
+    } catch (e) {
+      console.warn('[App] resetStuckFields error:', e.message);
+      this.toast('No se pudo reiniciar los contadores: ' + (e.message || 'error desconocido'), 'error');
+    }
   }
 
   async syncToDrive() {
@@ -3029,6 +3064,16 @@ ${detailHTML}
           if (result.authFailed) {
             this.toast('⛔ Sesión nube vencida — reconfigurá en Ajustes para sincronizar', 'error', 8000);
             this.addSyncLog('⛔ Auto-sync: sesión nube vencida');
+          }
+          // v3.17.5 / P1-1: stuck-field warning (retry counter ceiling).
+          if (result.permanentlyFailed > 0) {
+            const names = (result.stuckFields || []).join(', ');
+            this.toast(
+              `⚠ ${result.permanentlyFailed} campo(s) bloqueados: ${names} — usá "Reintentar fallidos" en Sincronización`,
+              'warning',
+              8000
+            );
+            this.addSyncLog(`⚠ Auto-sync: ${result.permanentlyFailed} campo(s) bloqueados (reintento manual requerido)`);
           }
         } catch (e) { console.warn('[AutoSync] Cloud:', e.message); }
         // Upload pending boundaries + auxiliary syncs (each independently guarded)
@@ -4672,6 +4717,19 @@ ${detailHTML}
           // v3.17.4: visible auth failure — silent 401 was P1 audit finding.
           if (result.authFailed) {
             this.toast('⛔ Sesión nube vencida — reconfigurá en Ajustes para sincronizar', 'error', 8000);
+          }
+          // v3.17.5: surface fields that hit the retry ceiling so the
+          // técnico knows their work isn't reaching the dashboard and can
+          // tap "Reintentar fallidos" once the underlying issue is resolved.
+          if (result.permanentlyFailed > 0) {
+            const names = (result.stuckFields || []).join(', ');
+            const more = result.permanentlyFailed > (result.stuckFields || []).length;
+            this.toast(
+              `⚠ ${result.permanentlyFailed} campo(s) bloqueados tras varios reintentos: ${names}${more ? '...' : ''} — usá "Reintentar fallidos" en Sincronización`,
+              'warning',
+              8000
+            );
+            this.addSyncLog && this.addSyncLog(`⚠ ${result.permanentlyFailed} campo(s) bloqueados — requieren reintento manual`);
           }
         }
       } catch (e) {

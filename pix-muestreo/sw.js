@@ -17,7 +17,11 @@
 // v64 — v3.17.4: P1 hardening — initial sync on app load if pending samples,
 //       multi-técnico conflict toasts, 401/auth-expired user-facing alert,
 //       APP_VERSION + SW cache aligned with versionCode bump.
-const CACHE_NAME = 'pix-muestreo-v64';
+// v65 — v3.17.5: P1 backlog — proactive old-cache cleanup in install handler
+//       (prev: only on activate, leaving old caches lingering if app closed
+//       before fetch event); cloud retry counter to bound infinite retries on
+//       permanently-failing fields (4xx schema errors, etc.).
+const CACHE_NAME = 'pix-muestreo-v65';
 const TILE_CACHE = 'pix-tiles-v1';
 
 // Derive base path dynamically — works in both web (/pix-muestreo/) and APK WebView
@@ -75,9 +79,25 @@ const STATIC_ASSETS = [
 ];
 
 // Install - cache static assets
+// v65: proactively delete old `pix-muestreo-v*` caches BEFORE caching new
+// assets. Previously cleanup only ran in `activate`, which is fine in the
+// happy path but can leave stale caches taking up storage if the user closes
+// the app before the new SW activates (or activate fails partially). Doing it
+// in install closes that gap — old caches are reaped as soon as the new SW
+// downloads, even before it takes control.
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
+    caches.keys().then(keys => {
+      // Clean any pix-muestreo-* cache that isn't the current one. Keep the
+      // tile cache (it's versioned separately and is expensive to rebuild).
+      const stale = keys.filter(k =>
+        k.startsWith('pix-muestreo-') && k !== CACHE_NAME && k !== TILE_CACHE
+      );
+      if (stale.length > 0) {
+        console.log('[SW] Proactive cleanup of old caches:', stale);
+      }
+      return Promise.all(stale.map(k => caches.delete(k).catch(() => false)));
+    }).then(() => caches.open(CACHE_NAME)).then(cache => {
       // Use addAll but don't fail install if some assets are missing
       return cache.addAll(STATIC_ASSETS).catch(err => {
         console.warn('[SW] Some assets failed to cache:', err);
@@ -91,7 +111,7 @@ self.addEventListener('install', event => {
   self.skipWaiting();
 });
 
-// Activate - clean old caches
+// Activate - second-pass cleanup (covers anything install missed) + claim clients
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>

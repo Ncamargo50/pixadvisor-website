@@ -4,7 +4,14 @@
 
 // App version constant — used by registerDevice() for fleet tracking
 // IMPORTANT: Keep APP_VERSION in sync with CACHE_NAME in sw.js
-const APP_VERSION = 'pix-muestreo-v64';
+const APP_VERSION = 'pix-muestreo-v65';
+
+// Bound the number of retry attempts per field across app sessions. Without
+// this, a field with a permanent failure (corrupt schema, oversize payload,
+// 4xx not caught by preflight) is retried on every app start AND every
+// 'online' event AND every 24h auto-sync — burning the user's data plan.
+// Resets to 0 on any successful sync of that field.
+const MAX_FIELD_SYNC_ATTEMPTS = 8;
 
 // ── Supabase "bootstrap" endpoint & anon key ─────────────────────────────
 // SECURITY MODEL: The Supabase anon key is PUBLIC by design — it grants only
@@ -311,10 +318,22 @@ class PixCloud {
     const allTracks = await pixDB.getAll('tracks');
     const collector = await pixDB.getSetting('collectorName') || 'Tecnico';
 
+    // v3.17.5 / P1-1: persistent retry counter map. Stored as a settings entry
+    // so it survives app restart, wipes-out, and repeated 'online' triggers.
+    // Shape: { "<fieldId>": { attempts, lastError, lastAttemptAt } }
+    let failureMap = {};
+    try {
+      const raw = await pixDB.getSetting('cloud_field_failures');
+      if (raw) failureMap = (typeof raw === 'string') ? JSON.parse(raw) : raw;
+      if (!failureMap || typeof failureMap !== 'object') failureMap = {};
+    } catch (_) { failureMap = {}; }
+
     let synced = 0;
     let total = 0;
     let totalConflicts = 0; // v3.17.4: aggregate cross-técnico conflicts
     let authFailed = false; // v3.17.4: 401 short-circuits remaining fields
+    let permanentlyFailed = 0; // v3.17.5: fields skipped because they exceeded MAX_FIELD_SYNC_ATTEMPTS
+    let skippedNames = [];     // v3.17.5: surface stuck-field names to the UI
 
     // Count fields with samples
     const fieldIds = [...new Set(allSamples.map(s => s.fieldId))];
@@ -324,6 +343,17 @@ class PixCloud {
       if (authFailed) break; // No point trying more fields if auth is bad
       const field = allFields.find(f => f.id === fieldId);
       if (!field) continue;
+
+      // v3.17.5: skip fields that have failed too many times. The user can
+      // reset the counter via pixCloud.resetFailureCounters() (wired to a
+      // "Reintentar fallidos" button in the sync view).
+      const failKey = String(fieldId);
+      const failEntry = failureMap[failKey];
+      if (failEntry && failEntry.attempts >= MAX_FIELD_SYNC_ATTEMPTS) {
+        permanentlyFailed++;
+        if (skippedNames.length < 5) skippedNames.push(field.name || `#${fieldId}`);
+        continue;
+      }
 
       const project = projects.find(p => p.id === field.projectId);
       const fieldSamples = allSamples.filter(s => s.fieldId === fieldId);
@@ -345,6 +375,8 @@ class PixCloud {
         );
         synced++;
         if (result && result.conflicts) totalConflicts += result.conflicts;
+        // Clear any previous failure record for this field on success.
+        if (failureMap[failKey]) delete failureMap[failKey];
         if (onProgress) onProgress(synced, total);
       } catch (e) {
         console.warn(`[Cloud] Failed to sync field ${field.name}:`, e.message);
@@ -353,11 +385,28 @@ class PixCloud {
         if (e.status === 401 || /401|unauthorized|JWT/i.test(String(e.message || ''))) {
           authFailed = true;
           this._lastSyncError = 'AUTH_EXPIRED: Sesión Supabase vencida — reconfigurá la nube en Ajustes';
+          // Don't increment counter on auth issues — that's a configuration
+          // problem, not a per-field problem. Once cloud is reconfigured,
+          // the existing samples should sync normally.
         } else {
           this._lastSyncError = `${field.name}: ${e.message}`;
+          // v3.17.5: bump failure counter for this field so we eventually
+          // stop retrying if it's a permanent issue (4xx schema, etc.).
+          const prev = failureMap[failKey] || { attempts: 0 };
+          failureMap[failKey] = {
+            attempts: (prev.attempts || 0) + 1,
+            lastError: String(e.message || '').slice(0, 200),
+            lastAttemptAt: new Date().toISOString()
+          };
+          if (failureMap[failKey].attempts >= MAX_FIELD_SYNC_ATTEMPTS) {
+            console.warn(`[Cloud] Field "${field.name}" reached max attempts (${MAX_FIELD_SYNC_ATTEMPTS}) — will skip until manual reset`);
+          }
         }
       }
     }
+
+    // Persist updated failure map (best-effort; never block sync on a setting write).
+    try { await pixDB.setSetting('cloud_field_failures', JSON.stringify(failureMap)); } catch (_) {}
 
     // Persist timestamp of last successful cloud sync so the UI can show
     // "Última sincronización hace X min" and the stale-data warning.
@@ -367,9 +416,49 @@ class PixCloud {
       total,
       conflicts: totalConflicts,
       authFailed,
+      permanentlyFailed,        // v3.17.5
+      stuckFields: skippedNames, // v3.17.5
       lastError: this._lastSyncError || null
     };
     } finally { this._syncing = false; }
+  }
+
+  // ═══════════════════════════════════════════════
+  // RETRY COUNTER MANAGEMENT (v3.17.5 / P1-1)
+  // ═══════════════════════════════════════════════
+  // The retry counter is stored as a settings entry (`cloud_field_failures`)
+  // and survives app restart. These helpers let the UI peek at stuck fields
+  // and let the user manually reset counters via a "Reintentar fallidos"
+  // button in the sync view.
+
+  async getFailureMap() {
+    try {
+      const raw = await pixDB.getSetting('cloud_field_failures');
+      if (!raw) return {};
+      const parsed = (typeof raw === 'string') ? JSON.parse(raw) : raw;
+      return (parsed && typeof parsed === 'object') ? parsed : {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  async getStuckFieldCount() {
+    const map = await this.getFailureMap();
+    return Object.values(map).filter(v => (v.attempts || 0) >= MAX_FIELD_SYNC_ATTEMPTS).length;
+  }
+
+  // Clear all retry counters — exposed for a "Reintentar fallidos" button.
+  // Returns the number of records cleared so the caller can show a toast.
+  async resetFailureCounters() {
+    try {
+      const before = await this.getFailureMap();
+      const count = Object.keys(before).length;
+      await pixDB.setSetting('cloud_field_failures', JSON.stringify({}));
+      return count;
+    } catch (e) {
+      console.warn('[Cloud] resetFailureCounters failed:', e.message);
+      return 0;
+    }
   }
 
   // ═══════════════════════════════════════════════
