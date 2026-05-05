@@ -93,6 +93,8 @@ class GPSNavigator {
           raw: { lat: pos.coords.latitude, lng: pos.coords.longitude }
         };
         this.accuracy = pos.coords.accuracy;
+        // v3.18.1: GPS recovered — reset offline backoff counter.
+        if (this._gpsRetryCount) this._gpsRetryCount = 0;
 
         // Check position stabilization
         this._checkStabilization();
@@ -140,13 +142,40 @@ class GPSNavigator {
         }
       },
       err => {
-        console.error('GPS error:', err);
+        // v3.18.1: robust offline behavior. Cold-fix on a phone without
+        // network can take 20–30s (no A-GPS, no cell tower triangulation).
+        // Bumping `timeout` to 30s and auto-rearming watchPosition on
+        // POSITION_UNAVAILABLE / TIMEOUT prevents the silent "GPS dies and
+        // never comes back" behavior some Android WebViews exhibit.
+        // PERMISSION_DENIED (code 1) is fatal and not retried.
+        console.warn('[GPS] watchPosition error:', err.code, err.message);
         if (callback) callback(null, err);
+        if (err.code === 1) {
+          // Permission denied — surface clearly, do not loop.
+          if (this.onPermissionError) this.onPermissionError(err);
+          return;
+        }
+        // Auto-rearm with backoff (capped at 15s). Avoid stacking handlers:
+        // clearWatch the current id before re-issuing.
+        if (this.watchId !== null) {
+          try { navigator.geolocation.clearWatch(this.watchId); } catch (_) {}
+          this.watchId = null;
+        }
+        this._gpsRetryCount = (this._gpsRetryCount || 0) + 1;
+        const backoff = Math.min(15000, 2000 * this._gpsRetryCount);
+        if (this._gpsRearmTimer) clearTimeout(this._gpsRearmTimer);
+        this._gpsRearmTimer = setTimeout(() => {
+          this._gpsRearmTimer = null;
+          if (this.watchId === null && this.onPositionUpdate) {
+            console.log('[GPS] re-arming watchPosition (attempt ' + this._gpsRetryCount + ')');
+            this.startWatch(this.onPositionUpdate);
+          }
+        }, backoff);
       },
       {
         enableHighAccuracy: true,
         maximumAge: 2000,     // Allow up to 2s cached readings — reduces jitter
-        timeout: 10000        // 10 sec timeout
+        timeout: 30000        // v3.18.1: 30s — cold offline fix needs the headroom
       }
     );
   }
@@ -157,6 +186,13 @@ class GPSNavigator {
       navigator.geolocation.clearWatch(this.watchId);
       this.watchId = null;
     }
+    // v3.18.1: cancel any pending offline auto-rearm so a freshly stopped
+    // watch can't ghost-restart itself a few seconds later.
+    if (this._gpsRearmTimer) {
+      clearTimeout(this._gpsRearmTimer);
+      this._gpsRearmTimer = null;
+    }
+    this._gpsRetryCount = 0;
     this._stopNativeGNSSPolling();
   }
 

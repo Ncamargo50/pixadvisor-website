@@ -27,7 +27,12 @@
 //       failing silently. Now: fetch-time eviction trims oldest tiles when cap
 //       is reached. + admin confirm() migrated to pixModal.confirm. + 403 also
 //       treated as auth failure. + per-field 4xx auth detection broadened.
-const CACHE_NAME = 'pix-muestreo-v66';
+// v67 — v3.18.1: GPS offline robustness — watchPosition timeout 10s→30s +
+//       auto-rearm with backoff on POSITION_UNAVAILABLE/TIMEOUT (cold offline
+//       fix needs the headroom; some Android WebViews silently drop the watch
+//       after first error). Manual sync resets stuck-field counters. Auto-
+//       sync errors now surface via toast (was console.warn-only).
+const CACHE_NAME = 'pix-muestreo-v67';
 const TILE_CACHE = 'pix-tiles-v1';
 // LRU cap: ~4096 tiles ≈ 250-400 MB depending on zoom mix. Trim runs on
 // every cache write — drops to TRIM_TARGET so we don't churn on each write.

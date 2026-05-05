@@ -2163,6 +2163,19 @@ class PixApp {
     const btn = document.getElementById('cloudSyncBtn');
     if (btn) { btn.disabled = true; btn.innerHTML = '<svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg> Sincronizando Cloud...'; }
 
+    // v3.18.1: when the técnico explicitly hits "Sincronizar con Cloud",
+    // wipe the per-field retry counter first. Otherwise a transient outage
+    // (Supabase 5xx for a few minutes) can mark fields stuck after 8 auto-
+    // attempts and then even the manual button silently skips them. Manual
+    // sync is the user saying "try again now"; honor that.
+    try {
+      const stuck = await pixCloud.getStuckFieldCount();
+      if (stuck > 0) {
+        await pixCloud.resetFailureCounters();
+        this.addSyncLog(`↺ Reseteados ${stuck} campo(s) bloqueados — reintentando todo`);
+      }
+    } catch (e) { console.warn('[Sync] reset counters failed:', e.message); }
+
     // Show pending count
     const allSamples = await pixDB.getAll('samples');
     this.addSyncLog(`☁ Cloud sync: ${allSamples.length} muestras en dispositivo`);
@@ -2567,7 +2580,7 @@ class PixApp {
 ${detailHTML}
 
 <div class="footer">
-  Generado por PIX Muestreo v3.18.0 — Pixadvisor Agricultura de Precision — pixadvisor.network — ${new Date().toLocaleString('es')}
+  Generado por PIX Muestreo v3.18.1 — Pixadvisor Agricultura de Precision — pixadvisor.network — ${new Date().toLocaleString('es')}
 </div>
 
 </body></html>`;
@@ -3026,7 +3039,7 @@ ${detailHTML}
 ${detailHTML}
 
 <div class="footer">
-  Generado por PIX Muestreo v3.18.0 — Pixadvisor Agricultura de Precision — pixadvisor.network — ${new Date().toLocaleString('es')}
+  Generado por PIX Muestreo v3.18.1 — Pixadvisor Agricultura de Precision — pixadvisor.network — ${new Date().toLocaleString('es')}
 </div>
 
 </body></html>`;
@@ -3104,7 +3117,19 @@ ${detailHTML}
             );
             this.addSyncLog(`⚠ Auto-sync: ${result.permanentlyFailed} campo(s) bloqueados (reintento manual requerido)`);
           }
-        } catch (e) { console.warn('[AutoSync] Cloud:', e.message); }
+          // v3.18.1: if some fields synced and some errored, surface the
+          // partial failure (was previously hidden in lastError).
+          if (result.lastError && result.synced < result.total) {
+            this.addSyncLog(`⚠ Auto-sync error parcial: ${result.lastError}`);
+          }
+        } catch (e) {
+          // v3.18.1: was console.warn-only — técnico had no idea sync
+          // failed. Now show a toast + sync log entry so they at least
+          // know to retry manually.
+          console.warn('[AutoSync] Cloud:', e.message);
+          this.toast('⚠ Auto-sync nube falló: ' + (e.message || 'error'), 'warning', 5000);
+          this.addSyncLog(`☁ Auto-sync error: ${e.message || 'desconocido'}`);
+        }
         // Upload pending boundaries + auxiliary syncs (each independently guarded)
         try { await this._syncBoundariesToCloud(); } catch (e) { /* silent */ }
         try { await this._registerDevice(); } catch (e) { /* silent */ }
@@ -4791,6 +4816,11 @@ ${detailHTML}
         // "Sync ya en progreso" is benign — manual or 24h sync already running
         if (!String(e.message || '').includes('en progreso')) {
           console.warn('[Sync] Auto-sync after sample failed:', e.message);
+          // v3.18.1: was silent — técnico had no clue the supervisor was
+          // not seeing their muestra. Now show a discrete toast so the
+          // técnico can choose to manually retry from Sincronización.
+          this.toast('⚠ Sync nube tras muestra: ' + (e.message || 'error'), 'warning', 4500);
+          this.addSyncLog && this.addSyncLog(`☁ Sync post-muestra falló: ${e.message || 'desconocido'}`);
         }
       }
     }, 3000);
