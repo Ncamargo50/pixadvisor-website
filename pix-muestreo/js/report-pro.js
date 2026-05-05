@@ -550,7 +550,7 @@ ${buildPhotoGallery(photoSamples)}
 
 <!-- ═══════════ FOOTER ═══════════ -->
 <div class="footer">
-  PIX Muestreo v3.18.1 — Pixadvisor Agricultura de Precision — pixadvisor.network — ${new Date().toLocaleString('es')}<br>
+  PIX Muestreo v3.18.2 — Pixadvisor Agricultura de Precision — pixadvisor.network — ${new Date().toLocaleString('es')}<br>
   Reporte generado automaticamente. Datos respaldados en Cloud + Google Drive.
 </div>
 

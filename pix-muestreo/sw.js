@@ -28,11 +28,18 @@
 //       is reached. + admin confirm() migrated to pixModal.confirm. + 403 also
 //       treated as auth failure. + per-field 4xx auth detection broadened.
 // v67 — v3.18.1: GPS offline robustness — watchPosition timeout 10s→30s +
-//       auto-rearm with backoff on POSITION_UNAVAILABLE/TIMEOUT (cold offline
-//       fix needs the headroom; some Android WebViews silently drop the watch
-//       after first error). Manual sync resets stuck-field counters. Auto-
-//       sync errors now surface via toast (was console.warn-only).
-const CACHE_NAME = 'pix-muestreo-v67';
+//       auto-rearm with backoff on POSITION_UNAVAILABLE/TIMEOUT. Manual
+//       sync resets stuck-field counters. Auto-sync errors now surface
+//       via toast (was console.warn-only).
+// v68 — v3.18.2: REVERT v3.18.1 auto-rearm — clearWatch+rearm on every
+//       TIMEOUT was resetting OS GPS warm-up, making cold offline fix
+//       impossible (each rearm started from scratch with 30s timeout, the
+//       fix was never acquired). Now: timeout bumped to 60s, no rearm —
+//       the browser's watchPosition stays alive across TIMEOUT errors and
+//       the OS continues acquiring in background. + DATA-LOSS GUARD in
+//       cloud.js: if local samples=[] but cloud has samples, abort the
+//       upsert (prevents fresh-install / DB hiccup from wiping cloud data).
+const CACHE_NAME = 'pix-muestreo-v68';
 const TILE_CACHE = 'pix-tiles-v1';
 // LRU cap: ~4096 tiles ≈ 250-400 MB depending on zoom mix. Trim runs on
 // every cache write — drops to TRIM_TARGET so we don't churn on each write.

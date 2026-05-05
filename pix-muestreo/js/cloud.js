@@ -4,7 +4,7 @@
 
 // App version constant — used by registerDevice() for fleet tracking
 // IMPORTANT: Keep APP_VERSION in sync with CACHE_NAME in sw.js
-const APP_VERSION = 'pix-muestreo-v67';
+const APP_VERSION = 'pix-muestreo-v68';
 
 // Bound the number of retry attempts per field across app sessions. Without
 // this, a field with a permanent failure (corrupt schema, oversize payload,
@@ -198,6 +198,20 @@ class PixCloud {
     }
     if (conflictsSkipped > 0) {
       console.warn(`[Cloud] ${conflictsSkipped} sample conflict(s) resolved by keeping cloud (newer).`);
+    }
+
+    // v3.18.2: DATA-LOSS GUARD. If we have ZERO local samples for a field
+    // but the cloud already has samples for it, ABORT this field's upsert.
+    // Without this guard, a fresh re-install or an IndexedDB hiccup that
+    // leaves local samples empty would overwrite cloud's `samples` column
+    // with [] — silently destroying field-collected data the supervisor
+    // already saw. The boundary upsert path doesn't touch samples (good);
+    // this only blocks the syncField path when local is suspiciously empty.
+    if (samples.length === 0 && cloudSamples.length > 0) {
+      console.warn(`[Cloud] DATA-LOSS GUARD: skip "${fieldName}" — local has 0 samples but cloud has ${cloudSamples.length}. Refusing to wipe.`);
+      const err = new Error(`Skip ${fieldName}: refused to overwrite ${cloudSamples.length} cloud samples with 0 local`);
+      err.code = 'LOCAL_EMPTY_GUARD';
+      throw err;
     }
 
     // Build zone summary from the merged set — ensures progress_pct reflects
