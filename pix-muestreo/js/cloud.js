@@ -4,7 +4,7 @@
 
 // App version constant — used by registerDevice() for fleet tracking
 // IMPORTANT: Keep APP_VERSION in sync with CACHE_NAME in sw.js
-const APP_VERSION = 'pix-muestreo-v65';
+const APP_VERSION = 'pix-muestreo-v66';
 
 // Bound the number of retry attempts per field across app sessions. Without
 // this, a field with a permanent failure (corrupt schema, oversize payload,
@@ -382,9 +382,12 @@ class PixCloud {
         console.warn(`[Cloud] Failed to sync field ${field.name}:`, e.message);
         // v3.17.4: detect auth failure (401) and surface a clear flag so
         // the técnico can see "sesión expirada" instead of a silent miss.
-        if (e.status === 401 || /401|unauthorized|JWT/i.test(String(e.message || ''))) {
+        // v3.18.0: also catch 403 (RLS / forbidden) — same user-visible cause
+        // (the configured key can no longer write) and same fix (re-paste key
+        // in Ajustes), so it makes no sense to count this against retries.
+        if (e.status === 401 || e.status === 403 || /401|403|unauthorized|forbidden|JWT/i.test(String(e.message || ''))) {
           authFailed = true;
-          this._lastSyncError = 'AUTH_EXPIRED: Sesión Supabase vencida — reconfigurá la nube en Ajustes';
+          this._lastSyncError = 'AUTH_EXPIRED: Sesión Supabase vencida o sin permisos — reconfigurá la nube en Ajustes';
           // Don't increment counter on auth issues — that's a configuration
           // problem, not a per-field problem. Once cloud is reconfigured,
           // the existing samples should sync normally.

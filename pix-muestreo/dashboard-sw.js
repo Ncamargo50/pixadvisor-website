@@ -1,7 +1,10 @@
 // PIX Muestreo Dashboard — Service Worker (offline shell)
 // Caches the dashboard HTML + assets; bypasses Supabase REST/Realtime
 // v2 — added dashboard.js + dashboard-config.js after split
-const CACHE = 'pix-dash-v2';
+// v3 (3.18.0) — version bumped on every release so SW takes new dashboard.js.
+//               Bump DASH_VERSION (not just CACHE) to make the contract explicit.
+const DASH_VERSION = '3.18.0';
+const CACHE = `pix-dash-v${DASH_VERSION}`;
 const ASSETS = [
   'dashboard.html',
   'dashboard.js',

@@ -130,6 +130,15 @@ class PixApp {
     this.initNavigation();
     this.updateConnectionStatus();
 
+    // v3.18.0: incremental track flush. Every 500 GPS points the GPS module
+    // hands us a snapshot; we upsert it under a stable id so a kill mid-track
+    // doesn't lose hours of route. Final flush happens on stopTracking().
+    gpsNav.onTrackChunkReady = (snapshot) => {
+      this._persistTrackSnapshot(snapshot, 'incremental').catch(e => {
+        console.warn('[Track] incremental flush failed:', e.message);
+      });
+    };
+
     // Load saved settings
     const collector = await pixDB.getSetting('collectorName');
     if (collector) document.querySelectorAll('#collectorName').forEach(inp => inp.value = collector);
@@ -696,19 +705,39 @@ class PixApp {
     // that keeps sounding while the técnico stays inside 3m. The loop stops
     // automatically when they walk out of range (e.g. GPS jitter), when
     // they collect the sample, or when navigation moves to the next point.
-    if (dist < 3 && this.isNavigating) {
+    //
+    // v3.18.0: dynamic accuracy margin. Pure `dist < 3` was unreachable on
+    // smartphones with poor GNSS (±10–15 m typical). Now we expand the
+    // arrival ring proportionally to GPS accuracy, capped at +5 m so we
+    // don't false-trigger 8 m away with great GPS. Tunable via
+    // ARRIVAL_BASE_RADIUS / ARRIVAL_ACC_FLOOR / ARRIVAL_ACC_MAX_MARGIN.
+    const ARRIVAL_BASE_RADIUS = 3;        // m — what the technician aims for
+    const ARRIVAL_ACC_FLOOR   = 5;        // m — accuracy below this adds nothing
+    const ARRIVAL_ACC_MAX_MARGIN = 5;     // m — cap on the dynamic margin
+    const acc = (gpsNav.currentPosition && gpsNav.currentPosition.accuracy) || 0;
+    const dynamicMargin = Math.min(
+      ARRIVAL_ACC_MAX_MARGIN,
+      Math.max(0, (acc - ARRIVAL_ACC_FLOOR) * 0.5)
+    );
+    const arrivalRadius = ARRIVAL_BASE_RADIUS + dynamicMargin;
+    if (dist < arrivalRadius && this.isNavigating) {
       if (!this._arrivedNotified) {
         this._arrivedNotified = true;
         if (navigator.vibrate) navigator.vibrate([300, 100, 300, 100, 300]);
         this._playArrivalBeep();
-        this.toast('Llegaste al punto!', 'success');
+        // Surface the actual ring used (so a tech with poor GPS knows the beep
+        // tolerated their accuracy); fall back to "3m" wording when it's exact.
+        const ringTxt = arrivalRadius > ARRIVAL_BASE_RADIUS + 0.5
+          ? `Llegaste al punto (±${Math.round(arrivalRadius)}m por precisión GPS)`
+          : 'Llegaste al punto!';
+        this.toast(ringTxt, 'success');
         // Start continuous tick beep — soft 660Hz pulse every 600ms while inside.
         this._arrivalBeepInterval = setInterval(() => {
           this._playApproachBeep();
         }, 600);
       }
     } else if (this._arrivedNotified) {
-      // Walked out of the 3m radius — stop the loop and re-arm so it
+      // Walked out of the arrival ring — stop the loop and re-arm so it
       // re-triggers (with vibration) if the técnico walks back in.
       clearInterval(this._arrivalBeepInterval);
       this._arrivalBeepInterval = null;
@@ -2538,7 +2567,7 @@ class PixApp {
 ${detailHTML}
 
 <div class="footer">
-  Generado por PIX Muestreo v3.12.2 — Pixadvisor Agricultura de Precision — pixadvisor.network — ${new Date().toLocaleString('es')}
+  Generado por PIX Muestreo v3.18.0 — Pixadvisor Agricultura de Precision — pixadvisor.network — ${new Date().toLocaleString('es')}
 </div>
 
 </body></html>`;
@@ -2997,7 +3026,7 @@ ${detailHTML}
 ${detailHTML}
 
 <div class="footer">
-  Generado por PIX Muestreo v3.12.2 — Pixadvisor Agricultura de Precision — pixadvisor.network — ${new Date().toLocaleString('es')}
+  Generado por PIX Muestreo v3.18.0 — Pixadvisor Agricultura de Precision — pixadvisor.network — ${new Date().toLocaleString('es')}
 </div>
 
 </body></html>`;
@@ -3291,6 +3320,9 @@ ${detailHTML}
             startTime: positions[0]?.timestamp,
             endTime: positions[positions.length - 1]?.timestamp
           });
+          // v3.18.0: clear the incremental snapshot — final track is now in
+          // the `tracks` store, the live snapshot is no longer needed.
+          await pixDB.setSetting('track_live', null).catch(() => {});
           this.toast('Recorrido guardado', 'success');
         } catch (e) {
           console.error('[Track] Save failed:', e);
@@ -3302,8 +3334,31 @@ ${detailHTML}
       btn.classList.remove('active');
     } else {
       gpsNav.startTracking();
+      // v3.18.0: drop any prior live snapshot — fresh track starts fresh.
+      pixDB.setSetting('track_live', null).catch(() => {});
       btn.classList.add('active');
       this.toast('Grabando recorrido GPS', '');
+    }
+  }
+
+  // v3.18.0: persist a live-track snapshot to settings every TRACK_FLUSH_EVERY
+  // points (gps.js callback). If the app dies mid-jornada, the boot path can
+  // recover this snapshot and offer to merge it back. We use settings (small,
+  // single-row) instead of `tracks` store because the snapshot is volatile —
+  // overwritten each flush — and we don't want autoIncrement noise.
+  async _persistTrackSnapshot(positions, mode) {
+    if (!this.currentField || !Array.isArray(positions) || positions.length === 0) return;
+    try {
+      await pixDB.setSetting('track_live', {
+        fieldId: this.currentField.id,
+        fieldName: this.currentField.name,
+        positions,
+        startTime: positions[0]?.timestamp,
+        lastFlushAt: Date.now(),
+        mode: mode || 'incremental'
+      });
+    } catch (e) {
+      console.warn('[Track] snapshot persist failed:', e.message);
     }
   }
 

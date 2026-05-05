@@ -8,6 +8,12 @@ class GPSNavigator {
     this.isTracking = false;
     this.onPositionUpdate = null;
     this.onDistanceUpdate = null;
+    // v3.18.0: fires with a snapshot of trackPositions every TRACK_FLUSH_EVERY
+    // points so the host (app.js) can persist to IndexedDB. Prevents losing a
+    // multi-hour track if the app is killed before stopTracking().
+    this.onTrackChunkReady = null;
+    this.TRACK_FLUSH_EVERY = 500;
+    this._trackPointsSinceFlush = 0;
     this.accuracy = null;
 
     // Kalman filter state for position smoothing
@@ -99,6 +105,19 @@ class GPSNavigator {
             accuracy: pos.coords.accuracy,
             timestamp: pos.timestamp
           });
+          // v3.18.0: incremental flush. Hand a snapshot to the host every
+          // TRACK_FLUSH_EVERY points so a long jornada doesn't lose hours
+          // of GPS log on a hard kill. We don't clear the in-memory array
+          // (the map needs it for live rendering); the host upserts to
+          // IndexedDB under a stable key keyed by the current fieldId.
+          this._trackPointsSinceFlush++;
+          if (this._trackPointsSinceFlush >= this.TRACK_FLUSH_EVERY) {
+            this._trackPointsSinceFlush = 0;
+            if (typeof this.onTrackChunkReady === 'function') {
+              try { this.onTrackChunkReady(this.trackPositions.slice()); }
+              catch (e) { console.warn('[GPS] track flush callback failed:', e.message); }
+            }
+          }
         }
 
         // Calculate distance to target
@@ -145,6 +164,7 @@ class GPSNavigator {
   startTracking() {
     this.isTracking = true;
     this.trackPositions = [];
+    this._trackPointsSinceFlush = 0;
   }
 
   // Stop tracking

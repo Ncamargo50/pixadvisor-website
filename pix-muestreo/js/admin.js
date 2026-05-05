@@ -245,7 +245,12 @@ class PixAdmin {
       app.toast('No se puede eliminar el admin por defecto', 'warning');
       return;
     }
-    if (!confirm(`Eliminar permanentemente a "${user.name}" (${user.email})?\n\nEsta accion NO se puede deshacer.`)) return;
+    const ok = await pixModal.confirm(
+      'Eliminar usuario',
+      `Eliminar permanentemente a "${user.name}" (${user.email})? Esta acción no se puede deshacer.`,
+      { confirmText: 'Eliminar' }
+    );
+    if (!ok) return;
     try {
       await pixDB.delete('users', userId);
       app.toast(`Usuario "${user.name}" eliminado permanentemente`, 'success');
@@ -465,7 +470,7 @@ class PixAdmin {
 
       <div style="text-align:center;padding:24px 0;color:var(--text-muted);font-size:12px">
         <img src="icons/icon-192.png" alt="PIX" style="width:40px;height:40px;border-radius:12px;margin-bottom:8px;display:block;margin:0 auto 8px">
-        PIX Muestreo v3.17.5<br>
+        PIX Muestreo v3.18.0<br>
         Pixadvisor — Agricultura de Precision
       </div>`;
 

@@ -21,8 +21,19 @@
 //       (prev: only on activate, leaving old caches lingering if app closed
 //       before fetch event); cloud retry counter to bound infinite retries on
 //       permanently-failing fields (4xx schema errors, etc.).
-const CACHE_NAME = 'pix-muestreo-v65';
+// v66 — v3.18.0: TILE_CACHE LRU cap (256 MB / 4096 tiles whichever first).
+//       Prev: tile cache grew without bound — a técnico mapping multiple zones
+//       at zoom 16-18 could push browser quota until IndexedDB writes started
+//       failing silently. Now: fetch-time eviction trims oldest tiles when cap
+//       is reached. + admin confirm() migrated to pixModal.confirm. + 403 also
+//       treated as auth failure. + per-field 4xx auth detection broadened.
+const CACHE_NAME = 'pix-muestreo-v66';
 const TILE_CACHE = 'pix-tiles-v1';
+// LRU cap: ~4096 tiles ≈ 250-400 MB depending on zoom mix. Trim runs on
+// every cache write — drops to TRIM_TARGET so we don't churn on each write.
+const TILE_CACHE_MAX = 4096;
+const TILE_CACHE_TRIM_TARGET = 3500;
+let _tileTrimInFlight = false;
 
 // Derive base path dynamically — works in both web (/pix-muestreo/) and APK WebView
 const SW_PATH = self.location.pathname; // e.g. "/pix-muestreo/sw.js" or "/assets/sw.js"
@@ -121,6 +132,29 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
+// LRU trim for the tile cache (v3.18.0).
+// `caches.keys()` returns matches in insertion order, so the oldest entries
+// are at the front. We delete from the front until we're under the target.
+// Runs at most once at a time (`_tileTrimInFlight`) to avoid pile-up when
+// many tiles fetch in parallel.
+async function trimTileCache() {
+  if (_tileTrimInFlight) return;
+  _tileTrimInFlight = true;
+  try {
+    const cache = await caches.open(TILE_CACHE);
+    const keys = await cache.keys();
+    if (keys.length <= TILE_CACHE_MAX) return;
+    const toDelete = keys.length - TILE_CACHE_TRIM_TARGET;
+    const slice = keys.slice(0, toDelete);
+    await Promise.all(slice.map(req => cache.delete(req).catch(() => false)));
+    console.log(`[SW] Tile cache LRU: trimmed ${slice.length} tiles (${keys.length} → ${keys.length - slice.length})`);
+  } catch (e) {
+    console.warn('[SW] Tile trim failed:', e && e.message);
+  } finally {
+    _tileTrimInFlight = false;
+  }
+}
+
 // Fetch - cache-first for static, network-first for API, cache tiles
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
@@ -132,7 +166,11 @@ self.addEventListener('fetch', event => {
         cache.match(event.request).then(cached => {
           if (cached) return cached;
           return fetch(event.request).then(response => {
-            if (response.ok) cache.put(event.request, response.clone());
+            if (response.ok) {
+              cache.put(event.request, response.clone());
+              // Fire-and-forget LRU trim — don't block tile delivery on it.
+              trimTileCache();
+            }
             return response;
           }).catch(() => new Response('', { status: 404, statusText: 'Tile offline' }));
         })
@@ -271,10 +309,21 @@ self.addEventListener('message', event => {
         cache.match(event.data.url).then(existing => {
           if (existing) return;
           return fetch(event.data.url).then(response => {
-            if (response.ok) return cache.put(event.data.url, response);
+            if (response.ok) return cache.put(event.data.url, response).then(() => trimTileCache());
           }).catch(() => {});
         })
       )
+    );
+  }
+
+  // v3.18.0: explicit tile-cache wipe — wired to a "Limpiar tiles" button in
+  // Ajustes so a técnico can recover storage manually if quota gets tight.
+  if (event.data && event.data.type === 'clear-tile-cache') {
+    event.waitUntil(
+      caches.delete(TILE_CACHE).then(ok => {
+        // postMessage back so the UI can confirm + show new size
+        if (event.source) event.source.postMessage({ type: 'tile-cache-cleared', ok });
+      }).catch(() => {})
     );
   }
 });
