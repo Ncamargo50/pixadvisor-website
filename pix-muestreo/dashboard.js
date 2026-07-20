@@ -928,15 +928,14 @@ function renderTechGPS(devices) {
     dashMap.on('zoomend', () => { if (_devicesCache) renderTechGPS(_devicesCache); });
   }
 
-  // Extend map view to include online technicians
-  if (onlineBounds.length > 0) {
+  // Center map on online technicians ONLY when there are no sampled fields
+  // drawn. The sampled lotes are the point of the panel, so renderMap()'s
+  // field-based view takes priority; otherwise a technician far from the
+  // fields (e.g. a different region/country) would blow the view out to
+  // continental scale and hide the very data the user wants to see.
+  if (onlineBounds.length > 0 && fieldLayers.length === 0) {
     try {
-      // Combine with existing field layers
-      const allBounds = L.latLngBounds(onlineBounds);
-      fieldLayers.forEach(l => {
-        try { if (l.getBounds) allBounds.extend(l.getBounds()); } catch(_){}
-      });
-      dashMap.fitBounds(allBounds.pad(0.1));
+      dashMap.fitBounds(L.latLngBounds(onlineBounds).pad(0.1));
     } catch (e) {
       // Fallback: center on first online tech
       dashMap.setView(onlineBounds[0], 15);
