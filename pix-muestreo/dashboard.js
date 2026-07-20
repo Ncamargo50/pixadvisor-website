@@ -487,7 +487,7 @@ function showDashboard() {
   if (!dashMap) {
     dashMap = L.map('dashMap', { zoomControl: true }).setView([-23.3, -51.1], 8);
     L.tileLayer('https://mt{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
-      subdomains: '0123', maxZoom: 20, attribution: 'Google'
+      subdomains: '0123', maxZoom: 21, maxNativeZoom: 19, attribution: 'Google'
     }).addTo(dashMap);
   }
 
