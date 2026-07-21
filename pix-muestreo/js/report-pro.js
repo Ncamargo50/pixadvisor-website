@@ -216,12 +216,6 @@ const pixReport = (() => {
         ly += 16;
       }
 
-      // Scale bar (approximate)
-      const midLat = (minLat + maxLat) / 2;
-      const metersPerDeg = 111320 * Math.cos(midLat * Math.PI / 180);
-      const pixelsPerMeter = scale / metersPerDeg * (maxLng - minLng) / (maxLng - minLng);
-      // Not used for exact distance, just a visual reference
-
       // Border
       ctx.strokeStyle = '#999';
       ctx.lineWidth = 1;
@@ -232,11 +226,6 @@ const pixReport = (() => {
       console.warn('[ReportPro] Canvas map render failed:', e.message);
       return null;
     }
-  }
-
-  // Legacy function name for compatibility
-  async function captureMapImage() {
-    return null; // Replaced by renderMapCanvas
   }
 
   // ─── Photo Gallery Builder ─────────────────────────────────

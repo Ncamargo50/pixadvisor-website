@@ -12,7 +12,6 @@
 // ── CONSTANTS ──
 const ONE_MINUTE = 60000;
 const ONE_HOUR   = 3600000;
-const ONE_DAY    = 86400000;
 // Read tunables from runtime config (dashboard-config.js) with safe fallbacks
 const _CFG = (typeof window !== 'undefined' && window.PIX_CONFIG) || {};
 const INACTIVITY_TIMEOUT = _CFG.INACTIVITY_TIMEOUT_MS || (30 * ONE_MINUTE);
@@ -396,7 +395,6 @@ let _heatmapEnabled = false;
 let _trackLayers = {};             // { fieldId: L.Polyline } — track GPS polylines
 let _allTracksShown = false;
 let _realtimeCh = null;            // Supabase Realtime channel
-let _lastSyncedIds = new Set();    // to detect new rows for realtime
 let _fieldsLastFetch = [];         // cache for filtering
 
 // ═══════════════════════════════════════════════════
