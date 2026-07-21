@@ -4,7 +4,7 @@
 
 // App version constant — used by registerDevice() for fleet tracking
 // IMPORTANT: Keep APP_VERSION in sync with CACHE_NAME in sw.js
-const APP_VERSION = 'pix-muestreo-v68';
+const APP_VERSION = 'pix-muestreo-v69';
 
 // Bound the number of retry attempts per field across app sessions. Without
 // this, a field with a permanent failure (corrupt schema, oversize payload,

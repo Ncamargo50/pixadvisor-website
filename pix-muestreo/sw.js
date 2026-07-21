@@ -39,7 +39,7 @@
 //       the OS continues acquiring in background. + DATA-LOSS GUARD in
 //       cloud.js: if local samples=[] but cloud has samples, abort the
 //       upsert (prevents fresh-install / DB hiccup from wiping cloud data).
-const CACHE_NAME = 'pix-muestreo-v68';
+const CACHE_NAME = 'pix-muestreo-v69';
 const TILE_CACHE = 'pix-tiles-v1';
 // LRU cap: ~4096 tiles ≈ 250-400 MB depending on zoom mix. Trim runs on
 // every cache write — drops to TRIM_TARGET so we don't churn on each write.

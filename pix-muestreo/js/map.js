@@ -22,14 +22,20 @@ class PixMap {
     }).setView([-17.78, -63.18], 13); // Default: Santa Cruz, Bolivia
 
     // Satellite layer (Google)
+    // maxNativeZoom caps tile REQUESTS at the deepest zoom Google actually has
+    // imagery for in rural areas (~20); beyond that Leaflet upscales the last
+    // real tile instead of requesting non-existent z21/z22 tiles and showing
+    // blank/grey — which looks like "the zoom is broken".
     const satellite = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
       maxZoom: 22,
+      maxNativeZoom: 20,
       attribution: 'Google Satellite'
     });
 
     // Hybrid (satellite + labels)
     const hybrid = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
       maxZoom: 22,
+      maxNativeZoom: 20,
       attribution: 'Google Hybrid'
     });
 
