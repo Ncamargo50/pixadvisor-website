@@ -793,7 +793,7 @@ class InterpretationEngine {
 
   // ==================== FULL REPORT ====================
 
-  static generateFullReport(soilData, leafData, cropId, yieldTarget, areaHa) {
+  static generateFullReport(soilData, leafData, cropId, yieldTarget, areaHa, options = {}) {
     const crop = CROPS_DB[cropId];
     if (!crop) return { error: 'Cultivo no encontrado' };
 
