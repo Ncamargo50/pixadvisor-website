@@ -150,35 +150,82 @@ class PixAdmin {
       // Restore service orders from IndexedDB
       const orders = await this._dbGetAll('serviceOrders');
       if (orders.length > 0) this.serviceOrders = orders;
-      // Setup default admin user
-      await this._ensureAdminUser();
+      // Migrar auth: quitar el default débil sembrado por versiones viejas.
+      await this._migrateAuth();
       console.log(`State restored: ${this.samples.length} samples, ${this.serviceOrders.length} orders`);
     } catch (e) { console.warn('Restore state failed:', e); }
   }
 
   // ===== MULTI-USER AUTH =====
 
-  async _ensureAdminUser() {
-    // Seed default admin user: pix / admin
-    const existing = await this._dbGet('users', 'pix');
-    if (!existing) {
-      const salt = Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => b.toString(16).padStart(2, '0')).join('');
-      const hash = await this._hashPw('admin', salt);
-      await this._dbPut('users', { username: 'pix', passwordHash: hash, salt, role: 'admin', createdAt: new Date().toISOString() });
-    }
+  // Migración de auth: NO se siembra ningún default. Si existe el usuario
+  // 'pix' sembrado por versiones viejas y su contraseña sigue siendo la débil
+  // 'admin', se elimina para forzar el alta segura (first-run). Si el usuario
+  // la cambió, se conserva y se re-hashea a PBKDF2 en el próximo login.
+  async _migrateAuth() {
+    try {
+      const legacy = await this._dbGet('users', 'pix');
+      if (legacy && (!legacy.algo || legacy.algo === 'sha256')) {
+        const weak = await this._hashLegacy('admin', legacy.salt || '');
+        if (weak === legacy.passwordHash) {
+          await this._dbDelete('users', 'pix');   // era el default público → borrar
+        }
+      }
+    } catch (e) { console.warn('Auth migration skipped:', e && e.message); }
   }
 
+  async hasAnyUser() {
+    const users = await this._dbGetAll('users');
+    return Array.isArray(users) && users.length > 0;
+  }
+
+  _randSalt() {
+    return Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  // Hash fuerte: PBKDF2-SHA256, 150k iteraciones.
   async _hashPw(password, salt) {
-    const data = new TextEncoder().encode(salt + password);
-    const buf = await crypto.subtle.digest('SHA-256', data);
+    const enc = new TextEncoder();
+    const keyMat = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
+    const bits = await crypto.subtle.deriveBits(
+      { name: 'PBKDF2', salt: enc.encode(salt), iterations: 150000, hash: 'SHA-256' },
+      keyMat, 256);
+    return Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  // Hash viejo (solo para verificar/migrar credenciales legacy).
+  async _hashLegacy(password, salt) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode((salt || '') + password));
     return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
   }
 
+  async createAdminUser(username, password) {
+    const salt = this._randSalt();
+    const hash = await this._hashPw(password, salt);
+    await this._dbPut('users', {
+      username: (username || 'pix').toLowerCase(),
+      passwordHash: hash, salt, algo: 'pbkdf2', role: 'admin',
+      createdAt: new Date().toISOString()
+    });
+  }
+
   async verifyAdminUser(username, password) {
-    const user = await this._dbGet('users', username);
+    const user = await this._dbGet('users', (username || '').toLowerCase());
     if (!user) return null;
-    const hash = await this._hashPw(password, user.salt);
-    return hash === user.passwordHash ? user : null;
+    if (user.algo === 'pbkdf2') {
+      const hash = await this._hashPw(password, user.salt);
+      return hash === user.passwordHash ? user : null;
+    }
+    // Legacy SHA-256: verificar y, si acierta, re-hashear a PBKDF2 (upgrade-on-login).
+    const legacyHash = await this._hashLegacy(password, user.salt);
+    if (legacyHash !== user.passwordHash) return null;
+    try {
+      const salt = this._randSalt();
+      user.passwordHash = await this._hashPw(password, salt);
+      user.salt = salt; user.algo = 'pbkdf2';
+      await this._dbPut('users', user);
+    } catch (e) { console.warn('Rehash failed:', e && e.message); }
+    return user;
   }
 
   // ===== NAVIGATION =====
@@ -3422,8 +3469,16 @@ class PixAdmin {
   // ===== SERVICE ORDERS (OS) =====
 
   _saveOrders() {
-    localStorage.setItem('pix_service_orders', JSON.stringify(this.serviceOrders));
-    // Also persist to IndexedDB
+    // localStorage es solo un espejo de conveniencia; IndexedDB es la fuente de
+    // verdad. Con muchas submuestras el JSON supera ~5MB y setItem lanza
+    // QuotaExceededError: sin este try/catch, abortaba antes de saveState() y
+    // NO se persistía nada. Ahora el fallo del espejo no bloquea el guardado real.
+    try {
+      localStorage.setItem('pix_service_orders', JSON.stringify(this.serviceOrders));
+    } catch (e) {
+      console.warn('localStorage OS mirror failed (usando solo IndexedDB):', e && e.name);
+    }
+    // Fuente de verdad
     this.saveState();
   }
 
@@ -3529,10 +3584,10 @@ class PixAdmin {
         <div class="os-form-section">
           <h4>Cliente</h4>
           <div class="form-row">
-            <div class="form-group"><label>Nombre</label><input class="form-input" id="osClientName" value="${order.client.nombre}" placeholder="Nombre del cliente"></div>
-            <div class="form-group"><label>Propiedad</label><input class="form-input" id="osClientProp" value="${order.client.propiedad}" placeholder="Hacienda / Fazenda"></div>
+            <div class="form-group"><label>Nombre</label><input class="form-input" id="osClientName" value="${escapeHtml(order.client?.nombre || '')}" placeholder="Nombre del cliente"></div>
+            <div class="form-group"><label>Propiedad</label><input class="form-input" id="osClientProp" value="${escapeHtml(order.client?.propiedad || '')}" placeholder="Hacienda / Fazenda"></div>
           </div>
-          <div class="form-group"><label>Ubicacion</label><input class="form-input" id="osClientUbic" value="${order.client.ubicacion}" placeholder="Departamento, localidad"></div>
+          <div class="form-group"><label>Ubicacion</label><input class="form-input" id="osClientUbic" value="${escapeHtml(order.client?.ubicacion || '')}" placeholder="Departamento, localidad"></div>
         </div>
         <div class="os-form-section">
           <h4>Campo / Lote</h4>
@@ -3611,9 +3666,12 @@ class PixAdmin {
     this.toast(isEdit ? 'Orden actualizada' : 'Orden creada');
   }
 
-  deleteServiceOrder(id) {
+  async deleteServiceOrder(id) {
     if (!confirm('Eliminar esta orden de servicio?')) return;
     this.serviceOrders = this.serviceOrders.filter(o => o.id !== id);
+    // saveState() solo hace put de las OS restantes; sin este delete la OS
+    // borrada quedaba en IndexedDB y RESUCITABA en el próximo _restoreState().
+    await this._dbDelete('serviceOrders', id);
     this._saveOrders();
     this.renderServiceOrders();
     this.toast('Orden eliminada', 'warning');
@@ -3632,7 +3690,7 @@ class PixAdmin {
     const modal = document.getElementById('osShareModal');
     document.getElementById('osShareBody').innerHTML = `
       <div class="os-share-options">
-        <h4 style="margin:0 0 16px">OS #${String(order.id).padStart(3, '0')} — ${order.client.nombre || 'Sin cliente'}</h4>
+        <h4 style="margin:0 0 16px">OS #${String(order.id).padStart(3, '0')} — ${escapeHtml(order.client?.nombre || 'Sin cliente')}</h4>
 
         <div class="os-share-option">
           <div class="os-share-label">Descargar JSON</div>
@@ -3665,7 +3723,7 @@ class PixAdmin {
     const order = this.serviceOrders.find(o => o.id === id);
     if (!order) return;
     const blob = new Blob([JSON.stringify(order, null, 2)], { type: 'application/json' });
-    this._downloadBlob(blob, `OS_${String(id).padStart(3, '0')}_${order.client.nombre || 'orden'}.json`);
+    this._downloadBlob(blob, `OS_${String(id).padStart(3, '0')}_${order.client?.nombre || 'orden'}.json`);
   }
 
   _generateSimpleQR(containerId, data) {
@@ -4098,4 +4156,7 @@ class PixAdmin {
 // Init
 const admin = new PixAdmin();
 window.admin = admin;
-document.addEventListener('DOMContentLoaded', () => admin.init());
+document.addEventListener('DOMContentLoaded', async () => {
+  await admin.init();
+  if (typeof _initAuthScreen === 'function') _initAuthScreen();
+});

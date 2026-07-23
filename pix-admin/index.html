@@ -3,6 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <!-- CSP: restringe a qué hosts externos puede conectarse el panel. Se mantiene
+       'unsafe-inline' porque la UI usa onclick/estilos inline extensivamente
+       (quitarlo requiere refactor mayor); aun así se acota script/connect/frame. -->
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.sheetjs.com https://cdn.earthengine.google.com;
+    style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com;
+    font-src 'self' data: https://fonts.gstatic.com;
+    img-src 'self' data: blob: https:;
+    connect-src 'self' https://*.supabase.co https://api.qrserver.com https://earthengine.googleapis.com https://cdn.earthengine.google.com;
+    worker-src 'self' blob:;
+    frame-src 'self';
+    object-src 'none';
+    base-uri 'self';
+    form-action 'self'">
   <title>PIX Admin - Pixadvisor Agricultura de Precisión</title>
   <link rel="icon" type="image/png" href="img/LOGO-PIX.png">
   <link rel="manifest" href="manifest.json">
@@ -28,10 +43,10 @@
 <!-- ===== LOGIN SCREEN ===== -->
 <div id="loginScreen" class="login-overlay" role="dialog" aria-label="Inicio de sesión" aria-modal="true">
   <div class="login-card">
-    <img src="img/Logo.png" alt="Pixadvisor - Agricultura de Precisión" class="login-logo">
-    <h2>PIX Admin</h2>
-    <p>Ingrese sus credenciales para acceder al panel de administración</p>
-    <!-- Nota: Autenticación local/demo. Los datos se almacenan solo en IndexedDB del navegador del usuario. -->
+    <img src="img/Logo.webp" alt="Pixadvisor - Agricultura de Precisión" class="login-logo" width="560" height="373">
+    <h2 id="loginTitle">PIX Admin</h2>
+    <p id="loginSubtitle">Ingrese sus credenciales para acceder al panel de administración</p>
+    <!-- Nota: Autenticación local. Credenciales guardadas como hash PBKDF2 en IndexedDB del navegador. -->
     <form id="loginForm" onsubmit="return pixLogin(event)" aria-label="Formulario de inicio de sesión">
       <div class="login-field">
         <label for="loginUser">Usuario</label>
@@ -41,8 +56,12 @@
         <label for="loginPass">Contraseña</label>
         <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password" required aria-required="true">
       </div>
+      <div class="login-field" id="loginPass2Field" style="display:none">
+        <label for="loginPass2">Repetir contraseña</label>
+        <input type="password" id="loginPass2" placeholder="••••••••" autocomplete="new-password">
+      </div>
       <div id="loginError" class="login-error" style="display:none" role="alert" aria-live="assertive">Usuario o contraseña incorrectos</div>
-      <button type="submit" class="login-btn">Ingresar</button>
+      <button type="submit" class="login-btn" id="loginBtn">Ingresar</button>
     </form>
     <div class="login-footer">Pixadvisor — Agricultura de Precisión</div>
   </div>
@@ -52,7 +71,7 @@
   <!-- ===== SIDEBAR ===== -->
   <aside class="sidebar" id="sidebar" role="complementary" aria-label="Navegación principal">
     <div class="sidebar-brand">
-      <img src="img/Logo.png" alt="Pixadvisor" class="sidebar-logo">
+      <img src="img/Logo.webp" alt="Pixadvisor" class="sidebar-logo">
       <h2>PIX Admin<small>Agricultura de Precisión</small></h2>
     </div>
     <nav class="sidebar-nav" aria-label="Menú del panel">
@@ -1751,20 +1770,23 @@
 </div>
 
 <script>
-// ===== PIX ADMIN AUTH (SHA-256 hash-based) =====
-const PIX_USERS = {
-  '57c712d37789c12225e9fa5c5af81338cfb2a7787cf84047d52d2b40fb73afb0': // pix
-    '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918'  // admin
-};
+// ===== PIX ADMIN AUTH (PBKDF2, sin credenciales por defecto) =====
+// La contraseña del administrador NO está en el código. En el primer arranque
+// (o si el default débil fue migrado) se pide crearla; se guarda como hash
+// PBKDF2 con salt por usuario en IndexedDB (admin.verifyAdminUser).
+let _pixFirstRun = false;
 
-async function sha256(str) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+async function _waitForAdmin(maxMs = 4000) {
+  const t0 = Date.now();
+  while ((typeof admin === 'undefined' || !admin._db) && Date.now() - t0 < maxMs) {
+    await new Promise(r => setTimeout(r, 50));
+  }
+  return (typeof admin !== 'undefined' && admin._db) ? admin : null;
 }
 
-(function checkAuth() {
-  const s = sessionStorage.getItem('pix_auth');
-  if (s === 'authenticated') {
+async function _initAuthScreen() {
+  // Sesión activa → entrar directo.
+  if (sessionStorage.getItem('pix_auth') === 'authenticated') {
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('appLayout').style.display = '';
     const savedUser = sessionStorage.getItem('pix_user');
@@ -1774,36 +1796,47 @@ async function sha256(str) {
       const av = document.getElementById('sidebarUserAvatar');
       if (av) av.textContent = savedUser.charAt(0).toUpperCase();
     }
+    return;
   }
-})();
+  // Determinar primer arranque (sin usuarios) para mostrar el alta.
+  const a = await _waitForAdmin();
+  const hasUser = a ? await a.hasAnyUser() : true;
+  _pixFirstRun = !hasUser;
+  if (_pixFirstRun) {
+    document.getElementById('loginTitle').textContent = 'Configurar administrador';
+    document.getElementById('loginSubtitle').textContent = 'Primer acceso: creá el usuario y una contraseña segura (mín. 8 caracteres).';
+    document.getElementById('loginPass2Field').style.display = '';
+    document.getElementById('loginPass2').setAttribute('required', 'true');
+    document.getElementById('loginBtn').textContent = 'Crear administrador';
+    document.getElementById('loginUser').value = 'pix';
+  }
+}
 
 async function pixLogin(e) {
   e.preventDefault();
   const user = document.getElementById('loginUser').value.trim().toLowerCase();
   const pass = document.getElementById('loginPass').value;
   const errEl = document.getElementById('loginError');
+  const a = await _waitForAdmin();
+  if (!a) { errEl.textContent = 'Almacenamiento no disponible en este navegador.'; errEl.style.display = 'block'; return false; }
 
-  // Direct credential check (primary - always works regardless of cache)
-  if (user === 'pix' && pass === 'admin') {
-    _completeLogin(user, errEl);
+  // Primer arranque → crear el administrador.
+  if (_pixFirstRun) {
+    const pass2 = document.getElementById('loginPass2').value;
+    if (pass.length < 8) { errEl.textContent = 'La contraseña debe tener al menos 8 caracteres.'; errEl.style.display = 'block'; return false; }
+    if (pass !== pass2) { errEl.textContent = 'Las contraseñas no coinciden.'; errEl.style.display = 'block'; return false; }
+    await a.createAdminUser(user || 'pix', pass);
+    _pixFirstRun = false;
+    _completeLogin(user || 'pix', errEl);
     return false;
   }
 
-  // Try IndexedDB multi-user auth
-  if (typeof admin !== 'undefined' && admin._db) {
-    const dbUser = await admin.verifyAdminUser(user, pass);
-    if (dbUser) {
-      _completeLogin(user, errEl);
-      return false;
-    }
-  }
-
-  // Fallback: SHA-256 hash comparison
-  const userHash = await sha256(user);
-  const passHash = await sha256(pass);
-  if (PIX_USERS[userHash] && PIX_USERS[userHash] === passHash) {
+  // Login normal (PBKDF2, con upgrade-on-login de hashes legacy).
+  const dbUser = await a.verifyAdminUser(user, pass);
+  if (dbUser) {
     _completeLogin(user, errEl);
   } else {
+    errEl.textContent = 'Usuario o contraseña incorrectos';
     errEl.style.display = 'block';
     document.getElementById('loginPass').value = '';
     document.getElementById('loginPass').focus();

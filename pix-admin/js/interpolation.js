@@ -181,28 +181,6 @@ class InterpolationEngine {
     };
   }
 
-  /**
-   * Async IDW interpolation using a Web Worker to avoid blocking the main thread.
-   * @param {Array} points - Array of {lat, lng, value, weight?}
-   * @param {Object} bounds - {minLat, maxLat, minLng, maxLng}
-   * @param {Object} options - {resolution, power, smooth}
-   * @returns {Promise<{type: string, grid: number[][], stats: {min: number, max: number, mean: number}}>}
-   */
-  static async interpolateIDWAsync(points, bounds, options = {}) {
-    return new Promise((resolve, reject) => {
-      const worker = new Worker('js/workers/interpolation-worker.js');
-      worker.onmessage = (e) => {
-        worker.terminate();
-        resolve(e.data);
-      };
-      worker.onerror = (e) => {
-        worker.terminate();
-        reject(e);
-      };
-      worker.postMessage({ type: 'idw', points, bounds, options });
-    });
-  }
-
   // 3x3 Gaussian kernel smooth
   static _gaussianSmooth(grid, resolution) {
     const kernel = [
