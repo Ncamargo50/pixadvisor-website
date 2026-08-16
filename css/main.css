@@ -226,16 +226,12 @@ html[lang="pt"] [data-lang-pt] {
 }
 
 .nav-logo img {
-  height: 56px;
+  height: 60px;
   width: auto;
 }
 
-.nav-brand-name {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 1.5rem;
-  letter-spacing: 1px;
-  color: var(--primary-dark);
+.nav.scrolled .nav-logo img {
+  height: 52px;
 }
 
 .nav-links {
@@ -1564,12 +1560,15 @@ html[lang="pt"] [data-lang-pt] {
 }
 
 .footer-brand img {
-  height: 70px;
+  height: 72px;
   width: auto;
+  background: #fff;
+  padding: 10px 16px;
+  border-radius: 14px;
 }
 
 .footer-brand span {
-  font-family: 'Open Sans', sans-serif;
+  font-family: var(--font-display);
   font-weight: 700;
   font-size: 1.15rem;
   color: var(--white);
@@ -1706,7 +1705,7 @@ html[lang="pt"] [data-lang-pt] {
   }
 
   .nav-logo img {
-    height: 40px;
+    height: 46px;
   }
 
   .hamburger {
