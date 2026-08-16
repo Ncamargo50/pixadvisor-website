@@ -131,14 +131,15 @@ input, textarea, select {
   margin: 16px auto 0;
 }
 
-/* Fade-in animation */
-.fade-in {
+/* Fade-in animation — only hidden when JS is available to reveal it.
+   Without JS (.js absent) the content stays visible (no blank page). */
+.js .fade-in {
   opacity: 0;
   transform: translateY(30px);
   transition: opacity 0.6s ease-out, transform 0.6s ease-out;
 }
 
-.fade-in.visible {
+.js .fade-in.visible {
   opacity: 1;
   transform: translateY(0);
 }
@@ -616,6 +617,7 @@ html[lang="pt"] [data-lang-pt] {
   color: var(--text-muted);
   line-height: 1.5;
   max-width: 200px;
+  overflow-wrap: break-word;
 }
 
 /* ==========================================================
@@ -1731,15 +1733,29 @@ html[lang="pt"] [data-lang-pt] {
 
   .process-step {
     flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
     text-align: left;
-    gap: 20px;
+    column-gap: 16px;
+    row-gap: 10px;
+    padding: 0;
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .process-step-number {
     flex-shrink: 0;
   }
 
+  .process-step-title {
+    flex: 1;
+    min-width: 0;
+  }
+
   .process-step-text {
+    flex-basis: 100%;
+    min-width: 0;
     max-width: none;
   }
 

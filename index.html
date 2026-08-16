@@ -71,6 +71,9 @@
       ga4Id:    '',  // e.g. 'G-ABC1234567'
       clarityId:''   // e.g. 'abcd1234ef'
     };
+    // Marca el documento como JS-habilitado: el contenido .fade-in solo se oculta
+    // cuando este flag existe, así sin JS la página se ve completa (no en blanco).
+    document.documentElement.classList.add('js');
     // Consent Mode v2 — denied by default until user accepts cookie banner
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
@@ -108,7 +111,6 @@
   <link rel="dns-prefetch" href="https://wa.me">
   <link rel="dns-prefetch" href="https://www.google-analytics.com">
   <link rel="preload" as="image" href="vista_aerea_ap_hd.webp" fetchpriority="high">
-  <link rel="preload" as="style" href="css/main.css">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Open+Sans:wght@400;600;700&display=swap" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Open+Sans:wght@400;600;700&display=swap"></noscript>
   <link rel="stylesheet" href="css/main.css">
@@ -390,7 +392,7 @@
     </div>
   </nav>
 
-  <main id="main">
+  <main id="main" tabindex="-1">
 
     <!-- 1. HERO -->
     <section class="hero" style="background-image:url('vista_aerea_ap_hd.webp')">
@@ -1669,7 +1671,7 @@
   <!-- Lightbox -->
   <div class="lightbox" id="lightbox">
     <button class="lightbox-close" aria-label="Cerrar / Fechar">&times;</button>
-    <img class="lightbox-img" src="" alt="">
+    <img class="lightbox-img" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" alt="">
     <p class="lightbox-caption"></p>
   </div>
 
@@ -1697,37 +1699,61 @@
     document.querySelectorAll('.fade-in').forEach(function(el) { observer.observe(el); });
 
     // ===== SCROLL NAV =====
+    var navEl = document.querySelector('.nav');
+    var navScrolled = false, navTicking = false;
     window.addEventListener('scroll', function() {
-      document.querySelector('.nav').classList.toggle('scrolled', window.scrollY > 50);
-    });
+      if (navTicking) return;
+      navTicking = true;
+      requestAnimationFrame(function() {
+        var shouldScroll = window.scrollY > 50;
+        if (shouldScroll !== navScrolled) {
+          navScrolled = shouldScroll;
+          navEl.classList.toggle('scrolled', shouldScroll);
+        }
+        navTicking = false;
+      });
+    }, { passive: true });
 
     // ===== HAMBURGER =====
     var hamburger = document.querySelector('.hamburger');
     var mobileNav = document.getElementById('mobileNav');
+    function closeMobileNav() {
+      mobileNav.classList.remove('open');
+      hamburger.classList.remove('open');
+      hamburger.setAttribute('aria-expanded', 'false');
+      document.body.style.overflow = '';
+    }
     hamburger.addEventListener('click', function() {
       var isOpen = mobileNav.classList.toggle('open');
-      hamburger.classList.toggle('open');
-      hamburger.setAttribute('aria-expanded', isOpen);
+      hamburger.classList.toggle('open', isOpen);
+      hamburger.setAttribute('aria-expanded', String(isOpen));
       document.body.style.overflow = isOpen ? 'hidden' : '';
     });
     document.addEventListener('click', function(e) {
-      if (!e.target.closest('.nav') && mobileNav.classList.contains('open')) {
-        mobileNav.classList.remove('open');
-        hamburger.classList.remove('open');
-        document.body.style.overflow = '';
+      if (!e.target.closest('.nav-container') && !e.target.closest('.mobile-nav')
+          && mobileNav.classList.contains('open')) {
+        closeMobileNav();
+      }
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && mobileNav.classList.contains('open')) {
+        closeMobileNav();
+        hamburger.focus();
       }
     });
 
     // ===== SMOOTH SCROLL =====
-    document.querySelectorAll('a[href^="#"]:not([href="#"])').forEach(function(a) {
+    var prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    document.querySelectorAll('a[href^="#"]:not([href="#"]):not(.skip-link)').forEach(function(a) {
       a.addEventListener('click', function(e) {
         var target = document.querySelector(a.getAttribute('href'));
-        if (target) {
-          e.preventDefault();
-          target.scrollIntoView({ behavior: 'smooth' });
-          mobileNav.classList.remove('open');
-          hamburger.classList.remove('open');
-        }
+        if (!target) return;
+        e.preventDefault();
+        target.scrollIntoView({ behavior: prefersReducedMotion.matches ? 'auto' : 'smooth' });
+        if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+        target.focus({ preventScroll: true });
+        history.pushState(null, '', a.getAttribute('href'));
+        closeMobileNav();
       });
     });
 

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pixadvisor-v1';
+const CACHE_NAME = 'pixadvisor-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -8,7 +8,7 @@ const STATIC_ASSETS = [
   '/img/logo-negro.png',
   '/img/favicon.png',
   '/img/apple-touch-icon.png',
-  '/vista_aerea_ap_hd.jpg'
+  '/vista_aerea_ap_hd.webp'
 ];
 
 self.addEventListener('install', event => {
@@ -38,8 +38,11 @@ self.addEventListener('fetch', event => {
     event.respondWith(
       fetch(req)
         .then(res => {
-          const copy = res.clone();
-          caches.open(CACHE_NAME).then(c => c.put(req, copy));
+          // Solo cachear respuestas OK: nunca persistir un 404/500 como fallback offline.
+          if (res && res.ok && res.type === 'basic') {
+            const copy = res.clone();
+            caches.open(CACHE_NAME).then(c => c.put(req, copy));
+          }
           return res;
         })
         .catch(() => caches.match(req).then(r => r || caches.match('/index.html')))
