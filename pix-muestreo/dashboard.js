@@ -2432,7 +2432,8 @@ async function loadAdmins() {
     return;
   }
   try {
-    const admins = await supaFetch('/admin_users?select=*&order=created_at.desc');
+    // Columnas explícitas: NUNCA pedir password_hash/totp_secret (anon ya no los lee).
+    const admins = await supaFetch('/admin_users?select=id,username,full_name,role,active,totp_enabled,created_at,last_login_at&order=created_at.desc');
     _adminsCache = admins || [];
     renderAdmins(admins);
   } catch (e) {
