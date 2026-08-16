@@ -155,32 +155,38 @@ async function dashAuthLogin() {
     document.getElementById('dashAuthError').style.display = 'block';
     return;
   }
-  // Lookup admin via REST (uses anon key — RLS allows SELECT on active=true)
+  // Verificación del lado SERVIDOR (Edge Function pix-auth): el hash y el
+  // secreto TOTP nunca salen al navegador. La clave anónima ya no lee credenciales.
   try {
-    const resp = await fetch(SUPA_URL + '/rest/v1/admin_users?username=eq.' + encodeURIComponent(username) + '&active=eq.true&select=id,username,full_name,role,password_hash,totp_enabled,totp_secret', {
-      headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }
-    });
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    const rows = await resp.json();
-    const user = rows && rows[0];
-    if (!user || !(await pixVerify(pass, user.password_hash))) {
-      _failedLogin(username);
-      return;
-    }
-    // 2FA: if TOTP enabled, prompt for code instead of completing login
-    if (user.totp_enabled && user.totp_secret) {
-      _pendingTotpUser = user;
+    const res = await _pixAuthCall('admin-login', { username, password: pass });
+    if (res && res.totp_required) {
+      // 2FA: guardar credenciales en memoria para reenviarlas con el código
+      _pendingTotpUser = { username, password: pass };
       document.getElementById('dashAuthStep1').style.display = 'none';
       document.getElementById('dashAuthStep2').style.display = 'block';
       document.getElementById('dashAuthError').style.display = 'none';
       setTimeout(() => document.getElementById('dashAuthTotp').focus(), 50);
       return;
     }
-    await _completeLogin(user);
+    if (!res || !res.ok || !res.user) {
+      _failedLogin(username);
+      return;
+    }
+    await _completeLogin(res.user);
   } catch (e) {
     document.getElementById('dashAuthError').textContent = 'Error de conexión: ' + e.message;
     document.getElementById('dashAuthError').style.display = 'block';
   }
+}
+
+// Llama a la Edge Function de login. status 401 => credenciales inválidas (res.ok=false).
+async function _pixAuthCall(action, payload) {
+  const resp = await fetch(SUPA_URL + '/functions/v1/pix-auth', {
+    method: 'POST',
+    headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify(Object.assign({ action }, payload))
+  });
+  try { return await resp.json(); } catch (_) { return { ok: false }; }
 }
 
 async function dashAuthVerifyTotp() {
@@ -191,13 +197,18 @@ async function dashAuthVerifyTotp() {
     return;
   }
   if (!_pendingTotpUser) return;
-  const ok = await pixTotpVerify(_pendingTotpUser.totp_secret, code);
-  if (!ok) {
+  // Reenvía usuario+clave+código a la función; el TOTP se verifica en el servidor.
+  const res = await _pixAuthCall('admin-login', {
+    username: _pendingTotpUser.username,
+    password: _pendingTotpUser.password,
+    code: code
+  });
+  if (!res || !res.ok || !res.user) {
     _failedLogin(_pendingTotpUser.username);
     document.getElementById('dashAuthTotp').value = '';
     return;
   }
-  await _completeLogin(_pendingTotpUser);
+  await _completeLogin(res.user);
   _pendingTotpUser = null;
 }
 
@@ -223,13 +234,8 @@ async function _completeLogin(user) {
   // Persist minimal session data — never store password hash client-side beyond memory
   sessionStorage.setItem('pix_dash_admin', JSON.stringify(_adminUser));
   document.getElementById('dashAuthOverlay').style.display = 'none';
-  // Audit log + bookkeeping (fire-and-forget)
+  // Audit log (fire-and-forget). last_login_at ya lo registra la Edge Function.
   _logAudit({ action: 'login', target_type: 'admin_user', target_id: user.id, target_name: user.username });
-  fetch(SUPA_URL + '/rest/v1/admin_users?id=eq.' + user.id, {
-    method: 'PATCH',
-    headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ last_login_at: new Date().toISOString() })
-  }).catch(() => {});
   _resetInactivityTimer();
   initDashboard();
   _renderAdminBadge();
@@ -2426,7 +2432,8 @@ async function loadAdmins() {
     return;
   }
   try {
-    const admins = await supaFetch('/admin_users?select=*&order=created_at.desc');
+    // Columnas explícitas: NUNCA pedir password_hash/totp_secret (anon ya no los lee).
+    const admins = await supaFetch('/admin_users?select=id,username,full_name,role,active,totp_enabled,created_at,last_login_at&order=created_at.desc');
     _adminsCache = admins || [];
     renderAdmins(admins);
   } catch (e) {
