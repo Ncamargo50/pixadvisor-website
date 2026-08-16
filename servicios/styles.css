@@ -126,12 +126,12 @@ html[lang="pt"] [data-lang-pt] { display: revert; }
 .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
 .content-section { padding: 80px 0; }
 .content-title {
-  font-size: clamp(1.5rem, 3vw, 2rem); margin-bottom: 16px;
-  color: var(--dark); position: relative; padding-left: 20px;
+  font-size: clamp(1.5rem, 3vw, 2rem); margin-bottom: 24px;
+  color: var(--dark); position: relative; padding-bottom: 14px;
 }
-.content-title::before {
-  content: ''; position: absolute; left: 0; top: 4px;
-  width: 4px; height: 100%; background: var(--teal); border-radius: 2px;
+.content-title::after {
+  content: ''; position: absolute; left: 0; bottom: 0;
+  width: 52px; height: 4px; background: var(--gradient-brand); border-radius: 2px;
 }
 .content-desc {
   font-size: 1.05rem; color: var(--gray-600); max-width: 800px;
