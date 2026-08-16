@@ -6,19 +6,18 @@
 // Aquí la verificación corre con el service_role, que NUNCA sale al cliente:
 // el hash y el secreto TOTP jamás se devuelven.
 //
-// Deploy:
-//   supabase functions deploy pix-auth --no-verify-jwt
-//   supabase secrets set SERVICE_ROLE_KEY=<tu service_role key>
-//   (SUPABASE_URL ya viene inyectada por la plataforma)
+// Deploy: dashboard "Via Editor" o `supabase functions deploy pix-auth --no-verify-jwt`.
+//   SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY las inyecta la plataforma sola (sin secretos manuales).
 //
 // El cliente llama:  POST https://<proj>.supabase.co/functions/v1/pix-auth
 //   body: { action: 'admin-login' | 'tech-login', username, password, code? }
 //   headers: { apikey: <anon>, Authorization: Bearer <anon>, Content-Type: application/json }
 // ============================================================================
 
+// Supabase inyecta estas variables automáticamente en toda Edge Function.
+// No hace falta configurar ningún secreto manual.
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-// Secreto: nunca en el repo. Se carga con `supabase secrets set SERVICE_ROLE_KEY=...`
-const SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY")!;
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
