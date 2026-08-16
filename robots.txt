@@ -4,6 +4,7 @@ Allow: /servicios/
 Allow: /llms.txt
 Disallow: /pix-admin/
 Disallow: /pix-muestreo/
+Disallow: /CLAUDE.md
 
 # AI search & training crawlers — explicitly allowed
 User-agent: GPTBot
