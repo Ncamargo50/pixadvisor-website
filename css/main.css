@@ -1425,22 +1425,38 @@ html[lang="pt"] [data-lang-pt] {
 
 .contact-card {
   display: flex;
+  align-items: center;
   gap: 16px;
-  padding: 24px;
+  padding: 20px 24px;
   background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   transition: var(--transition);
 }
 
 .contact-card:hover {
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+  border-color: rgba(13, 148, 136, 0.35);
+}
+
+/* Icon chip — the SVG sits inside a teal rounded square */
+.contact-card > svg {
+  width: 46px;
+  height: 46px;
+  padding: 11px;
+  border-radius: 12px;
+  background: rgba(13, 148, 136, 0.1);
+  color: var(--primary-text);
+  flex-shrink: 0;
+  box-sizing: border-box;
 }
 
 .contact-card i,
 .contact-card .icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
   background: rgba(13, 148, 136, 0.1);
   display: flex;
   align-items: center;
@@ -1450,9 +1466,13 @@ html[lang="pt"] [data-lang-pt] {
   flex-shrink: 0;
 }
 
-.contact-card h4 {
+.contact-card h4,
+.contact-card strong {
+  display: block;
+  font-family: var(--font-display);
   font-size: 0.95rem;
-  margin-bottom: 4px;
+  color: var(--dark);
+  margin-bottom: 2px;
 }
 
 .contact-card p,
@@ -1865,8 +1885,17 @@ html[lang="pt"] [data-lang-pt] {
   }
 
   .about-stats {
-    flex-direction: column;
-    align-items: center;
+    gap: 10px;
+  }
+  .about-stats .stat {
+    flex: 1;
+    padding: 16px 8px;
+  }
+  .about-stats .stat-number {
+    font-size: 1.5rem;
+  }
+  .about-stats .stat-label {
+    font-size: 0.72rem;
   }
 
   .process,
