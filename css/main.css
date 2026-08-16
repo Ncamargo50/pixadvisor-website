@@ -2297,20 +2297,9 @@ a:focus:not(:focus-visible) {
 /* ==========================================================
    27. CLIENT-SIDE CONTENT-VISIBILITY (perf hint)
    ========================================================== */
-.process,
-.about,
-.services,
-.testimonials,
-.packages,
-.tech,
-.gallery,
-.faq,
-.roi-calc,
-.apps-section,
-.contact {
-  content-visibility: auto;
-  contain-intrinsic-size: 1px 800px;
-}
+/* content-visibility:auto se removió: con contain-intrinsic-size fijo (800px)
+   las secciones más altas provocaban fluctuación de altura al hacer scroll y
+   dejaban una franja blanca del fondo del body al final de la página. */
 
 /* ==========================================================
    26. AUDIT POLISH (2026-08) — a11y & consistency
@@ -2345,3 +2334,18 @@ main[tabindex] { scroll-margin-top: 96px; }
 
 /* Star ratings: color meets 3:1, hidden glyphs get an accessible label */
 .testimonial-stars { color: #B45309; }
+
+/* ==========================================================
+   27. MAPAS CON DATOS INCRUSTADOS — mostrar completos (sin recorte)
+   Estos archivos llevan etiquetas/leyendas/banners que no deben cortarse.
+   Como sus márgenes ya son blancos, `contain` sobre blanco se funde sin bordes.
+   ========================================================== */
+.gallery-item img[src*="mapa-costos"],
+.gallery-item img[src*="mapa-productividad"],
+img[src*="mapa-agricola"],
+img[src*="mapa-aplicacion"],
+img[src*="mapeamiento-fertilidad"],
+img[src*="servicio-03"] {
+  object-fit: contain;
+  background: #ffffff;
+}
