@@ -2342,7 +2342,6 @@ main[tabindex] { scroll-margin-top: 96px; }
    ========================================================== */
 .gallery-item img[src*="mapa-costos"],
 .gallery-item img[src*="mapa-productividad"],
-img[src*="mapa-agricola"],
 img[src*="mapa-aplicacion"],
 img[src*="mapeamiento-fertilidad"],
 img[src*="servicio-03"] {
