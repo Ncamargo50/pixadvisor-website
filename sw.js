@@ -1,11 +1,11 @@
-const CACHE_NAME = 'pixadvisor-v2';
+const CACHE_NAME = 'pixadvisor-v3';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/css/main.css',
   '/manifest.json',
-  '/img/logo.png',
-  '/img/logo-negro.png',
+  '/img/logo.webp',
+  '/img/logo-negro.webp',
   '/img/favicon.png',
   '/img/apple-touch-icon.png',
   '/vista_aerea_ap_hd.webp'

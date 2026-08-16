@@ -6,3 +6,4 @@ Thumbs.db
 *.bak
 .claude/
 img/pdf-extract-*.jpg
+.impeccable/

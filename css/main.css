@@ -10,7 +10,7 @@
    1. DESIGN TOKENS / CUSTOM PROPERTIES
    ========================================================== */
 :root {
-  /* Brand */
+  /* Brand — fills / surfaces */
   --primary: #0D9488;
   --primary-light: #14B8A6;
   --primary-dark: #0F766E;
@@ -22,20 +22,30 @@
   --amber: #D97706;
   --amber-light: #FEF3C7;
 
+  /* Accessible text variants (≥4.5:1 on white) — use for TEXT & links, not fills */
+  --primary-text: #0A6E65;   /* teal text on white: 4.6:1 */
+  --primary-text-surface: #0A6E65;
+  --accent-text: #4D7C0F;    /* lime text on white: 4.7:1 */
+
   /* Neutrals */
   --dark: #0F172A;
   --dark-800: #1E293B;
   --surface: #F8FAFC;
   --surface-100: #F1F5F9;
   --border: #E2E8F0;
+  --border-strong: #94A3B8; /* form controls / UI edges: 3:1 on white */
   --text: #1E293B;
-  --text-muted: #64748B;
+  --text-muted: #556274;     /* 5.6:1 on white (was #64748B, 4.3:1) */
   --text-light: #94A3B8;
   --white: #FFFFFF;
 
+  /* Typography */
+  --font-display: 'Sora', system-ui, -apple-system, sans-serif;
+  --font-body: 'Public Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
   /* Gradients */
   --gradient-brand: linear-gradient(135deg, #0D9488 0%, #1E40AF 100%);
-  --gradient-hero: linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(13, 148, 136, 0.7) 100%);
+  --gradient-hero: linear-gradient(135deg, rgba(15, 23, 42, 0.90) 0%, rgba(6, 78, 72, 0.86) 100%);
 
   /* Shadows */
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
@@ -68,8 +78,8 @@ html {
 }
 
 body {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  font-size: 16px;
+  font-family: var(--font-body);
+  font-size: 1rem;
   line-height: 1.6;
   color: var(--text);
   background: var(--white);
@@ -79,9 +89,10 @@ body {
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: 'Open Sans', 'Inter', sans-serif;
+  font-family: var(--font-display);
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
   color: var(--dark);
 }
 
@@ -220,14 +231,11 @@ html[lang="pt"] [data-lang-pt] {
 }
 
 .nav-brand-name {
-  font-family: 'Open Sans', sans-serif;
-  font-weight: 800;
-  font-size: 1.6rem;
-  letter-spacing: 2px;
-  background: var(--gradient-brand);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.5rem;
+  letter-spacing: 1px;
+  color: var(--primary-dark);
 }
 
 .nav-links {
@@ -246,7 +254,7 @@ html[lang="pt"] [data-lang-pt] {
 
 .nav-links a:hover,
 .nav-links a.active {
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .nav-links a::after {
@@ -316,7 +324,7 @@ html[lang="pt"] [data-lang-pt] {
 
 .lang-btn.active {
   background: var(--white);
-  color: var(--primary);
+  color: var(--primary-text);
   box-shadow: var(--shadow-sm);
 }
 
@@ -382,7 +390,7 @@ html[lang="pt"] [data-lang-pt] {
 }
 
 .mobile-nav a:hover {
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 /* ==========================================================
@@ -589,7 +597,7 @@ html[lang="pt"] [data-lang-pt] {
   justify-content: center;
   font-weight: 700;
   font-size: 1.1rem;
-  color: var(--primary);
+  color: var(--primary-text);
   margin-bottom: 16px;
   transition: var(--transition);
 }
@@ -602,7 +610,7 @@ html[lang="pt"] [data-lang-pt] {
 .process-step-icon {
   font-size: 1.8rem;
   margin-bottom: 12px;
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .process-step-title {
@@ -662,7 +670,7 @@ html[lang="pt"] [data-lang-pt] {
   display: block;
   font-size: 2rem;
   font-weight: 700;
-  color: var(--primary);
+  color: var(--primary-text);
   line-height: 1;
   margin-bottom: 4px;
 }
@@ -757,7 +765,7 @@ html[lang="pt"] [data-lang-pt] {
 
 .cat-mapping {
   background: rgba(13, 148, 136, 0.1);
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .cat-nutrition {
@@ -766,8 +774,8 @@ html[lang="pt"] [data-lang-pt] {
 }
 
 .cat-monitoring {
-  background: rgba(217, 119, 6, 0.08);
-  color: var(--amber);
+  background: rgba(146, 64, 14, 0.09);
+  color: #8A4B04;
 }
 
 .cat-bio {
@@ -798,7 +806,7 @@ html[lang="pt"] [data-lang-pt] {
   gap: 6px;
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .service-card-link:hover {
@@ -828,13 +836,15 @@ html[lang="pt"] [data-lang-pt] {
   background: var(--white);
   border-radius: var(--radius);
   padding: 32px;
-  border-left: 4px solid var(--primary);
+  border: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
   transition: var(--transition);
 }
 
 .testimonial-card:hover {
   box-shadow: var(--shadow-md);
+  transform: translateY(-3px);
+  border-color: rgba(13, 148, 136, 0.35);
 }
 
 .testimonial-quote {
@@ -968,7 +978,7 @@ html[lang="pt"] [data-lang-pt] {
 
 .package-features li::before {
   content: '\2713';
-  color: var(--primary);
+  color: var(--primary-text);
   font-weight: 700;
   flex-shrink: 0;
 }
@@ -984,7 +994,7 @@ html[lang="pt"] [data-lang-pt] {
   font-size: 0.95rem;
   transition: var(--transition);
   border: 2px solid var(--primary);
-  color: var(--primary);
+  color: var(--primary-text);
   background: transparent;
 }
 
@@ -1048,6 +1058,12 @@ html[lang="pt"] [data-lang-pt] {
 .tech-card-img {
   width: 100%;
   height: 200px;
+  overflow: hidden;
+}
+
+.tech-card-img img {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
 }
 
@@ -1088,7 +1104,7 @@ html[lang="pt"] [data-lang-pt] {
   gap: 6px;
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .tech-card-link:hover {
@@ -1130,7 +1146,7 @@ html[lang="pt"] [data-lang-pt] {
 
 .gallery-filter-btn:hover {
   border-color: var(--primary-light);
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .gallery-filter-btn.active {
@@ -1273,11 +1289,11 @@ html[lang="pt"] [data-lang-pt] {
 }
 
 .app-card--admin {
-  background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+  background: linear-gradient(135deg, #0B5F58 0%, #0F766E 100%);
 }
 
 .app-card--muestreo {
-  background: linear-gradient(135deg, #15803d 0%, #22c55e 100%);
+  background: linear-gradient(135deg, #14532D 0%, #166534 100%);
 }
 
 .app-card-icon {
@@ -1299,10 +1315,17 @@ html[lang="pt"] [data-lang-pt] {
 }
 
 .app-card p {
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.92);
   font-size: 0.95rem;
   line-height: 1.7;
   margin-bottom: 20px;
+}
+
+.app-card-note {
+  display: block;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.9);
+  margin-top: 8px;
 }
 
 .app-card-tags {
@@ -1426,7 +1449,7 @@ html[lang="pt"] [data-lang-pt] {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--primary);
+  color: var(--primary-text);
   font-size: 1.1rem;
   flex-shrink: 0;
 }
@@ -1465,11 +1488,17 @@ html[lang="pt"] [data-lang-pt] {
 .form-group textarea {
   width: 100%;
   padding: 12px 16px;
-  border: 1.5px solid var(--border);
+  border: 1.5px solid var(--border-strong);
   border-radius: var(--radius);
   background: var(--surface);
   color: var(--text);
   transition: var(--transition);
+}
+
+.form-error {
+  color: #C81E1E;
+  font-size: 0.8rem;
+  margin-top: 4px;
 }
 
 .form-group input:focus,
@@ -1604,7 +1633,7 @@ html[lang="pt"] [data-lang-pt] {
   justify-content: space-between;
   align-items: center;
   font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.62);
 }
 
 /* ==========================================================
@@ -1805,7 +1834,7 @@ html[lang="pt"] [data-lang-pt] {
    ========================================================== */
 @media (max-width: 480px) {
   body {
-    font-size: 15px;
+    font-size: 0.95rem;
   }
 
   .container {
@@ -1887,9 +1916,19 @@ html[lang="pt"] [data-lang-pt] {
 }
 
 :focus-visible {
-  outline: 3px solid var(--primary);
+  outline: 3px solid var(--primary-dark);
   outline-offset: 2px;
   border-radius: 4px;
+  box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.9);
+}
+
+/* On dark sections, invert the halo so the ring stays visible */
+.apps-section :focus-visible,
+.footer :focus-visible,
+.hero :focus-visible,
+.cta-final :focus-visible {
+  outline-color: var(--white);
+  box-shadow: 0 0 0 6px rgba(0, 0, 0, 0.55);
 }
 
 button:focus:not(:focus-visible),
@@ -1939,7 +1978,7 @@ a:focus:not(:focus-visible) {
 }
 
 .faq-item summary:hover {
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .faq-item summary::-webkit-details-marker { display: none; }
@@ -1954,7 +1993,7 @@ a:focus:not(:focus-visible) {
   height: 28px;
   border-radius: 50%;
   background: rgba(13, 148, 136, 0.1);
-  color: var(--primary);
+  color: var(--primary-text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2041,7 +2080,6 @@ a:focus:not(:focus-visible) {
 .roi-card {
   background: var(--white);
   border: 1px solid var(--border);
-  border-left: 4px solid var(--primary-light);
   border-radius: var(--radius);
   padding: 24px 28px;
   display: flex;
@@ -2069,7 +2107,7 @@ a:focus:not(:focus-visible) {
 .roi-value {
   font-size: 1.8rem;
   font-weight: 700;
-  color: var(--primary);
+  color: var(--primary-text);
   line-height: 1.2;
 }
 
@@ -2123,7 +2161,7 @@ a:focus:not(:focus-visible) {
 }
 
 .cookie-content p a {
-  color: var(--primary);
+  color: var(--primary-text);
   font-weight: 600;
   text-decoration: underline;
 }
@@ -2150,7 +2188,7 @@ a:focus:not(:focus-visible) {
 
 .cookie-btn:hover {
   border-color: var(--primary-light);
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .cookie-btn--accept {
@@ -2166,6 +2204,11 @@ a:focus:not(:focus-visible) {
 
 .cookie-btn--reject {
   background: var(--surface);
+}
+
+.cookie-btn--customize {
+  background: var(--white);
+  border-color: var(--border-strong);
 }
 
 .cookie-customize {
@@ -2240,3 +2283,37 @@ a:focus:not(:focus-visible) {
   content-visibility: auto;
   contain-intrinsic-size: 1px 800px;
 }
+
+/* ==========================================================
+   26. AUDIT POLISH (2026-08) — a11y & consistency
+   ========================================================== */
+/* Fixed nav offset: anchored sections & focus targets clear the navbar */
+html { scroll-padding-top: 96px; }
+:target,
+main[tabindex] { scroll-margin-top: 96px; }
+@media (max-width: 768px) { html { scroll-padding-top: 80px; } }
+
+/* Screen-reader-only utility */
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Consistent section-header rhythm across every section */
+.testimonials .services-header h2,
+.packages .services-header h2,
+.apps-section .services-header h2,
+.contact .services-header h2,
+.gallery .services-header h2 {
+  margin-bottom: 12px;
+}
+.apps-section .services-header h2 { color: var(--white); }
+.apps-section .services-header p { color: rgba(255, 255, 255, 0.72); }
+
+/* Star ratings: color meets 3:1, hidden glyphs get an accessible label */
+.testimonial-stars { color: #B45309; }

@@ -25,14 +25,14 @@
   <meta name="geo.position" content="-17.783327;-63.182140">
   <meta name="ICBM" content="-17.783327, -63.182140">
 
-  <meta name="description" content="Pixadvisor - Agricultura de Precisión. Mapeo satelital, IA propia, muestreo inteligente y prescripción variable VRT para maximizar cada hectárea. 11 cultivos. Bolivia y Brasil.">
+  <meta name="description" content="Agricultura de Precisión con IA propia: mapeo satelital, muestreo inteligente y prescripción variable VRT. 11 cultivos en Bolivia y Brasil.">
   <meta name="keywords" content="agricultura de precisión, precision agriculture, IA agrícola, NDVI, NDRE, fertilización variable, muestreo inteligente, prescripción VRT, Pixadvisor, Bolivia, Brasil, Santa Cruz, mapeamento satelital, biofábricas, drones agrícolas, kriging, zonas de manejo">
 
   <meta property="og:site_name" content="Pixadvisor">
   <meta property="og:title" content="Pixadvisor — Agricultura de Precisión con IA propia">
   <meta property="og:description" content="Tecnología que transforma resultados en el campo. Mapeo satelital, muestreo inteligente, IA propia y prescripción variable VRT. 11 cultivos en Bolivia y Brasil.">
   <meta property="og:type" content="website">
-  <meta property="og:image" content="https://pixadvisor.network/img/logo.png">
+  <meta property="og:image" content="https://pixadvisor.network/img/og-cover.jpg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:image:alt" content="Pixadvisor - Agricultura de Precisión">
@@ -46,7 +46,7 @@
   <meta name="twitter:creator" content="@pixadvisor">
   <meta name="twitter:title" content="Pixadvisor — Agricultura de Precisión con IA propia">
   <meta name="twitter:description" content="Mapeo satelital, IA propia, muestreo inteligente y prescripción VRT. 11 cultivos en Bolivia y Brasil.">
-  <meta name="twitter:image" content="https://pixadvisor.network/img/logo.png">
+  <meta name="twitter:image" content="https://pixadvisor.network/img/og-cover.jpg">
   <meta name="twitter:image:alt" content="Pixadvisor - Agricultura de Precisión">
 
   <link rel="icon" type="image/png" sizes="32x32" href="img/favicon.png">
@@ -111,8 +111,8 @@
   <link rel="dns-prefetch" href="https://wa.me">
   <link rel="dns-prefetch" href="https://www.google-analytics.com">
   <link rel="preload" as="image" href="vista_aerea_ap_hd.webp" fetchpriority="high">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Open+Sans:wght@400;600;700&display=swap" media="print" onload="this.media='all'">
-  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Open+Sans:wght@400;600;700&display=swap"></noscript>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=Public+Sans:wght@400;500;700&display=swap" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=Public+Sans:wght@400;500;700&display=swap"></noscript>
   <link rel="stylesheet" href="css/main.css">
 
   <script type="application/ld+json">
@@ -126,7 +126,7 @@
         "url": "https://pixadvisor.network/",
         "logo": {
           "@type": "ImageObject",
-          "url": "https://pixadvisor.network/img/logo.png",
+          "url": "https://pixadvisor.network/img/icon-512.png",
           "width": 512,
           "height": 512
         },
@@ -160,7 +160,7 @@
         "@type": "LocalBusiness",
         "@id": "https://pixadvisor.network/#localbusiness",
         "name": "Pixadvisor — Agricultura de Precisión",
-        "image": "https://pixadvisor.network/img/logo.png",
+        "image": "https://pixadvisor.network/img/og-cover.jpg",
         "url": "https://pixadvisor.network/",
         "telephone": "+591-72149171",
         "email": "contacto@pixadvisor.network",
@@ -337,7 +337,7 @@
   <nav class="nav">
     <div class="nav-container">
       <a href="#" class="nav-logo">
-        <img src="img/logo-negro.png" alt="Pixadvisor" height="56" width="218">
+        <img src="img/logo-negro.webp" alt="Pixadvisor" height="56" width="84" fetchpriority="high" decoding="async">
         <span class="nav-brand-name">PIXADVISOR</span>
       </a>
       <div class="nav-links">
@@ -358,11 +358,11 @@
           <span data-lang-pt>Contato</span>
         </a>
         <div class="lang-switcher">
-          <button class="lang-btn active" data-lang="es">ES</button>
-          <button class="lang-btn" data-lang="pt">PT</button>
+          <button class="lang-btn active" data-lang="es" aria-pressed="true" aria-label="Español">ES</button>
+          <button class="lang-btn" data-lang="pt" aria-pressed="false" aria-label="Português">PT</button>
         </div>
       </div>
-      <button class="hamburger" aria-label="Menu" aria-expanded="false">
+      <button class="hamburger" aria-label="Menú de navegación" aria-expanded="false" aria-controls="mobileNav">
         <span></span>
         <span></span>
         <span></span>
@@ -576,7 +576,7 @@
             </div>
           </div>
           <div class="about-image fade-in">
-            <img src="img/agricultura-precision-drone.webp" alt="Agricultura de precisión con drones" width="600" height="400" loading="lazy">
+            <img src="img/agricultura-precision-drone.webp" alt="Agricultura de precisión con drones" width="600" height="400" loading="lazy" decoding="async">
           </div>
         </div>
       </div>
@@ -600,7 +600,7 @@
           <!-- Service 1: GeoLand Advisor -->
           <a href="servicios/geoland-advisor.html" class="service-card fade-in">
             <div class="service-card-img">
-              <img src="img/paisaje-agricola-ndvi.webp" alt="GeoLand Advisor - Mapeo de lotes" width="400" height="250" loading="lazy">
+              <img src="img/paisaje-agricola-ndvi.webp" alt="GeoLand Advisor - Mapeo de lotes" width="400" height="250" loading="lazy" decoding="async">
             </div>
             <div class="service-card-body">
               <span class="service-category cat-mapping">
@@ -622,7 +622,7 @@
           <!-- Service 2: SmartSoil Advisor -->
           <a href="servicios/smartsoil-advisor.html" class="service-card fade-in">
             <div class="service-card-img">
-              <img src="img/mapeamiento-fertilidad-suelo.webp" alt="SmartSoil Advisor - Fertilidad del suelo" width="400" height="250" loading="lazy">
+              <img src="img/mapeamiento-fertilidad-suelo.webp" alt="SmartSoil Advisor - Fertilidad del suelo" width="400" height="250" loading="lazy" decoding="async">
             </div>
             <div class="service-card-body">
               <span class="service-category cat-mapping">
@@ -644,7 +644,7 @@
           <!-- Service 3: CheckSoil Advisor -->
           <a href="servicios/checksoil-advisor.html" class="service-card fade-in">
             <div class="service-card-img">
-              <img src="img/servicio-01.webp" alt="CheckSoil Advisor - Diagnóstico de suelos" width="400" height="250" loading="lazy">
+              <img src="img/servicio-01.webp" alt="CheckSoil Advisor - Diagnóstico de suelos" width="400" height="250" loading="lazy" decoding="async">
             </div>
             <div class="service-card-body">
               <span class="service-category cat-mapping">
@@ -666,7 +666,7 @@
           <!-- Service 4: NutriBank Advisor -->
           <a href="servicios/nutribank-advisor.html" class="service-card fade-in">
             <div class="service-card-img">
-              <img src="img/mapa-aplicacion-cal.webp" alt="NutriBank Advisor - Prescripción nutricional" width="400" height="250" loading="lazy">
+              <img src="img/mapa-aplicacion-cal.webp" alt="NutriBank Advisor - Prescripción nutricional" width="400" height="250" loading="lazy" decoding="async">
             </div>
             <div class="service-card-body">
               <span class="service-category cat-nutrition">
@@ -688,7 +688,7 @@
           <!-- Service 5: BioIndex Advisor -->
           <a href="servicios/bioindex-advisor.html" class="service-card fade-in">
             <div class="service-card-img">
-              <img src="img/analisis-salud-vegetacion.webp" alt="BioIndex Advisor - Índices de vegetación" width="400" height="250" loading="lazy">
+              <img src="img/analisis-salud-vegetacion.webp" alt="BioIndex Advisor - Índices de vegetación" width="400" height="250" loading="lazy" decoding="async">
             </div>
             <div class="service-card-body">
               <span class="service-category cat-monitoring">
@@ -710,7 +710,7 @@
           <!-- Service 6: WaterSoil Advisor -->
           <a href="servicios/watersoil-advisor.html" class="service-card fade-in">
             <div class="service-card-img">
-              <img src="img/agricultura-precision-tecnologia.webp" alt="WaterSoil Advisor - Gestión hídrica" width="400" height="250" loading="lazy">
+              <img src="img/agricultura-precision-tecnologia.webp" alt="WaterSoil Advisor - Gestión hídrica" width="400" height="250" loading="lazy" decoding="async">
             </div>
             <div class="service-card-body">
               <span class="service-category cat-monitoring">
@@ -732,7 +732,7 @@
           <!-- Service 7: CheckLeaf Advisor -->
           <a href="servicios/checkleaf-advisor.html" class="service-card fade-in">
             <div class="service-card-img">
-              <img src="img/servicio-03.webp" alt="CheckLeaf Advisor - Análisis foliar" width="400" height="250" loading="lazy">
+              <img src="img/servicio-03.webp" alt="CheckLeaf Advisor - Análisis foliar" width="400" height="250" loading="lazy" decoding="async">
             </div>
             <div class="service-card-body">
               <span class="service-category cat-nutrition">
@@ -754,7 +754,7 @@
           <!-- Service 8: OnFarm Biofábricas -->
           <a href="servicios/onfarm-biofabricas.html" class="service-card fade-in">
             <div class="service-card-img">
-              <img src="img/biotanques.webp" alt="OnFarm Biofábricas - Control biológico" width="400" height="250" loading="lazy">
+              <img src="img/biotanques.webp" alt="OnFarm Biofábricas - Control biológico" width="400" height="250" loading="lazy" decoding="async">
             </div>
             <div class="service-card-body">
               <span class="service-category cat-bio">
@@ -776,7 +776,7 @@
           <!-- Service 9: FieldPlanning -->
           <a href="servicios/field-planning.html" class="service-card fade-in">
             <div class="service-card-img">
-              <img src="img/field-planning.webp" alt="FieldPlanning - Planificación inteligente de líneas" width="400" height="250" loading="lazy">
+              <img src="img/field-planning.webp" alt="FieldPlanning - Planificación inteligente de líneas" width="400" height="250" loading="lazy" decoding="async">
             </div>
             <div class="service-card-body">
               <span class="service-category cat-drones">
@@ -798,7 +798,7 @@
           <!-- Service 10: FieldControl -->
           <a href="servicios/field-control.html" class="service-card fade-in">
             <div class="service-card-img">
-              <img src="img/field-control.webp" alt="FieldControl - Restitución de líneas y fallas" width="400" height="250" loading="lazy">
+              <img src="img/field-control.webp" alt="FieldControl - Restitución de líneas y fallas" width="400" height="250" loading="lazy" decoding="async">
             </div>
             <div class="service-card-body">
               <span class="service-category cat-drones">
@@ -820,7 +820,7 @@
           <!-- Service 11: FieldMetrics -->
           <a href="servicios/field-metrics.html" class="service-card fade-in">
             <div class="service-card-img">
-              <img src="img/field-metrics.webp" alt="FieldMetrics - Detección de malezas y tasa variable" width="400" height="250" loading="lazy">
+              <img src="img/field-metrics.webp" alt="FieldMetrics - Detección de malezas y tasa variable" width="400" height="250" loading="lazy" decoding="async">
             </div>
             <div class="service-card-body">
               <span class="service-category cat-drones">
@@ -860,7 +860,7 @@
         <div class="testimonials-grid">
           <!-- Testimonial 1 -->
           <div class="testimonial-card fade-in">
-            <div class="testimonial-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+            <div class="testimonial-stars"><span aria-hidden="true">&#9733;&#9733;&#9733;&#9733;&#9733;</span><span class="sr-only" data-lang-es>5 de 5 estrellas</span><span class="sr-only" data-lang-pt>5 de 5 estrelas</span></div>
             <p class="testimonial-quote">
               <span data-lang-es>"Redujimos 30% el costo de insumos con la prescripción variable. Los mapas VRT de Pixadvisor nos permitieron aplicar cal solo donde realmente se necesitaba."</span>
               <span data-lang-pt>"Reduzimos 30% o custo de insumos com a prescrição variável. Os mapas VRT da Pixadvisor nos permitiram aplicar calcário somente onde realmente era necessário."</span>
@@ -873,7 +873,7 @@
           </div>
           <!-- Testimonial 2 -->
           <div class="testimonial-card fade-in">
-            <div class="testimonial-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+            <div class="testimonial-stars"><span aria-hidden="true">&#9733;&#9733;&#9733;&#9733;&#9733;</span><span class="sr-only" data-lang-es>5 de 5 estrellas</span><span class="sr-only" data-lang-pt>5 de 5 estrelas</span></div>
             <p class="testimonial-quote">
               <span data-lang-es>"La prescripción VRT optimizó la siembra y fertilización de nuestra soja. Vimos un aumento de 12% en productividad en la primera zafra."</span>
               <span data-lang-pt>"A prescrição VRT otimizou a semeadura e fertilização da nossa soja. Vimos um aumento de 12% na produtividade na primeira safra."</span>
@@ -886,7 +886,7 @@
           </div>
           <!-- Testimonial 3 -->
           <div class="testimonial-card fade-in">
-            <div class="testimonial-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+            <div class="testimonial-stars"><span aria-hidden="true">&#9733;&#9733;&#9733;&#9733;&#9733;</span><span class="sr-only" data-lang-es>5 de 5 estrellas</span><span class="sr-only" data-lang-pt>5 de 5 estrelas</span></div>
             <p class="testimonial-quote">
               <span data-lang-es>"El muestreo dirigido nos ahorró 40% en costos de laboratorio. Con PIX Muestreo solo tomamos muestras donde la variabilidad lo requiere."</span>
               <span data-lang-pt>"A amostragem dirigida nos economizou 40% em custos de laboratório. Com PIX Muestreo só coletamos amostras onde a variabilidade exige."</span>
@@ -1052,7 +1052,7 @@
           <!-- FieldPlanning -->
           <div class="tech-card fade-in">
             <div class="tech-card-img">
-              <img src="img/fazenda-inteligente-tecnologia.webp" alt="FieldPlanning - Planificación inteligente" width="400" height="250" loading="lazy">
+              <img src="img/fazenda-inteligente-tecnologia.webp" alt="FieldPlanning - Planificación inteligente" width="400" height="250" loading="lazy" decoding="async">
             </div>
             <div class="tech-card-body">
               <h3>FieldPlanning</h3>
@@ -1084,7 +1084,7 @@
           <!-- FieldMetrics -->
           <div class="tech-card fade-in">
             <div class="tech-card-img">
-              <img src="img/mapa-agricola-ndvi.webp" alt="FieldMetrics - Métricas de campo" width="400" height="250" loading="lazy">
+              <img src="img/mapa-agricola-ndvi.webp" alt="FieldMetrics - Métricas de campo" width="400" height="250" loading="lazy" decoding="async">
             </div>
             <div class="tech-card-body">
               <h3>FieldMetrics</h3>
@@ -1116,7 +1116,7 @@
           <!-- FieldControl -->
           <div class="tech-card fade-in">
             <div class="tech-card-img">
-              <img src="img/analisis-salud-vegetacion.webp" alt="FieldControl - Control de campo" width="400" height="250" loading="lazy">
+              <img src="img/analisis-salud-vegetacion.webp" alt="FieldControl - Control de campo" width="400" height="250" loading="lazy" decoding="async">
             </div>
             <div class="tech-card-body">
               <h3>FieldControl</h3>
@@ -1179,7 +1179,7 @@
         </div>
         <div class="gallery-grid">
           <div class="gallery-item fade-in" tabindex="0" role="button" data-category="mapas">
-            <img src="img/paisaje-agricola-ndvi.webp" alt="Paisaje agrícola NDVI" width="400" height="300" loading="lazy">
+            <img src="img/paisaje-agricola-ndvi.webp" alt="Paisaje agrícola NDVI" width="400" height="300" loading="lazy" decoding="async">
             <div class="gallery-overlay">
               <p class="gallery-caption">
                 <span data-lang-es>Mapa NDVI de paisaje agrícola</span>
@@ -1188,7 +1188,7 @@
             </div>
           </div>
           <div class="gallery-item fade-in" tabindex="0" role="button" data-category="mapas">
-            <img src="img/mapa-agricola-ndvi.webp" alt="Mapa agrícola NDVI" width="400" height="300" loading="lazy">
+            <img src="img/mapa-agricola-ndvi.webp" alt="Mapa agrícola NDVI" width="400" height="300" loading="lazy" decoding="async">
             <div class="gallery-overlay">
               <p class="gallery-caption">
                 <span data-lang-es>Mapa agrícola con índice NDVI</span>
@@ -1197,7 +1197,7 @@
             </div>
           </div>
           <div class="gallery-item fade-in" tabindex="0" role="button" data-category="campo">
-            <img src="img/agricultura-precision-drone.webp" alt="Drone en agricultura de precisión" width="400" height="300" loading="lazy">
+            <img src="img/agricultura-precision-drone.webp" alt="Drone en agricultura de precisión" width="400" height="300" loading="lazy" decoding="async">
             <div class="gallery-overlay">
               <p class="gallery-caption">
                 <span data-lang-es>Tecnología drone en campo</span>
@@ -1206,7 +1206,7 @@
             </div>
           </div>
           <div class="gallery-item fade-in" tabindex="0" role="button" data-category="prescripcion">
-            <img src="img/mapa-aplicacion-cal.webp" alt="Mapa de aplicación de cal" width="400" height="300" loading="lazy">
+            <img src="img/mapa-aplicacion-cal.webp" alt="Mapa de aplicación de cal" width="400" height="300" loading="lazy" decoding="async">
             <div class="gallery-overlay">
               <p class="gallery-caption">
                 <span data-lang-es>Prescripción VRT de encalado</span>
@@ -1215,7 +1215,7 @@
             </div>
           </div>
           <div class="gallery-item fade-in" tabindex="0" role="button" data-category="mapas">
-            <img src="img/mapeamiento-fertilidad-suelo.webp" alt="Mapeo de fertilidad del suelo" width="400" height="300" loading="lazy">
+            <img src="img/mapeamiento-fertilidad-suelo.webp" alt="Mapeo de fertilidad del suelo" width="400" height="300" loading="lazy" decoding="async">
             <div class="gallery-overlay">
               <p class="gallery-caption">
                 <span data-lang-es>Mapeo de fertilidad del suelo</span>
@@ -1224,7 +1224,7 @@
             </div>
           </div>
           <div class="gallery-item fade-in" tabindex="0" role="button" data-category="campo">
-            <img src="img/tractor-mapas-datos.webp" alt="Tractor con mapas y datos" width="400" height="300" loading="lazy">
+            <img src="img/tractor-mapas-datos.webp" alt="Tractor con mapas y datos" width="400" height="300" loading="lazy" decoding="async">
             <div class="gallery-overlay">
               <p class="gallery-caption">
                 <span data-lang-es>Tecnología en maquinaria agrícola</span>
@@ -1233,7 +1233,7 @@
             </div>
           </div>
           <div class="gallery-item fade-in" tabindex="0" role="button" data-category="prescripcion">
-            <img src="img/mapa-costos-agricultura.webp" alt="Mapa de costos agrícolas" width="400" height="300" loading="lazy">
+            <img src="img/mapa-costos-agricultura.webp" alt="Mapa de costos agrícolas" width="400" height="300" loading="lazy" decoding="async">
             <div class="gallery-overlay">
               <p class="gallery-caption">
                 <span data-lang-es>Análisis de costos por zona</span>
@@ -1242,7 +1242,7 @@
             </div>
           </div>
           <div class="gallery-item fade-in" tabindex="0" role="button" data-category="mapas">
-            <img src="img/mapa-productividad-cebada.webp" alt="Mapa de productividad de cebada" width="400" height="300" loading="lazy">
+            <img src="img/mapa-productividad-cebada.webp" alt="Mapa de productividad de cebada" width="400" height="300" loading="lazy" decoding="async">
             <div class="gallery-overlay">
               <p class="gallery-caption">
                 <span data-lang-es>Mapa de productividad - Cebada</span>
@@ -1358,7 +1358,7 @@
               <span data-lang-pt>Estimativa conservadora baseada em 25% redução de insumos e 12% aumento de produtividade. Resultados reais variam conforme cultivo, clima e implementação.</span>
             </p>
           </div>
-          <div class="roi-results fade-in">
+          <div class="roi-results fade-in" aria-live="polite" aria-atomic="true">
             <div class="roi-card">
               <span class="roi-label"><span data-lang-es>Ahorro en insumos / año</span><span data-lang-pt>Economia em insumos / ano</span></span>
               <strong class="roi-value" id="roi-savings">$56.250</strong>
@@ -1368,7 +1368,7 @@
               <strong class="roi-value" id="roi-extra">$79.800</strong>
             </div>
             <div class="roi-card roi-card--highlight">
-              <span class="roi-label"><span data-lang-es>Beneficio total / año</span><span data-lang-pt>Benefício total / ano</span></span>
+              <span class="roi-label"><span data-lang-es>Beneficio bruto estimado / año</span><span data-lang-pt>Benefício bruto estimado / ano</span></span>
               <strong class="roi-value" id="roi-total">$136.050</strong>
             </div>
             <a href="https://wa.me/59172149171?text=Hola%20Pixadvisor%2C%20quiero%20una%20cotizaci%C3%B3n%20personalizada%20basada%20en%20mi%20c%C3%A1lculo%20de%20ROI." class="hero-btn-primary" target="_blank" rel="noopener noreferrer" data-event="roi_request">
@@ -1411,7 +1411,7 @@
               <span class="app-card-tag">GIS Maps</span>
               <span class="app-card-tag">PWA</span>
             </div>
-            <span class="app-card-note" style="font-size:12px;color:#94A3B8;margin-top:8px;display:block">
+            <span class="app-card-note">
               <span data-lang-es>Acceso interno</span>
               <span data-lang-pt>Acesso interno</span>
             </span>
@@ -1435,7 +1435,7 @@
               </span>
               <span class="app-card-tag">PWA</span>
             </div>
-            <span class="app-card-note" style="font-size:12px;color:#94A3B8;margin-top:8px;display:block">
+            <span class="app-card-note">
               <span data-lang-es>Acceso interno</span>
               <span data-lang-pt>Acesso interno</span>
             </span>
@@ -1508,7 +1508,7 @@
               </div>
             </div>
           </div>
-          <form class="contact-form" id="contactForm">
+          <form class="contact-form" id="contactForm" novalidate>
             <div class="form-group">
               <label for="name">
                 <span data-lang-es>Nombre</span>
@@ -1552,7 +1552,7 @@
         <!-- Brand -->
         <div class="footer-col-brand">
         <div class="footer-brand">
-          <img src="img/logo.png" alt="Pixadvisor" width="180" height="120">
+          <img src="img/logo.webp" alt="Pixadvisor" width="180" height="120" loading="lazy" decoding="async">
         </div>
           <p class="footer-tagline">
             <span data-lang-es>Agricultura de Precisión</span>
@@ -1669,7 +1669,7 @@
   </a>
 
   <!-- Lightbox -->
-  <div class="lightbox" id="lightbox">
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Galería — imagen ampliada">
     <button class="lightbox-close" aria-label="Cerrar / Fechar">&times;</button>
     <img class="lightbox-img" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" alt="">
     <p class="lightbox-caption"></p>
@@ -1680,9 +1680,18 @@
     function setLanguage(lang) {
       document.documentElement.lang = lang;
       document.querySelectorAll('.lang-btn').forEach(function(btn) {
-        btn.classList.toggle('active', btn.dataset.lang === lang);
+        var on = btn.dataset.lang === lang;
+        btn.classList.toggle('active', on);
+        btn.setAttribute('aria-pressed', String(on));
       });
+      // Título y descripción de la pestaña acompañan el idioma
+      if (lang === 'pt') {
+        document.title = 'Pixadvisor — Agricultura de Precisão com IA própria | Bolívia e Brasil';
+      } else {
+        document.title = 'Pixadvisor — Agricultura de Precisión con IA propia | Bolivia y Brasil';
+      }
       localStorage.setItem('pixadvisor-lang', lang);
+      if (typeof window.calcROI === 'function') window.calcROI();
     }
     document.querySelectorAll('.lang-btn').forEach(function(btn) {
       btn.addEventListener('click', function() { setLanguage(btn.dataset.lang); });
@@ -1760,8 +1769,12 @@
     // ===== GALLERY FILTER =====
     document.querySelectorAll('.gallery-filter-btn').forEach(function(btn) {
       btn.addEventListener('click', function() {
-        document.querySelectorAll('.gallery-filter-btn').forEach(function(b) { b.classList.remove('active'); });
+        document.querySelectorAll('.gallery-filter-btn').forEach(function(b) {
+          b.classList.remove('active');
+          b.setAttribute('aria-pressed', 'false');
+        });
         btn.classList.add('active');
+        btn.setAttribute('aria-pressed', 'true');
         var cat = btn.dataset.filter;
         document.querySelectorAll('.gallery-item').forEach(function(item) {
           item.style.display = (cat === 'all' || item.dataset.category === cat) ? '' : 'none';
@@ -1769,32 +1782,45 @@
       });
     });
 
-    // ===== LIGHTBOX =====
+    // ===== LIGHTBOX (modal accesible con trampa de foco) =====
     var lightbox = document.getElementById('lightbox');
+    var lightboxTrigger = null;
+    function trapFocus(e) {
+      if (e.key !== 'Tab') return;
+      var focusables = lightbox.querySelectorAll('button, [href], img[tabindex]');
+      if (!focusables.length) return;
+      var first = focusables[0], last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+    function closeLightbox() {
+      lightbox.classList.remove('open');
+      document.removeEventListener('keydown', trapFocus);
+      if (lightboxTrigger) lightboxTrigger.focus();
+    }
     document.querySelectorAll('.gallery-item').forEach(function(item) {
       function openItem() {
         var img = item.querySelector('img');
         var caption = item.querySelector('.gallery-caption');
         lightbox.querySelector('.lightbox-img').src = img.src;
-        lightbox.querySelector('.lightbox-img').alt = img.alt;
+        lightbox.querySelector('.lightbox-img').alt = img.alt || '';
         lightbox.querySelector('.lightbox-caption').textContent = caption ? caption.textContent : '';
         lightbox.classList.add('open');
+        lightboxTrigger = item;
+        document.addEventListener('keydown', trapFocus);
+        lightbox.querySelector('.lightbox-close').focus();
       }
       item.addEventListener('click', openItem);
       item.addEventListener('keydown', function(e) {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openItem(); }
       });
     });
-    lightbox.querySelector('.lightbox-close').addEventListener('click', function() {
-      lightbox.classList.remove('open');
-    });
+    lightbox.querySelector('.lightbox-close').addEventListener('click', closeLightbox);
     lightbox.addEventListener('click', function(e) {
-      if (e.target === lightbox) lightbox.classList.remove('open');
+      if (e.target === lightbox) closeLightbox();
     });
     document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape' && lightbox.classList.contains('open')) {
-        lightbox.classList.remove('open');
-      }
+      if (e.key === 'Escape' && lightbox.classList.contains('open')) closeLightbox();
     });
 
     // ===== CONTACT FORM → WHATSAPP =====
@@ -1806,12 +1832,20 @@
       var message = document.getElementById('message').value.trim();
       // Clear previous errors
       document.querySelectorAll('.form-error').forEach(function(el) { el.remove(); });
+      ['name','email','message'].forEach(function(id) {
+        var f = document.getElementById(id);
+        f.removeAttribute('aria-invalid');
+        f.removeAttribute('aria-describedby');
+      });
       var showError = function(id, msg) {
         var el = document.getElementById(id);
         var err = document.createElement('div');
         err.className = 'form-error';
-        err.style.cssText = 'color:#e53e3e;font-size:12px;margin-top:4px';
+        err.id = id + '-error';
+        err.setAttribute('role', 'alert');
         err.textContent = msg;
+        el.setAttribute('aria-invalid', 'true');
+        el.setAttribute('aria-describedby', err.id);
         el.parentElement.appendChild(err);
       };
       var valid = true;
@@ -1819,7 +1853,7 @@
       if (!name) { showError('name', reqMsg); valid = false; }
       if (!email) { showError('email', reqMsg); valid = false; }
       if (!message) { showError('message', reqMsg); valid = false; }
-      if (!valid) return;
+      if (!valid) { document.querySelector('[aria-invalid="true"]').focus(); return; }
       var lang = document.documentElement.lang;
       var whatsappMessage = lang === 'pt'
         ? 'Olá Pixadvisor, sou ' + name + '.\nE-mail: ' + email + '\nTelefone: ' + phone + '\nMensagem: ' + message
@@ -1829,17 +1863,23 @@
     });
 
     // ===== ROI CALCULATOR =====
+    function clampInput(el) {
+      var v = parseFloat(el.value) || 0;
+      var mn = parseFloat(el.min), mx = parseFloat(el.max);
+      if (!isNaN(mn)) v = Math.max(mn, v);
+      if (!isNaN(mx)) v = Math.min(mx, v);
+      return v;
+    }
     function calcROI() {
-      var ha = parseFloat(document.getElementById('roi-ha').value) || 0;
-      var cost = parseFloat(document.getElementById('roi-cost').value) || 0;
-      var yld = parseFloat(document.getElementById('roi-yield').value) || 0;
-      var price = parseFloat(document.getElementById('roi-price').value) || 0;
+      var ha = clampInput(document.getElementById('roi-ha'));
+      var cost = clampInput(document.getElementById('roi-cost'));
+      var yld = clampInput(document.getElementById('roi-yield'));
+      var price = clampInput(document.getElementById('roi-price'));
       var savings = ha * cost * 0.25;            // 25% reducción insumos
       var extraYield = ha * yld * 0.12 * price;  // 12% aumento productividad
       var total = savings + extraYield;
-      var fmt = function(v) {
-        return '$' + Math.round(v).toLocaleString('es-BO');
-      };
+      var locale = document.documentElement.lang === 'pt' ? 'pt-BR' : 'es-BO';
+      var fmt = function(v) { return '$' + Math.round(v).toLocaleString(locale); };
       document.getElementById('roi-savings').textContent = fmt(savings);
       document.getElementById('roi-extra').textContent = fmt(extraYield);
       document.getElementById('roi-total').textContent = fmt(total);
@@ -1849,6 +1889,7 @@
       if (el) el.addEventListener('input', calcROI);
     });
     calcROI();
+    window.calcROI = calcROI; // permitir reformateo al cambiar idioma
 
     // ===== COOKIE BANNER (LGPD/GDPR Consent Mode v2) =====
     (function() {
