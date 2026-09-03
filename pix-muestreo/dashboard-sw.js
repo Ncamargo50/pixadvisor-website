@@ -3,7 +3,7 @@
 // v2 — added dashboard.js + dashboard-config.js after split
 // v3 (3.18.0) — version bumped on every release so SW takes new dashboard.js.
 //               Bump DASH_VERSION (not just CACHE) to make the contract explicit.
-const DASH_VERSION = '3.18.6';
+const DASH_VERSION = '3.19.0';
 const CACHE = `pix-dash-v${DASH_VERSION}`;
 const ASSETS = [
   'dashboard.html',

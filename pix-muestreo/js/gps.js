@@ -316,18 +316,31 @@ class GPSNavigator {
    * @param {number} samples - Cantidad de lecturas (default 10)
    * @param {number} intervalMs - Intervalo entre lecturas en ms (default 1500)
    * @param {function} onProgress - Callback(samplesTaken, totalSamples, currentAccuracy)
+   * @param {object} [opts]
+   * @param {number} [opts.maxWaitMs=GPSNavigator.AVG_MAX_WAIT_MS] - Tiempo máximo total.
+   *        Antes era `samples*intervalMs + 15000` (30 s con 10 lecturas) mientras
+   *        app.js carreraba con un timeout externo de 15 s → el promedio seguía
+   *        corriendo (watchPosition vivo) después de que la UI ya había caído al
+   *        fallback. Ahora el llamador pasa un único presupuesto de tiempo.
+   * @param {number} [opts.maxAcceptableAccuracy=GPSNavigator.MAX_ACCEPTABLE_ACCURACY_M]
+   *        Umbral de precisión (m) para aceptar una lectura. Mismo umbral que
+   *        aplica app.js al fallback de lectura simple.
    * @returns {Promise<{lat, lng, accuracy, samples, avgAccuracy}>}
    */
-  async averagePosition(samples = 10, intervalMs = 1500, onProgress = null) {
+  async averagePosition(samples = 10, intervalMs = 1500, onProgress = null, opts = {}) {
     this._avgCompleted = false; // A2: Reset guard flag
     return new Promise((resolve, reject) => {
       const readings = [];
       let watchId = null;
       let timeoutId = null;
-      const maxWait = (samples * intervalMs) + 15000; // timeout total
+      const maxWait = Number.isFinite(opts.maxWaitMs) && opts.maxWaitMs > 0
+        ? opts.maxWaitMs
+        : GPSNavigator.AVG_MAX_WAIT_MS; // timeout total (default 20 s)
 
-      // Filtro: solo aceptar lecturas con accuracy < 20m
-      const maxAcceptableAccuracy = 20;
+      // Filtro: solo aceptar lecturas con accuracy <= umbral (default 20 m)
+      const maxAcceptableAccuracy = Number.isFinite(opts.maxAcceptableAccuracy) && opts.maxAcceptableAccuracy > 0
+        ? opts.maxAcceptableAccuracy
+        : GPSNavigator.MAX_ACCEPTABLE_ACCURACY_M;
 
       // Use maximumAge: 0 for averaging — we need FRESH readings only
       watchId = navigator.geolocation.watchPosition(
@@ -835,5 +848,10 @@ class GPSNavigator {
     };
   }
 }
+
+// Umbrales compartidos entre averagePosition() y el guardado de muestra en
+// app.js (fallback a lectura simple). Un solo lugar para cambiarlos.
+GPSNavigator.MAX_ACCEPTABLE_ACCURACY_M = 20; // m
+GPSNavigator.AVG_MAX_WAIT_MS = 20000;        // presupuesto total del promedio
 
 const gpsNav = new GPSNavigator();

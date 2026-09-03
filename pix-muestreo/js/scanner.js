@@ -18,6 +18,13 @@ class BarcodeScanner {
     this.onScanSuccess = onSuccess;
     this._onTimeout = onTimeout || null;
 
+    // html5-qrcode (~375 KB) ya no se carga en el arranque: se inyecta bajo
+    // demanda la primera vez que se abre el escáner (helper en app.js).
+    if (typeof Html5Qrcode === 'undefined') {
+      if (typeof loadScriptOnce !== 'function') throw new Error('Escáner no disponible (loader ausente)');
+      await loadScriptOnce('lib/html5-qrcode.min.js');
+    }
+
     this.scanner = new Html5Qrcode(containerId);
 
     const config = {

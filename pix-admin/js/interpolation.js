@@ -81,10 +81,14 @@ class InterpolationEngine {
 
   // ==================== IDW INTERPOLATION ====================
 
+  // options: { resolution=80, power=2, smooth=0 (Gaussian passes, explicit opt-in),
+  //            autoSubsamples=false (virtual sub-points, explicit opt-in), subsampleSpread=50 }
+  // stats.min/max/mean are computed on the REAL sample values (not on the smoothed grid);
+  // stats.grid holds the grid-derived summary for reference.
   static interpolateIDW(points, bounds, options = {}) {
     const resolution = options.resolution || 80;
     const power = options.power || 2;
-    const smoothPasses = options.smooth !== undefined ? options.smooth : 2;
+    const smoothPasses = options.smooth !== undefined ? options.smooth : 0;
 
     if (!points || points.length === 0) return null;
 
@@ -106,7 +110,7 @@ class InterpolationEngine {
 
     // If samples have no explicit subsamples, auto-generate virtual subsamples
     // around each point for smoother interpolation (DataFarm-style fluid maps)
-    if (options.autoSubsamples !== false && allPoints.length === points.length && allPoints.length >= 3) {
+    if (options.autoSubsamples === true && allPoints.length === points.length && allPoints.length >= 3) {
       const extraPts = [];
       const spreadM = options.subsampleSpread || 50; // ~50m spread
       const spreadDegLat = spreadM / 111320; // meters to degrees latitude
@@ -159,7 +163,7 @@ class InterpolationEngine {
       grid = this._gaussianSmooth(grid, resolution);
     }
 
-    // Recalculate stats after smoothing
+    // Grid summary (after smoothing) — kept for reference only
     min = Infinity; max = -Infinity; sum = 0; count = 0;
     for (let i = 0; i < resolution; i++) {
       for (let j = 0; j < resolution; j++) {
@@ -169,14 +173,30 @@ class InterpolationEngine {
         sum += v; count++;
       }
     }
+    const gridStats = {
+      min: Math.round(min * 100) / 100,
+      max: Math.round(max * 100) / 100,
+      mean: Math.round((sum / count) * 100) / 100
+    };
+
+    // Reported stats: REAL sample values (what the lab measured), not the smoothed surface
+    let sMin = Infinity, sMax = -Infinity, sSum = 0;
+    for (const p of points) {
+      const v = Number(p.value);
+      if (v < sMin) sMin = v;
+      if (v > sMax) sMax = v;
+      sSum += v;
+    }
 
     return {
       grid, bounds, resolution, latStep, lngStep,
       stats: {
-        min: Math.round(min * 100) / 100,
-        max: Math.round(max * 100) / 100,
-        mean: Math.round((sum / count) * 100) / 100,
-        points: points.length
+        min: Math.round(sMin * 100) / 100,
+        max: Math.round(sMax * 100) / 100,
+        mean: Math.round((sSum / points.length) * 100) / 100,
+        points: points.length,
+        grid: gridStats,
+        smoothPasses
       }
     };
   }
@@ -669,6 +689,9 @@ class InterpolationEngine {
    * @param {number} [options.minDose=0] - Minimum dose (kg/ha)
    * @param {number} [options.maxDose] - Maximum dose cap (kg/ha)
    * @param {string} [options.managementType='normal'] - 'corrective'|'normal'|'maintenance'
+   * @param {Array<[lng,lat]>} [options.polygon] - Field boundary; stats/means only over cells inside it
+   * @param {Object} [options.classifyOptions] - { pMethod, phMethod, textureGroup } passed to classifySoil
+   *   (grid values must be in the engine's canonical units: mmolc/dm³ for cations, mg/dm³ for P/S/micros)
    */
   static generatePrescription(gridResult, nutrient, cropId, yieldTarget, fertSource, options = {}) {
     const crop = CROPS_DB[cropId];
@@ -678,6 +701,8 @@ class InterpolationEngine {
     const prescGrid = [];
     let totalDose = 0, minDose = Infinity, maxDose = -Infinity, cellCount = 0;
     const warnings = [];
+    const classifyOptions = options.classifyOptions || {};
+    const mask = options.polygon ? this.createPolygonMask(bounds, resolution, options.polygon) : null;
 
     const nutrientToFert = { 'P': 'P2O5', 'K': 'K2O', 'Ca': 'Ca', 'Mg': 'Mg', 'S': 'S' };
     const fertKey = nutrientToFert[nutrient] || nutrient;
@@ -715,7 +740,7 @@ class InterpolationEngine {
       prescGrid[i] = [];
       for (let j = 0; j < resolution; j++) {
         const soilValue = grid[i][j];
-        const cls = InterpretationEngine.classifySoil(nutrient, soilValue, cropId);
+        const cls = InterpretationEngine.classifySoil(nutrient, soilValue, cropId, classifyOptions);
 
         // Calculate dose using response curve
         const supplyFactor = supplyFactors[cls.class] !== undefined ? supplyFactors[cls.class] : 0.3;
@@ -728,18 +753,24 @@ class InterpolationEngine {
         // Clamp to safety limits
         dose = Math.max(userMinDose, Math.min(userMaxDose, dose));
 
+        const inside = !mask || mask[i][j];
         prescGrid[i][j] = {
           soilValue,
           soilClass: cls.class,
           dose: Math.round(dose * 10) / 10,
-          netNeed: Math.round(netNeed * 10) / 10
+          netNeed: Math.round(netNeed * 10) / 10,
+          inside
         };
-        totalDose += dose;
-        if (dose < minDose) minDose = dose;
-        if (dose > maxDose) maxDose = dose;
-        cellCount++;
+        // Only cells inside the field boundary contribute to min/max/mean
+        if (inside) {
+          totalDose += dose;
+          if (dose < minDose) minDose = dose;
+          if (dose > maxDose) maxDose = dose;
+          cellCount++;
+        }
       }
     }
+    if (cellCount === 0) { minDose = 0; maxDose = 0; }
 
     // Warn if doses hit safety cap
     if (maxDose >= userMaxDose * 0.99) {
@@ -995,6 +1026,7 @@ class InterpolationEngine {
     let totalCells = 0;
     for (let i = 0; i < resolution; i++) {
       for (let j = 0; j < resolution; j++) {
+        if (grid[i][j].inside === false) continue; // outside field boundary
         const dose = grid[i][j].dose;
         let zoneIdx = Math.floor((dose - stats.minDose) / zoneStep);
         if (zoneIdx >= numZones) zoneIdx = numZones - 1;

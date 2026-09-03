@@ -1193,34 +1193,82 @@ class PixApp {
     // Build IBRA metadata if available
     const ibraData = this.collectForm.parsedIBRA || null;
 
-    // A1 FIX: GPS averaging with cancel support + timeout guard
-    let gpsLat = gpsNav.currentPosition?.lat || this.currentPoint.lat;
-    let gpsLng = gpsNav.currentPosition?.lng || this.currentPoint.lng;
-    let gpsAcc = gpsNav.currentPosition?.accuracy || null;
-    let gpsMethod = 'single';
+    // A1 FIX: GPS averaging with cancel support + timeout guard.
+    // Umbral único de precisión, compartido con gpsNav.averagePosition().
+    const maxAcceptableAccuracy = (typeof GPSNavigator !== 'undefined' && GPSNavigator.MAX_ACCEPTABLE_ACCURACY_M) || 20;
+    const avgMaxWaitMs = (typeof GPSNavigator !== 'undefined' && GPSNavigator.AVG_MAX_WAIT_MS) || 20000;
+    const hasFix = !!(gpsNav.currentPosition && isFinite(gpsNav.currentPosition.lat) && isFinite(gpsNav.currentPosition.lng));
 
-    if (gpsNav.currentPosition && typeof gpsNav.averagePosition === 'function') {
-      try {
-        const avgSamples = parseInt(await pixDB.getSetting('gps_avgSamples') || '10');
-        this.toast(`Promediando ${avgSamples} lecturas GPS...`, 'info');
+    // Sin fix GPS: NO guardar silenciosamente la coordenada PLANIFICADA como si
+    // fuera la colectada (antes: `currentPosition?.lat || currentPoint.lat`).
+    // Se pide confirmación explícita y la muestra queda marcada.
+    let gpsLat, gpsLng, gpsAcc, gpsMethod, positionSource, gpsFix;
+    if (!hasFix) {
+      const goOn = await pixModal.confirm(
+        'Sin señal GPS',
+        'No hay posición GPS. La muestra se guardará con la coordenada PLANIFICADA del punto (no la real). ¿Continuar?',
+        { confirmText: 'Guardar igual', confirmColor: 'var(--warning, #f59e0b)', cancelText: 'Esperar GPS' }
+      );
+      if (!goOn) {
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Guardar Muestra'; }
+        return;
+      }
+      gpsLat = this.currentPoint.lat;
+      gpsLng = this.currentPoint.lng;
+      gpsAcc = null;
+      gpsMethod = 'planned_fallback';
+      positionSource = 'planned';
+      gpsFix = false;
+    } else {
+      gpsLat = gpsNav.currentPosition.lat;
+      gpsLng = gpsNav.currentPosition.lng;
+      gpsAcc = gpsNav.currentPosition.accuracy || null;
+      gpsMethod = 'single';
+      positionSource = 'gps';
+      gpsFix = true;
 
-        // Wrap averaging with a max 15-second timeout to prevent UI freeze
-        const avgPromise = gpsNav.averagePosition(avgSamples, 1500, (taken, total, acc) => {
-          const el = document.getElementById('collectCoords');
-          if (el) el.textContent = `GPS: ${taken}/${total} lecturas (+-${acc.toFixed(1)}m)`;
-        });
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('GPS averaging timeout')), 15000)
+      if (typeof gpsNav.averagePosition === 'function') {
+        try {
+          const avgSamples = parseInt(await pixDB.getSetting('gps_avgSamples') || '10');
+          this.toast(`Promediando ${avgSamples} lecturas GPS...`, 'info');
+
+          // Un solo presupuesto de tiempo (default 20 s) que el promedio respeta
+          // internamente — antes había un race externo de 15 s contra un timeout
+          // interno de samples*1500+15000, dejando el watchPosition huérfano.
+          const avg = await gpsNav.averagePosition(avgSamples, 1500, (taken, total, acc) => {
+            const el = document.getElementById('collectCoords');
+            if (el) el.textContent = `GPS: ${taken}/${total} lecturas (+-${acc.toFixed(1)}m)`;
+          }, { maxWaitMs: avgMaxWaitMs, maxAcceptableAccuracy });
+          gpsLat = avg.lat;
+          gpsLng = avg.lng;
+          gpsAcc = avg.accuracy;
+          gpsMethod = `averaged_${avg.samples || avg.samplesUsed || '?'}pts`;
+        } catch (e) {
+          console.warn('GPS averaging failed, using single reading:', e.message);
+          // Fallback a lectura simple: refrescar con la última posición conocida
+          const p = gpsNav.currentPosition;
+          if (p && isFinite(p.lat) && isFinite(p.lng)) {
+            gpsLat = p.lat; gpsLng = p.lng; gpsAcc = p.accuracy || null;
+          }
+          gpsMethod = 'single_fallback';
+          this.toast('GPS: usando lectura simple', 'warning');
+        }
+      }
+
+      // El fallback simple aplica el MISMO umbral que el promedio: si la
+      // precisión lo supera, confirmación explícita mostrando los metros.
+      if (gpsAcc == null || gpsAcc > maxAcceptableAccuracy) {
+        const accTxt = gpsAcc == null ? 'desconocida' : `±${Math.round(gpsAcc)} m`;
+        const goOn = await pixModal.confirm(
+          'Precisión GPS baja',
+          `Precisión actual: ${accTxt} (umbral ${maxAcceptableAccuracy} m). ¿Guardar la muestra con esta precisión?`,
+          { confirmText: 'Guardar igual', confirmColor: 'var(--warning, #f59e0b)', cancelText: 'Esperar GPS' }
         );
-
-        const avg = await Promise.race([avgPromise, timeoutPromise]);
-        gpsLat = avg.lat;
-        gpsLng = avg.lng;
-        gpsAcc = avg.accuracy;
-        gpsMethod = `averaged_${avg.samples || avg.samplesUsed || '?'}pts`;
-      } catch (e) {
-        console.warn('GPS averaging failed, using single reading:', e.message);
-        this.toast('GPS: usando lectura simple', 'warning');
+        if (!goOn) {
+          if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Guardar Muestra'; }
+          return;
+        }
+        gpsMethod += '_lowacc';
       }
     }
 
@@ -1257,6 +1305,8 @@ class PixApp {
       lng: gpsLng,
       accuracy: gpsAcc,
       gpsMethod: gpsMethod,
+      positionSource: positionSource, // 'gps' | 'planned' (sin fix → coordenada planificada)
+      gpsFix: gpsFix,                 // false = la coordenada NO proviene del receptor
       gnss: gnssMetadata,
       depth: depth,
       sampleType: effectiveType,
@@ -2100,14 +2150,13 @@ class PixApp {
       try { await this._registerDevice(); } catch (e) { console.warn('[Sync] registerDevice:', e.message); }
       try { await this._syncBoundariesToCloud(); } catch (e) { console.warn('[Sync] boundaries:', e.message); this.toast('Sync limites: ' + (e.message || 'error'), 'warning'); }
 
-      // Mark saved files as synced after Cloud sync succeeds
-      try {
-        const unsyncedFiles = await pixDB.getUnsyncedFiles();
-        for (const f of unsyncedFiles) {
-          await pixDB.markFileSynced(f.id);
-        }
-        if (unsyncedFiles.length > 0) this.addSyncLog(`📁 ${unsyncedFiles.length} archivos marcados como sincronizados`);
-      } catch (e) { console.warn('[Sync] markFiles:', e.message); }
+      // NOTA (fix pérdida silenciosa de archivos): antes acá se marcaban TODOS
+      // los `files` como sincronizados tras pixCloud.syncAll(), pero cloud.js
+      // NO sube archivos (solo muestras/campos) y db.js._pruneSyncedFiles()
+      // borra a los 7 días todo lo que tenga synced=1 → los respaldos internos
+      // (reportes, exports) desaparecían sin haber salido nunca del teléfono.
+      // Un archivo solo debe marcarse sincronizado (pixDB.markFileSynced) desde
+      // el path que realmente lo sube (Drive). No re-agregar este bloque.
     }
 
     // 2) Drive sync — only if authenticated (requires Google OAuth)
@@ -4342,21 +4391,12 @@ ${detailHTML}
       const deviceId = await this._getDeviceId();
       const techName = await pixDB.getSetting('collectorName') || 'Tecnico';
       let location = null;
-      // Use cached GPS position if available
-      if (gpsNav.currentPosition) {
+      // Privacidad (misma regla que el heartbeat): la ubicación del técnico
+      // solo se reporta mientras está muestreando o navegando a un punto.
+      // Fuera de ese contexto no se pide ningún fix GPS.
+      const fieldActive = (typeof _pixFieldWorkActive === 'function') ? _pixFieldWorkActive() : false;
+      if (fieldActive && gpsNav.currentPosition) {
         location = { lat: gpsNav.currentPosition.lat, lng: gpsNav.currentPosition.lng };
-      } else {
-        // Actively request a GPS fix (3s timeout, non-blocking)
-        try {
-          const pos = await new Promise((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(
-              p => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
-              reject,
-              { enableHighAccuracy: true, timeout: 3000 }
-            );
-          });
-          location = pos;
-        } catch (_) { /* GPS not available yet, send null */ }
       }
       await pixCloud.registerDevice(deviceId, techName, location);
     } catch (e) {
@@ -4376,13 +4416,22 @@ ${detailHTML}
       try {
         const deviceId = await this._getDeviceId();
         const techName = await pixDB.getSetting('collectorName') || 'Tecnico';
+        // PRIVACIDAD: la política publicada dice que la ubicación se comparte
+        // "solo al muestrear o navegar". Antes se enviaba cada 60 s con la app
+        // visible, aunque el técnico no estuviera trabajando. Ahora las
+        // coordenadas viajan SOLO con colecta/navegación activa; fuera de eso
+        // el heartbeat sale sin ubicación (solo "estoy vivo").
+        const collectOpen = !!document.getElementById('collectModal')?.classList.contains('active');
+        const fieldActive = !!(this.isNavigating || (this.currentPoint && collectOpen) || gpsNav.isTracking);
         let location = null;
-        if (gpsNav.currentPosition) {
+        if (fieldActive && gpsNav.currentPosition) {
           location = { lat: gpsNav.currentPosition.lat, lng: gpsNav.currentPosition.lng };
         }
+        await pixCloud.registerDevice(deviceId, techName, location);
         if (location) {
-          await pixCloud.registerDevice(deviceId, techName, location);
           console.log('[Heartbeat] Location sent:', location.lat.toFixed(5), location.lng.toFixed(5));
+        } else {
+          console.log('[Heartbeat] Sent without location (no active navigation/collection)');
         }
       } catch (_) { /* silent */ }
     };
@@ -4655,10 +4704,14 @@ ${detailHTML}
   async _syncCloudCredentials() {
     if (!pixCloud.isEnabled()) return;
     try {
+      // One-time cleanup: the legacy 'cloudCredentials' setting held every
+      // technician's password_hash on the device. It is no longer written.
+      try {
+        if (await pixDB.getSetting('cloudCredentials')) await pixDB.setSetting('cloudCredentials', null);
+      } catch (_) {}
       const techs = await pixCloud.pullTechnicians();
       if (techs && techs.length > 0) {
-        await pixDB.setSetting('cloudCredentials', JSON.stringify(techs));
-        console.log(`[Cloud] ${techs.length} credentials synced`);
+        console.log(`[Cloud] ${techs.length} technicians synced (directory only, no credentials)`);
 
         // Auto-match collectorName to exact full_name from cloud
         // This ensures pullOrders() eq. filter matches exactly
@@ -4692,40 +4745,39 @@ ${detailHTML}
         }
       }
 
-      // ── Bridge cloud technicians → local IndexedDB users (enables APK login) ──
+      // ── Bridge cloud technicians → local IndexedDB users (directory only) ──
+      // No password_hash is copied: the first login on this device must be
+      // online (pix-auth Edge Function) and stores a device-local hash.
+      // Existing passwordHash / role are never overwritten here (role comes
+      // from the last online login, which is the authoritative source).
       for (const t of techs) {
         if (!t.username && !t.email) continue;
         const email = (t.email || t.username || '').toLowerCase().trim();
         if (!email) continue;
         try {
-          // Find existing user by email OR username
-          let existing = await pixDB.getByIndex('users', 'email', email);
-          if (!existing && t.username) {
-            const allU = await pixDB.getAll('users');
-            existing = allU.find(u => u.username === t.username.toLowerCase().trim());
-          }
+          const uname = (t.username || '').toLowerCase().trim();
+          const allU = await pixDB.getAll('users');
+          let existing = null;
+          if (t.id) existing = allU.find(u => u.cloudTechId && String(u.cloudTechId) === String(t.id));
+          if (!existing) existing = allU.find(u => (u.email || '').toLowerCase() === email);
+          if (!existing && uname) existing = allU.find(u => (u.username || '').toLowerCase() === uname);
           if (existing) {
-            // Update password + role + username + cloudTechId if cloud is newer
             let changed = false;
-            if (t.password_hash && t.password_hash !== existing.passwordHash) {
-              existing.passwordHash = t.password_hash;
-              changed = true;
-            }
-            if (t.role && t.role !== existing.role) {
-              existing.role = t.role;
-              changed = true;
-            }
             if (t.full_name && t.full_name !== existing.name) {
               existing.name = t.full_name;
               changed = true;
             }
-            const uname = (t.username || '').toLowerCase().trim();
-            if (uname && uname !== existing.username) {
+            if (uname && uname !== (existing.username || '')) {
               existing.username = uname;
               changed = true;
             }
             if (t.id && t.id !== existing.cloudTechId) {
               existing.cloudTechId = t.id;
+              changed = true;
+            }
+            // Role: only adopt the cloud role when the user has none yet.
+            if (!existing.role && t.role) {
+              existing.role = t.role;
               changed = true;
             }
             if (changed) {
@@ -4734,15 +4786,14 @@ ${detailHTML}
               await pixDB.putUser(existing);
             }
           } else {
-            // Create new local user from cloud technician
-            if (!t.password_hash) continue; // Skip techs without password
+            // Create local user WITHOUT credentials (passwordHash: null)
             const user = {
               id: 'cloud-' + (t.id || Date.now() + '-' + Math.random().toString(36).substr(2, 6)),
               name: t.full_name || t.username || email,
               email: email,
-              username: (t.username || '').toLowerCase().trim(),
+              username: uname,
               cloudTechId: t.id || null,
-              passwordHash: t.password_hash,
+              passwordHash: null,
               role: t.role || 'tecnico',
               phone: t.phone || '',
               active: true,
@@ -4750,11 +4801,34 @@ ${detailHTML}
               _syncedFrom: 'cloud'
             };
             await pixDB.putUser(user);
-            console.log(`[Cloud] Created local user: ${user.name} (${email}) username=${user.username}`);
+            console.log(`[Cloud] Created local user (sin credenciales): ${user.name} (${email}) username=${user.username}`);
           }
         } catch (e) {
           console.warn(`[Cloud] User bridge failed for ${email}:`, e.message);
         }
+      }
+
+      // ── Desactivación: técnicos de la nube que ya no vienen en la lista
+      // (pullTechnicians filtra active=eq.true) quedan inactivos también en
+      // este dispositivo, para que el login offline sea coherente con el
+      // servidor. Solo aplica a usuarios con cloudTechId; los usuarios
+      // creados localmente no se tocan. Si vuelven a activarse, el bloque
+      // anterior los reactiva (existing.active se pone en true).
+      try {
+        const cloudIds = new Set(techs.filter(t => t.id).map(t => String(t.id)));
+        const allLocal = await pixDB.getAll('users');
+        for (const u of allLocal) {
+          if (!u.cloudTechId) continue;
+          const shouldBeActive = cloudIds.has(String(u.cloudTechId));
+          if (u.active !== shouldBeActive) {
+            u.active = shouldBeActive;
+            u.updatedAt = new Date().toISOString();
+            await pixDB.putUser(u);
+            console.log(`[Cloud] Usuario ${u.username || u.email}: active=${shouldBeActive} (según directorio cloud)`);
+          }
+        }
+      } catch (e) {
+        console.warn('[Cloud] Sync de estado activo:', e.message);
       }
 
     } catch (e) {
@@ -5036,21 +5110,102 @@ if (window.location.origin.includes('appassets.androidplatform.net') ||
   appIsInstalled = true;
 }
 
+// Carga bajo demanda de librerías pesadas (html2pdf ~900 KB, html5-qrcode
+// ~375 KB) que antes se cargaban síncronamente en cada arranque aunque el
+// técnico nunca generara un reporte ni escaneara. Idempotente: una misma URL
+// se inyecta una sola vez y las llamadas concurrentes comparten la promesa.
+// Offline: el SW precachea estas rutas (STATIC_ASSETS) y las sirve cache-first.
+const _loadedScripts = new Map();
+function loadScriptOnce(src) {
+  if (_loadedScripts.has(src)) return _loadedScripts.get(src);
+  const p = new Promise((resolve, reject) => {
+    const existing = document.querySelector(`script[src="${src}"]`);
+    if (existing && existing.dataset.loaded === '1') return resolve();
+    const s = document.createElement('script');
+    s.src = src;
+    s.async = true;
+    s.onload = () => { s.dataset.loaded = '1'; resolve(); };
+    s.onerror = () => {
+      _loadedScripts.delete(src); // permitir reintento
+      s.remove();
+      reject(new Error('No se pudo cargar ' + src));
+    };
+    document.head.appendChild(s);
+  });
+  _loadedScripts.set(src, p);
+  return p;
+}
+window.loadScriptOnce = loadScriptOnce;
+
+// Aviso no bloqueante de nueva versión. Antes: location.reload() automático
+// en `controllerchange` → podía recargar en medio de una colecta/navegación
+// y perder el formulario. Ahora: banner "Actualizar" y recarga solo al pulsar;
+// si hay colecta o navegación activa, el aviso se difiere hasta que termine.
+function _pixFieldWorkActive() {
+  try {
+    const a = (typeof app !== 'undefined') ? app : null;
+    const collectOpen = !!document.getElementById('collectModal')?.classList.contains('active');
+    return !!(a && (a.isNavigating || (a.currentPoint && collectOpen)));
+  } catch (_) { return false; }
+}
+function pixShowUpdateBanner() {
+  if (document.getElementById('pixUpdateBanner')) return;
+  const bar = document.createElement('div');
+  bar.id = 'pixUpdateBanner';
+  bar.setAttribute('role', 'status');
+  bar.style.cssText = 'position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translateX(-50%);' +
+    'z-index:99999;background:#0F1B2D;color:#fff;padding:10px 14px;border-radius:12px;font:15px/1.3 system-ui,sans-serif;' +
+    'box-shadow:0 4px 16px rgba(0,0,0,.35);display:flex;gap:12px;align-items:center;max-width:calc(100vw - 32px)';
+  const txt = document.createElement('span');
+  txt.textContent = 'Nueva versión disponible';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.textContent = 'Actualizar';
+  btn.style.cssText = 'background:#22c55e;color:#fff;border:0;border-radius:8px;padding:8px 14px;font-weight:600;font-size:15px;cursor:pointer';
+  btn.onclick = () => location.reload();
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.textContent = '✕';
+  close.setAttribute('aria-label', 'Cerrar');
+  close.style.cssText = 'background:transparent;color:#cbd5e1;border:0;font-size:18px;cursor:pointer;padding:0 4px';
+  close.onclick = () => bar.remove();
+  bar.append(txt, btn, close);
+  document.body.appendChild(bar);
+}
+let _pixUpdatePending = false;
+let _pixUpdatePollTimer = null;
+function pixNotifyUpdateAvailable() {
+  _pixUpdatePending = true;
+  if (!_pixFieldWorkActive()) { pixShowUpdateBanner(); return; }
+  // Colecta/navegación en curso: re-chequear cada 30 s hasta que termine.
+  if (_pixUpdatePollTimer) return;
+  _pixUpdatePollTimer = setInterval(() => {
+    if (!_pixUpdatePending) { clearInterval(_pixUpdatePollTimer); _pixUpdatePollTimer = null; return; }
+    if (!_pixFieldWorkActive()) {
+      clearInterval(_pixUpdatePollTimer); _pixUpdatePollTimer = null;
+      pixShowUpdateBanner();
+    }
+  }, 30000);
+}
+
 // Register SW with update check on every load
 if ('serviceWorker' in navigator) {
   const base = location.pathname.replace(/\/[^/]*$/, '/');
   const swPath = base + 'sw.js';
   const swScope = base;
-  let swReloading = false;
+  // Si no había SW controlando, el primer `controllerchange` es la instalación
+  // inicial (clients.claim), no una actualización → no avisar.
+  let hadController = !!navigator.serviceWorker.controller;
   navigator.serviceWorker.register(swPath, { scope: swScope })
     .then(reg => {
       console.log('SW registered:', reg.scope);
       reg.update();
     })
     .catch(e => console.log('SW error:', e));
-  // Reload once when a new SW takes control (not twice)
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!swReloading) { swReloading = true; location.reload(); }
+    if (!hadController) { hadController = true; return; } // primera instalación
+    console.log('[SW] Nueva versión activa — esperando confirmación del usuario para recargar');
+    pixNotifyUpdateAvailable();
   });
 }
 
@@ -5212,40 +5367,46 @@ async function _preLoginCloudSync() {
 
     if (!techs || techs.length === 0) return;
 
-    // Bridge cloud technicians → local IndexedDB users
+    // One-time cleanup of the legacy setting that cached password hashes
+    try {
+      if (await pixDB.getSetting('cloudCredentials')) await pixDB.setSetting('cloudCredentials', null);
+    } catch (_) {}
+
+    // Bridge cloud technicians → local IndexedDB users (directory only).
+    // No password_hash is copied; passwordHash/role of existing users are
+    // left untouched (the online login is the authoritative source).
     let synced = 0;
+    const allU = await pixDB.getAll('users');
     for (const t of techs) {
       const email = (t.email || t.username || '').toLowerCase().trim();
-      if (!email || !t.password_hash) continue;
+      if (!email) continue;
       try {
-        // Find by email OR username
-        let existing = await pixDB.getByIndex('users', 'email', email);
-        if (!existing && t.username) {
-          const allU = await pixDB.getAll('users');
-          existing = allU.find(u => (u.username || '') === t.username.toLowerCase().trim());
-        }
+        const uname = (t.username || '').toLowerCase().trim();
+        let existing = null;
+        if (t.id) existing = allU.find(u => u.cloudTechId && String(u.cloudTechId) === String(t.id));
+        if (!existing) existing = allU.find(u => (u.email || '').toLowerCase() === email);
+        if (!existing && uname) existing = allU.find(u => (u.username || '').toLowerCase() === uname);
         if (!existing) {
-          await pixDB.putUser({
+          const user = {
             id: 'cloud-' + (t.id || Date.now() + '-' + Math.random().toString(36).substr(2, 6)),
             name: t.full_name || t.username || email,
             email: email,
-            username: (t.username || '').toLowerCase().trim(),
+            username: uname,
             cloudTechId: t.id || null,
-            passwordHash: t.password_hash,
+            passwordHash: null,
             role: t.role || 'tecnico',
             phone: t.phone || '',
             active: true,
             createdAt: new Date().toISOString(),
             _syncedFrom: 'cloud'
-          });
+          };
+          await pixDB.putUser(user);
+          allU.push(user);
           synced++;
         } else {
-          // Update password/role/name/username/cloudTechId if cloud is newer
           let changed = false;
-          if (t.password_hash !== existing.passwordHash) { existing.passwordHash = t.password_hash; changed = true; }
           if (t.full_name && t.full_name !== existing.name) { existing.name = t.full_name; changed = true; }
-          if (t.role && t.role !== existing.role) { existing.role = t.role; changed = true; }
-          const uname = (t.username || '').toLowerCase().trim();
+          if (!existing.role && t.role) { existing.role = t.role; changed = true; }
           if (uname && uname !== (existing.username || '')) { existing.username = uname; changed = true; }
           if (t.id && t.id !== existing.cloudTechId) { existing.cloudTechId = t.id; changed = true; }
           if (changed) {
@@ -5308,12 +5469,17 @@ async function pixAuthLogin() {
         showInstallScreen();
       }
     } else {
-      loginError.textContent = 'Credenciales incorrectas. Verifique email y contrasena.';
+      loginError.textContent = 'Credenciales incorrectas. Verificá usuario y contraseña.';
       loginError.style.display = 'block';
     }
   } catch (err) {
     console.error('[Login] Error:', err);
-    loginError.textContent = 'Error de conexion. Intente nuevamente.';
+    // pixAuth.login() throws with user-facing Spanish messages for: rate
+    // limiting (local or server 429), master-key lock, biometric cancel and
+    // "first login requires internet". Show them as-is; generic fallback otherwise.
+    const msg = (err && err.message) || '';
+    const isUserFacing = /Demasiados intentos|Primer inicio|Clave maestra|Acceso maestro/.test(msg);
+    loginError.textContent = isUserFacing ? msg : 'Error de conexión. Intentá nuevamente.';
     loginError.style.display = 'block';
   } finally {
     if (loginBtn) {

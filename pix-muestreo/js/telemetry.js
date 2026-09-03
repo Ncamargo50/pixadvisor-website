@@ -24,8 +24,11 @@
 (function () {
   'use strict';
 
-  // Version tag — sync with cloud.js APP_VERSION bump.
-  const APP_VERSION = 'pix-muestreo-v58';
+  // Version tag — DEBE coincidir con APP_VERSION en js/cloud.js (y CACHE_NAME
+  // en sw.js). Estaba clavado en v58 mientras cloud.js iba por v69: los errores
+  // en Sentry quedaban atribuidos a un release 11 versiones más viejo.
+  // Al hacer un bump de versión, actualizar los tres lugares.
+  const APP_VERSION = 'pix-muestreo-v70';
   const SENTRY_CDN = 'https://browser.sentry-cdn.com/7.119.0/bundle.tracing.min.js';
   const SENTRY_INTEGRITY = ''; // Left blank — SRI would tie us to a specific SDK version;
                                 // the CDN is pinned HTTPS and version is in the URL.

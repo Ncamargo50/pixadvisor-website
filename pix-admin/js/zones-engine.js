@@ -605,10 +605,12 @@ class ZonesEngine {
     let dilated = grid.map(row => [...row]);
     for (let r = kernelR; r < rows - kernelR; r++) {
       for (let c = kernelR; c < cols - kernelR; c++) {
+        if (grid[r][c] < 0) continue; // masked cell (outside field)
         const freq = new Array(numZones).fill(0);
         for (let dr = -kernelR; dr <= kernelR; dr++) {
           for (let dc = -kernelR; dc <= kernelR; dc++) {
-            freq[grid[r + dr][c + dc]]++;
+            const z = grid[r + dr][c + dc];
+            if (z >= 0 && z < numZones) freq[z]++;
           }
         }
         // Bias: give current zone a boost
@@ -625,10 +627,12 @@ class ZonesEngine {
     const eroded = dilated.map(row => [...row]);
     for (let r = kernelR; r < rows - kernelR; r++) {
       for (let c = kernelR; c < cols - kernelR; c++) {
+        if (dilated[r][c] < 0) continue; // masked cell (outside field)
         const freq = new Array(numZones).fill(0);
         for (let dr = -kernelR; dr <= kernelR; dr++) {
           for (let dc = -kernelR; dc <= kernelR; dc++) {
-            freq[dilated[r + dr][c + dc]]++;
+            const z = dilated[r + dr][c + dc];
+            if (z >= 0 && z < numZones) freq[z]++;
           }
         }
         freq[dilated[r][c]] += 2;
@@ -1066,18 +1070,32 @@ class ZonesEngine {
    *   - iterations: number of iterations executed
    *   - wcss: within-cluster sum of squares (inertia)
    */
-  static kMeans(data, k, maxIterations = 100) {
+  /**
+   * K-Means with multiple deterministic restarts (n_init, like scikit-learn): runs
+   * `nInit` times with seeds 42, 43, ... and keeps the solution with the lowest WCSS.
+   */
+  static kMeans(data, k, maxIterations = 100, nInit = 5) {
+    const n = data.length;
+    if (k >= n) {
+      const assignments = data.map((_, i) => Math.min(i, k - 1));
+      return { assignments, centroids: data.slice(0, k).map(d => [...d]), iterations: 0, wcss: 0, nInit: 0 };
+    }
+    const runs = Math.max(1, nInit | 0);
+    let best = null;
+    for (let i = 0; i < runs; i++) {
+      const r = this._kMeansSingle(data, k, maxIterations, 42 + i);
+      if (!best || r.wcss < best.wcss) best = { ...r, seed: 42 + i };
+    }
+    best.nInit = runs;
+    return best;
+  }
+
+  static _kMeansSingle(data, k, maxIterations = 100, seed = 42) {
     const n = data.length;
     const dim = data[0].length;
 
-    if (k >= n) {
-      // Degenerate case: more clusters than points
-      const assignments = data.map((_, i) => Math.min(i, k - 1));
-      return { assignments, centroids: data.slice(0, k).map(d => [...d]), iterations: 0, wcss: 0 };
-    }
-
     // Initialize centroids with k-means++ (seeded for reproducibility)
-    const rng = this._seededRandom(42);
+    const rng = this._seededRandom(seed);
     let centroids = this._kMeansPPInit(data, k, rng);
     let assignments = new Array(n).fill(0);
     let iterations = 0;
@@ -1318,7 +1336,7 @@ class ZonesEngine {
    *   layerStats: Array<{ name: string, mean: number, std: number }>
    * }}
    */
-  static multiVariableCluster(layers, k, weights = null) {
+  static multiVariableCluster(layers, k, weights = null, options = {}) {
     if (!layers || layers.length === 0) {
       throw new Error('ZonesEngine: at least one layer is required');
     }
@@ -1326,36 +1344,54 @@ class ZonesEngine {
     const rows = layers[0].grid.length;
     const cols = layers[0].grid[0].length;
     const numLayers = layers.length;
+    // Optional boolean mask (rows×cols): only cells with mask[r][c] === true enter
+    // z-score normalization and K-Means; cells outside get zone -1.
+    const mask = options.mask || null;
+    const nInit = options.nInit || 5;
 
-    // Flatten and normalize each layer
+    // Indices of cells that participate
+    const activeIdx = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (!mask || mask[r][c]) activeIdx.push(r * cols + c);
+      }
+    }
+    if (activeIdx.length === 0) {
+      throw new Error('ZonesEngine: polygon mask leaves no cells inside the field');
+    }
+
+    // Flatten (active cells only) and normalize each layer
     const normalizedFlat = [];
     const layerStats = [];
     for (let l = 0; l < numLayers; l++) {
-      const flat = [];
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          flat.push(layers[l].grid[r][c]);
-        }
+      const g = layers[l].grid;
+      const flat = new Array(activeIdx.length);
+      for (let i = 0; i < activeIdx.length; i++) {
+        const idx = activeIdx[i];
+        flat[i] = g[(idx / cols) | 0][idx % cols];
       }
       const { normalized, mean, std } = this._zNormalize(flat);
       normalizedFlat.push(normalized);
       layerStats.push({ name: layers[l].name, mean, std });
     }
 
-    // Apply weights
-    const w = weights || new Array(numLayers).fill(1);
+    // Apply weights (array by layer index, or object keyed by layer name)
+    let w;
+    if (Array.isArray(weights)) w = weights;
+    else if (weights && typeof weights === 'object') w = layers.map(l => (weights[l.name] !== undefined ? weights[l.name] : 1));
+    else w = new Array(numLayers).fill(1);
     for (let l = 0; l < numLayers; l++) {
-      if (w[l] !== 1) {
+      const wl = Number.isFinite(w[l]) ? w[l] : 1;
+      if (wl !== 1) {
         for (let i = 0; i < normalizedFlat[l].length; i++) {
-          normalizedFlat[l][i] *= w[l];
+          normalizedFlat[l][i] *= wl;
         }
       }
     }
 
-    // Stack into feature vectors
-    const totalPixels = rows * cols;
-    const featureVectors = new Array(totalPixels);
-    for (let i = 0; i < totalPixels; i++) {
+    // Stack into feature vectors (active cells only)
+    const featureVectors = new Array(activeIdx.length);
+    for (let i = 0; i < activeIdx.length; i++) {
       const vec = new Array(numLayers);
       for (let l = 0; l < numLayers; l++) {
         vec[l] = normalizedFlat[l][i];
@@ -1363,18 +1399,14 @@ class ZonesEngine {
       featureVectors[i] = vec;
     }
 
-    // Run K-Means
-    const result = this.kMeans(featureVectors, k);
+    // Run K-Means (n_init restarts, best WCSS)
+    const result = this.kMeans(featureVectors, k, 100, nInit);
 
-    // Reshape assignments back to grid
-    const zoneGrid = [];
-    let idx = 0;
-    for (let r = 0; r < rows; r++) {
-      const row = new Array(cols);
-      for (let c = 0; c < cols; c++) {
-        row[c] = result.assignments[idx++];
-      }
-      zoneGrid.push(row);
+    // Reshape assignments back to grid (-1 = outside mask)
+    const zoneGrid = Array.from({ length: rows }, () => new Array(cols).fill(-1));
+    for (let i = 0; i < activeIdx.length; i++) {
+      const idx = activeIdx[i];
+      zoneGrid[(idx / cols) | 0][idx % cols] = result.assignments[i];
     }
 
     return {
@@ -1383,6 +1415,9 @@ class ZonesEngine {
       centroids: result.centroids,
       iterations: result.iterations,
       wcss: result.wcss,
+      nInit: result.nInit,
+      seed: result.seed,
+      masked: !!mask,
       layerStats
     };
   }
@@ -1976,7 +2011,8 @@ class ZonesEngine {
     const reordered = Array.from({ length: rows }, () => new Array(cols));
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
-        reordered[r][c] = mapping[zoneGrid[r][c]];
+        const z = zoneGrid[r][c];
+        reordered[r][c] = (z >= 0 && z < numZones) ? mapping[z] : -1; // keep masked cells
       }
     }
 
@@ -2195,11 +2231,13 @@ class ZonesEngine {
       const next = current.map(row => [...row]);
       for (let r = half; r < rows - half; r++) {
         for (let c = half; c < cols - half; c++) {
-          // Count zone frequencies in neighbourhood
+          if (current[r][c] < 0) continue; // masked (outside field) stays masked
+          // Count zone frequencies in neighbourhood (ignore masked cells)
           const freq = {};
           for (let dr = -half; dr <= half; dr++) {
             for (let dc = -half; dc <= half; dc++) {
               const z = current[r + dr][c + dc];
+              if (z < 0) continue;
               freq[z] = (freq[z] || 0) + 1;
             }
           }
@@ -2431,6 +2469,10 @@ class ZonesEngine {
    * @returns {{ overlay: L.ImageOverlay, legend: L.Control, labels: L.LayerGroup }}
    */
   static renderZonesToMap(map, zoneGrid, bounds, numZones, options = {}) {
+    // Accept either a Leaflet LatLngBounds or a plain {minLat,maxLat,minLng,maxLng} bbox
+    if (bounds && !bounds.getSouth) {
+      bounds = L.latLngBounds([bounds.minLat, bounds.minLng], [bounds.maxLat, bounds.maxLng]);
+    }
     const opacity = options.opacity !== undefined ? options.opacity : 0.65;
     const showLabels = options.showLabels !== undefined ? options.showLabels : true;
     const clipPolygon = options.clipPolygon || null;
@@ -2457,7 +2499,14 @@ class ZonesEngine {
       const rr = [], gg = [], bb = [];
       for (let c = 0; c < cols; c++) {
         const z = smoothGrid[r][c];
-        const col = colors[z % colors.length];
+        // Masked cells (-1, outside field): use nearest valid neighbour colour so bilinear blending
+        // does not bleed grey into the field; they are made transparent by the polygon clip below.
+        let zz = z;
+        if (zz < 0) {
+          const cand = [smoothGrid[r][c - 1], smoothGrid[r][c + 1], smoothGrid[r - 1]?.[c], smoothGrid[r + 1]?.[c]].find(v => v !== undefined && v >= 0);
+          zz = cand !== undefined ? cand : 0;
+        }
+        const col = colors[zz % colors.length];
         rr.push(col[0]);
         gg.push(col[1]);
         bb.push(col[2]);
@@ -2541,6 +2590,10 @@ class ZonesEngine {
           continue;
         }
 
+        // Masked (-1) cells are transparent
+        const zi = Math.min(rows - 1, Math.round(fi)), zj = Math.min(cols - 1, Math.round(fj));
+        if (smoothGrid[zi][zj] < 0) { data[idx + 3] = 0; continue; }
+
         data[idx]     = Math.round(Math.max(0, Math.min(255, bilinear(rGrid, fi, fj))));
         data[idx + 1] = Math.round(Math.max(0, Math.min(255, bilinear(gGrid, fi, fj))));
         data[idx + 2] = Math.round(Math.max(0, Math.min(255, bilinear(bGrid, fi, fj))));
@@ -2577,13 +2630,14 @@ class ZonesEngine {
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         const z = smoothGrid[r][c];
+        if (z < 0) continue; // no zone boundary lines around masked cells
         // Right neighbor
-        if (c < cols - 1 && smoothGrid[r][c + 1] !== z) {
+        if (c < cols - 1 && smoothGrid[r][c + 1] >= 0 && smoothGrid[r][c + 1] !== z) {
           const x = (c + 1) * cellW;
           boundaryEdges.push({ x1: x, y1: r * cellH, x2: x, y2: (r + 1) * cellH });
         }
         // Bottom neighbor
-        if (r < rows - 1 && smoothGrid[r + 1][c] !== z) {
+        if (r < rows - 1 && smoothGrid[r + 1][c] >= 0 && smoothGrid[r + 1][c] !== z) {
           const y = (r + 1) * cellH;
           boundaryEdges.push({ x1: c * cellW, y1: y, x2: (c + 1) * cellW, y2: y });
         }
@@ -2895,28 +2949,56 @@ class ZonesEngine {
         continue;
       }
 
-      let result;
-      if (method === 'kriging' && typeof KrigingEngine !== 'undefined') {
-        // Use Kriging interpolation
-        const variogram = KrigingEngine.fitVariogram(
-          points.map(p => p.value),
-          points.map(p => p.lat),
-          points.map(p => p.lng),
-          'spherical'
-        );
-        result = KrigingEngine.interpolateGrid(variogram, bounds, resolution);
-      } else {
-        // Use IDW interpolation (default)
-        result = InterpolationEngine.interpolateIDW(points, bounds, { resolution });
+      let result = null;
+      if (method === 'kriging' && typeof KrigingEngine !== 'undefined' && points.length >= 3) {
+        // Ordinary Kriging — real KrigingEngine API (kriging.js):
+        //   computeEmpiricalVariogram(points) → autoFitAllModels(empirical) → interpolateKriging(points, bounds, params, opts)
+        try {
+          const empirical = KrigingEngine.computeEmpiricalVariogram(points);
+          const fitted = KrigingEngine.autoFitAllModels(empirical);
+          const bestFit = Array.isArray(fitted) ? fitted[0] : fitted;
+          const vp = { model: bestFit.model, ...(bestFit.params || bestFit) };
+          result = KrigingEngine.interpolateKriging(points, bounds, vp, { resolution });
+        } catch (err) {
+          console.warn(`ZonesEngine: kriging failed for '${varName}' (${err.message}) — falling back to IDW`);
+          result = null;
+        }
+      }
+      if (!result) {
+        // IDW interpolation (default)
+        result = InterpolationEngine.interpolateIDW(points, bounds, { resolution, power: 2, smooth: 0 });
       }
 
       if (result && result.grid) {
-        layers.push({ name: varName, grid: result.grid });
+        // IDW/Kriging grids have row 0 = SOUTH (minLat). ZonesEngine rasters (satellite
+        // pipeline, zonesToGeoJSON, renderZonesToMap) use row 0 = NORTH (maxLat): flip once here.
+        layers.push({ name: varName, grid: result.grid.slice().reverse() });
       }
     }
 
     if (layers.length === 0) {
       throw new Error('ZonesEngine: no valid layers could be interpolated from the provided data');
+    }
+
+    // ---- Step 1b: Polygon mask (row 0 = north). Cells outside the field do not enter
+    //      z-score normalization nor K-Means. `boundary` is [[lng,lat],...] (GeoJSON order,
+    //      as produced by InterpolationEngine.getPolygonCoords) or [{lat,lng}].
+    let mask = null;
+    if (boundary && boundary.length >= 3) {
+      const rows = layers[0].grid.length;
+      const ring = boundary.map(c => (Array.isArray(c) ? c : [c.lng, c.lat]));
+      const southUp = (typeof InterpolationEngine !== 'undefined' && InterpolationEngine.createPolygonMask)
+        ? InterpolationEngine.createPolygonMask(bounds, rows, ring)
+        : null;
+      if (southUp) {
+        mask = southUp.slice().reverse(); // to row 0 = north
+        let inside = 0;
+        for (const row of mask) for (const v of row) if (v) inside++;
+        if (inside < Math.max(numZones * 4, 16)) {
+          console.warn('ZonesEngine: polygon mask too small for the grid resolution — clustering without mask');
+          mask = null;
+        }
+      }
     }
 
     // ---- Step 2: Optional temporal stability layer ----
@@ -2936,8 +3018,8 @@ class ZonesEngine {
       layers.push({ name: 'TWI', grid: twiGrid });
     }
 
-    // ---- Step 4: Multi-variable clustering ----
-    const clusterResult = this.multiVariableCluster(layers, numZones, weights);
+    // ---- Step 4: Multi-variable clustering (masked to field, n_init restarts) ----
+    const clusterResult = this.multiVariableCluster(layers, numZones, weights, { mask, nInit: config.nInit || 5 });
 
     // ---- Step 5: Order zones by mean (using first layer as reference) ----
     const orderedGrid = this.orderZonesByMean(clusterResult.zoneGrid, layers[0].grid, numZones);
@@ -2972,6 +3054,9 @@ class ZonesEngine {
         cropId: cropId || null,
         iterations: clusterResult.iterations,
         wcss: Math.round(clusterResult.wcss * 1000) / 1000,
+        nInit: clusterResult.nInit || 1,
+        seed: clusterResult.seed,
+        masked: !!mask,
         timestamp: new Date().toISOString()
       }
     };

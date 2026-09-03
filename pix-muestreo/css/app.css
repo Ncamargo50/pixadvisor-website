@@ -49,6 +49,9 @@ html, body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-tap-highlight-color: transparent;
+  /* Reemplaza `user-scalable=no` del viewport (accesibilidad: el usuario
+     puede hacer zoom) manteniendo sin retardo de doble-tap en los controles. */
+  touch-action: manipulation;
 }
 
 /* ===== APP SHELL ===== */

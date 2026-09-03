@@ -1,6 +1,6 @@
 // PIX Admin - Service Worker for PWA
 // IMPORTANT: Keep CACHE_NAME in sync with PIX_VERSION in js/utils.js
-const CACHE_NAME = 'pix-admin-v3.4.0';
+const CACHE_NAME = 'pix-admin-v3.5.0';
 
 // Assets propios: DEBEN cachearse (addAll: si falla uno, se reintenta el install).
 const CORE_ASSETS = [
@@ -52,14 +52,24 @@ self.addEventListener('install', event => {
   self.skipWaiting();
 });
 
-// Activate - clean ALL old caches
+// Activate - clean OLD caches of THIS app only.
+// El origen se comparte con pix-muestreo (pix-muestreo-v*, pix-tiles-v1 con
+// los tiles offline del técnico, pix-dash-*) y con el sitio (pixadvisor-*).
+// Antes se borraba todo lo que no fuera CACHE_NAME → un deploy de pix-admin
+// destruía las caches offline de las otras PWAs. Ahora: solo `pix-admin-*`
+// distinto de la versión actual, preservando la cache de tiles propia.
+const CACHE_PREFIX = 'pix-admin-';
+const TILE_CACHE = 'pix-admin-tiles-v1'; // antes 'pix-tiles-v1' (colisionaba con muestreo)
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
-    )
+      Promise.all(
+        keys
+          .filter(k => k.startsWith(CACHE_PREFIX) && k !== CACHE_NAME && k !== TILE_CACHE)
+          .map(k => caches.delete(k))
+      )
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
 // Fetch - NETWORK FIRST for own assets, cache-first for external
@@ -76,7 +86,7 @@ self.addEventListener('fetch', event => {
   // Map tiles - cache with network fallback
   if (url.hostname.includes('tile.openstreetmap.org') || (url.hostname.includes('mt') && url.hostname.includes('google'))) {
     event.respondWith(
-      caches.open('pix-tiles-v1').then(cache =>
+      caches.open(TILE_CACHE).then(cache =>
         cache.match(event.request).then(cached => {
           if (cached) return cached;
           return fetch(event.request).then(response => {

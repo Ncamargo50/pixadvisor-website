@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#0F1B2D">
@@ -811,27 +811,32 @@
     </div>
 </div>
 
-<!-- Scripts -->
-<script src="lib/leaflet.js"></script>
-<script src="lib/html5-qrcode.min.js"></script>
-<script src="js/db.js"></script>
-<script src="js/crypto-vault.js"></script>
-<script src="js/telemetry.js"></script>
-<script src="js/biometric.js"></script>
-<script src="js/integrity.js"></script>
-<script src="js/auth.js"></script>
-<script src="js/drive.js"></script>
-<script src="js/gps.js"></script>
-<script src="js/scanner.js"></script>
-<script src="js/map.js"></script>
-<script src="js/orders.js"></script>
-<script src="js/sync.js"></script>
-<script src="js/cloud.js"></script>
-<script src="js/admin.js"></script>
-<script src="lib/html2pdf.bundle.min.js"></script>
-<script src="lib/qrcode-gen.min.js"></script>
-<script src="js/report-pro.js"></script>
-<script src="js/app.js"></script>
-<script src="js/agent-field.js"></script>
+<!-- Scripts.
+     `defer`: se descargan en paralelo sin bloquear el parseo y se ejecutan en
+     ORDEN antes de DOMContentLoaded (el boot de app.js/sync.js/agent-field.js
+     escucha ese evento, así que sigue funcionando). No hay scripts inline que
+     dependan de estas globales antes de que carguen.
+     html5-qrcode (~375 KB) y html2pdf (~900 KB) ya NO se cargan en el arranque:
+     se inyectan bajo demanda con loadScriptOnce() (app.js) desde scanner.js /
+     report-pro.js. Siguen precacheados por sw.js para uso offline. -->
+<script defer src="lib/leaflet.js"></script>
+<script defer src="js/db.js"></script>
+<script defer src="js/crypto-vault.js"></script>
+<script defer src="js/telemetry.js"></script>
+<script defer src="js/biometric.js"></script>
+<script defer src="js/integrity.js"></script>
+<script defer src="js/auth.js"></script>
+<script defer src="js/drive.js"></script>
+<script defer src="js/gps.js"></script>
+<script defer src="js/scanner.js"></script>
+<script defer src="js/map.js"></script>
+<script defer src="js/orders.js"></script>
+<script defer src="js/sync.js"></script>
+<script defer src="js/cloud.js"></script>
+<script defer src="js/admin.js"></script>
+<script defer src="lib/qrcode-gen.min.js"></script>
+<script defer src="js/report-pro.js"></script>
+<script defer src="js/app.js"></script>
+<script defer src="js/agent-field.js"></script>
 </body>
 </html>

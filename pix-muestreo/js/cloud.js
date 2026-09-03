@@ -4,7 +4,7 @@
 
 // App version constant — used by registerDevice() for fleet tracking
 // IMPORTANT: Keep APP_VERSION in sync with CACHE_NAME in sw.js
-const APP_VERSION = 'pix-muestreo-v69';
+const APP_VERSION = 'pix-muestreo-v70';
 
 // Bound the number of retry attempts per field across app sessions. Without
 // this, a field with a permanent failure (corrupt schema, oversize payload,
@@ -427,7 +427,11 @@ class PixCloud {
 
     // Persist timestamp of last successful cloud sync so the UI can show
     // "Última sincronización hace X min" and the stale-data warning.
-    try { await pixDB.setSetting('cloud_last_sync_at', new Date().toISOString()); } catch (_) {}
+    // Solo si realmente se sincronizó algo: antes se escribía aun con synced=0
+    // (todos los campos fallaron), ocultando el aviso de datos desactualizados.
+    if (synced > 0) {
+      try { await pixDB.setSetting('cloud_last_sync_at', new Date().toISOString()); } catch (_) {}
+    }
     return {
       synced,
       total,
@@ -544,9 +548,14 @@ class PixCloud {
         sw_cache_version: APP_VERSION,
         last_seen: new Date().toISOString(),
         last_sync: new Date().toISOString(),
-        last_location: location || null,
         active: true
       };
+      // Solo se envía la ubicación cuando hay una real: con merge-duplicates,
+      // una clave ausente NO toca la columna, mientras que `null` borraría la
+      // última posición conocida del dispositivo en cada heartbeat.
+      if (location && Number.isFinite(location.lat) && Number.isFinite(location.lng)) {
+        row.last_location = location;
+      }
       await this._fetch('/devices?on_conflict=device_id', {
         method: 'POST',
         _prefer: 'resolution=merge-duplicates,return=minimal',
@@ -636,17 +645,73 @@ class PixCloud {
   }
 
   // ═══════════════════════════════════════════════
-  // PULL TECHNICIAN CREDENTIALS
+  // PULL TECHNICIAN DIRECTORY (no credentials)
   // ═══════════════════════════════════════════════
+  // SECURITY: password_hash is NOT selected — the anon role no longer has
+  // access to it (migration 011). Passwords are verified server-side by the
+  // pix-auth Edge Function (see techLogin()).
 
   async pullTechnicians() {
     if (!this._enabled) return [];
     try {
-      const resp = await this._fetch('/technicians?active=eq.true&select=username,password_hash,full_name,role,phone,email');
+      const resp = await this._fetch('/technicians?active=eq.true&select=id,username,full_name,role,phone,email');
       return await resp.json();
     } catch (e) {
       console.warn('[Cloud] Pull technicians failed:', e.message);
       return [];
+    }
+  }
+
+  // ═══════════════════════════════════════════════
+  // TECHNICIAN LOGIN — server-side password check (Edge Function pix-auth)
+  // ═══════════════════════════════════════════════
+  // Resolves with:
+  //   { ok: true,  user: { id, username, full_name, role, phone, email } }
+  //   { ok: false, status: 401 }                 → invalid credentials / inactive
+  //   { ok: false, status: 429, retry_after_s }  → rate limited
+  // Throws on network error / timeout / 5xx so the caller can fall back to
+  // the offline flow. `timeoutMs` bounds the whole request (default 8 s).
+  async techLogin(username, password, timeoutMs = 8000) {
+    if (!this._enabled) throw new Error('Cloud no configurado');
+    const fnUrl = this._supabaseFunctionUrl('pix-auth');
+    if (!fnUrl) throw new Error('Cloud no configurado');
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const resp = await fetch(fnUrl, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: { ...this._authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'tech-login',
+          username: String(username || '').trim().toLowerCase(),
+          password: String(password || '')
+        })
+      });
+      let data = null;
+      try { data = await resp.json(); } catch (_) { data = null; }
+      if (resp.status === 401 || resp.status === 403) {
+        return { ok: false, status: 401 };
+      }
+      if (resp.status === 429) {
+        const retry = Number((data && data.retry_after_s) || resp.headers.get('Retry-After') || 60);
+        return { ok: false, status: 429, retry_after_s: retry };
+      }
+      if (!resp.ok) {
+        const err = new Error(`pix-auth ${resp.status}`);
+        err.status = resp.status;
+        throw err;
+      }
+      if (!data || data.ok !== true || !data.user) {
+        // 200 with ok:false → treat as invalid credentials
+        return { ok: false, status: 401 };
+      }
+      return { ok: true, user: data.user };
+    } catch (e) {
+      if (e.name === 'AbortError') throw new Error('Cloud: timeout de red (login)');
+      throw e;
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 }

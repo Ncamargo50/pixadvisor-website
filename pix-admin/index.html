@@ -1874,8 +1874,8 @@ function pixLogout() {
 <script src="js/interpolation.js"></script>
 <script src="js/report-generator.js"></script>
 <script src="js/kriging.js"></script>
-<script src="js/zones-engine.js?v=5"></script>
-<script src="js/sampling-engine.js?v=5"></script>
+<script src="js/zones-engine.js?v=6"></script>
+<script src="js/sampling-engine.js?v=6"></script>
 <script src="js/cloud-sync.js"></script>
 <script src="js/client-report.js"></script>
 <script src="js/admin-app.js"></script>
@@ -1887,7 +1887,34 @@ InterpretationEngine.loadNorms('data/ibra-norms.json')
   .then(() => console.log('DRIS/IBRA norms loaded'))
   .catch(err => console.warn('Could not load DRIS/IBRA norms:', err));
 
-// Register PWA Service Worker with auto-update
+// Register PWA Service Worker with update notice.
+// Antes: location.reload() automático al activarse un SW nuevo → el usuario
+// perdía formularios / importaciones a medio hacer sin aviso. Ahora se muestra
+// un aviso no bloqueante y se recarga SOLO cuando el usuario lo pide.
+function pixShowUpdateBanner() {
+  if (document.getElementById('pixUpdateBanner')) return;
+  const bar = document.createElement('div');
+  bar.id = 'pixUpdateBanner';
+  bar.setAttribute('role', 'status');
+  bar.style.cssText = 'position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:99999;' +
+    'background:#1e293b;color:#fff;padding:10px 14px;border-radius:10px;font:14px/1.3 Inter,system-ui,sans-serif;' +
+    'box-shadow:0 4px 16px rgba(0,0,0,.3);display:flex;gap:12px;align-items:center;max-width:calc(100vw - 32px)';
+  const txt = document.createElement('span');
+  txt.textContent = 'Nueva versión disponible';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.textContent = 'Actualizar';
+  btn.style.cssText = 'background:#22c55e;color:#fff;border:0;border-radius:6px;padding:6px 12px;font-weight:600;cursor:pointer';
+  btn.onclick = () => window.location.reload();
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.textContent = '✕';
+  close.setAttribute('aria-label', 'Cerrar');
+  close.style.cssText = 'background:transparent;color:#cbd5e1;border:0;font-size:16px;cursor:pointer;padding:0 2px';
+  close.onclick = () => bar.remove();
+  bar.append(txt, btn, close);
+  document.body.appendChild(bar);
+}
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').then(reg => {
     console.log('PIX Admin SW registered', reg.scope);
@@ -1896,10 +1923,12 @@ if ('serviceWorker' in navigator) {
     setInterval(() => reg.update(), 60000);
     reg.addEventListener('updatefound', () => {
       const newWorker = reg.installing;
+      if (!newWorker) return;
       newWorker.addEventListener('statechange', () => {
-        if (newWorker.state === 'activated') {
-          console.log('PIX Admin updated - reloading');
-          window.location.reload();
+        // Solo avisar si ya había un SW controlando (si no, es la primera instalación)
+        if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
+          console.log('PIX Admin: nueva versión activada - esperando confirmación del usuario');
+          pixShowUpdateBanner();
         }
       });
     });

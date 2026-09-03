@@ -629,25 +629,40 @@ const NUTRIENT_INFO = {
 // References: Raij et al. (1997) Bol. Téc. 100 IAC, EMBRAPA (2004),
 //   Mehlich-3: Bortolon & Gianello (2008), CQFS-RS/SC (2016)
 
+// Grupos de textura del motor (InterpretationEngine.textureGroupFromClay):
+//   1 = arcilla ≤ 20 %   (CQFS Classe 4)
+//   2 = arcilla 21-40 %  (CQFS Classe 3)
+//   3 = arcilla 41-60 %  (CQFS Classe 2)
+//   4 = arcilla > 60 %   (CQFS Classe 1)
+// REGLA: a MÁS arcilla, MENOR umbral crítico de P (mayor capacidad de fijación).
 const P_METHODS = {
   mehlich1: {
     name: 'Mehlich 1',
     description: 'Doble ácido (H₂SO₄ + HCl). Estándar Brasil excepto São Paulo.',
+    // Fuente: CQFS-RS/SC (2016) "Manual de calagem e adubação para os Estados do
+    // RS e SC", 11ª ed., Tabela 6.1 — P extraído por Mehlich-1 (mg/dm³) según
+    // clase de teor de argila. Límites superiores exclusivos (value < max).
+    //   Classe 1 (>60 %): MB ≤2,0 | B 2,1-4,0 | M 4,1-6,0 | A 6,1-12,0 | MA >12
+    //   Classe 2 (41-60): MB ≤3,0 | B 3,1-6,0 | M 6,1-9,0 | A 9,1-18,0 | MA >18
+    //   Classe 3 (21-40): MB ≤4,0 | B 4,1-8,0 | M 8,1-12,0 | A 12,1-24,0 | MA >24
+    //   Classe 4 (≤20):   MB ≤7,0 | B 7,1-14,0 | M 14,1-21,0 | A 21,1-42,0 | MA >42
     byTexture: {
-      1: { mb: [0,3],  b: [3,6],   m: [6,12],  a: [12,18], ma: [18,999] },
-      2: { mb: [0,5],  b: [5,10],  m: [10,15], a: [15,25], ma: [25,999] },
-      3: { mb: [0,6],  b: [6,12],  m: [12,20], a: [20,40], ma: [40,999] },
-      4: { mb: [0,8],  b: [8,15],  m: [15,25], a: [25,50], ma: [50,999] }
+      1: { mb: [0,7.05], b: [7.05,14.05], m: [14.05,21.05], a: [21.05,42.05], ma: [42.05,999] }, // ≤20 % arcilla
+      2: { mb: [0,4.05], b: [4.05,8.05],  m: [8.05,12.05],  a: [12.05,24.05], ma: [24.05,999] }, // 21-40 %
+      3: { mb: [0,3.05], b: [3.05,6.05],  m: [6.05,9.05],   a: [9.05,18.05],  ma: [18.05,999] }, // 41-60 %
+      4: { mb: [0,2.05], b: [2.05,4.05],  m: [4.05,6.05],   a: [6.05,12.05],  ma: [12.05,999] }  // >60 %
     }
   },
   mehlich3: {
     name: 'Mehlich 3',
     description: 'Extractor universal (Mehlich, 1984). Correlación amplia.',
+    // ORDEN corregido (más arcilla → umbral menor); magnitudes heredadas del código previo.
+    // A VALIDAR con tabla oficial CQFS 2016 Mehlich-3 (Tabela 6.2) antes de uso comercial.
     byTexture: {
-      1: { mb: [0,8],   b: [8,15],  m: [15,25],  a: [25,40],  ma: [40,999] },
-      2: { mb: [0,12],  b: [12,20], m: [20,30],  a: [30,50],  ma: [50,999] },
-      3: { mb: [0,15],  b: [15,25], m: [25,40],  a: [40,60],  ma: [60,999] },
-      4: { mb: [0,18],  b: [18,30], m: [30,50],  a: [50,80],  ma: [80,999] }
+      1: { mb: [0,18],  b: [18,30], m: [30,50],  a: [50,80],  ma: [80,999] }, // ≤20 % arcilla
+      2: { mb: [0,15],  b: [15,25], m: [25,40],  a: [40,60],  ma: [60,999] }, // 21-40 %
+      3: { mb: [0,12],  b: [12,20], m: [20,30],  a: [30,50],  ma: [50,999] }, // 41-60 %
+      4: { mb: [0,8],   b: [8,15],  m: [15,25],  a: [25,40],  ma: [40,999] }  // >60 %
     }
   },
   resina: {
@@ -814,10 +829,20 @@ const UNIT_SYSTEMS = {
     'cmolc/dm³': { factor: 10, label: 'cmolc/dm³' },      // 1 cmolc = 10 mmolc
     'meq/100g':  { factor: 10, label: 'meq/100g' },       // 1 meq/100g ≈ 1 cmolc = 10 mmolc
     'meq/100cm³': { factor: 10, label: 'meq/100cm³' },
-    'mg/dm³_K':  { factor: 1/39.1, label: 'mg/dm³ (K)' }, // mg K → mmolc (÷39.1)
-    'mg/dm³_Ca': { factor: 1/20.0, label: 'mg/dm³ (Ca)' },
-    'mg/dm³_Mg': { factor: 1/12.15, label: 'mg/dm³ (Mg)' },
-    'ppm_K':     { factor: 1/39.1, label: 'ppm (K)' }
+    // mg/dm³ (= ppm) → mmolc/dm³: factor POR ELEMENTO (masa equivalente):
+    //   K⁺  : 39,10 mg/mmolc  → ÷39,1   (÷391 → cmolc)
+    //   Ca²⁺: 20,04 mg/mmolc  → ÷20,04  (÷200,4 → cmolc)
+    //   Mg²⁺: 12,15 mg/mmolc  → ÷12,15  (÷121,5 → cmolc)
+    //   Al³⁺:  8,99 mg/mmolc  → ÷8,99
+    // H+Al, SB, CTC no se reportan en mg/dm³: quedan sin conversión (factor 1).
+    // Todas las claves mg/dm³* y ppm* son alias del mismo mapa per-elemento
+    // (el bug previo aplicaba ÷39,1 de K a Ca, Mg y CTC).
+    'mg/dm³':    { factor: 1, perElement: { K: 1/39.10, Ca: 1/20.04, Mg: 1/12.15, Al: 1/8.99 }, label: 'mg/dm³' },
+    'ppm':       { factor: 1, perElement: { K: 1/39.10, Ca: 1/20.04, Mg: 1/12.15, Al: 1/8.99 }, label: 'ppm' },
+    'mg/dm³_K':  { factor: 1, perElement: { K: 1/39.10, Ca: 1/20.04, Mg: 1/12.15, Al: 1/8.99 }, label: 'mg/dm³' },
+    'mg/dm³_Ca': { factor: 1, perElement: { K: 1/39.10, Ca: 1/20.04, Mg: 1/12.15, Al: 1/8.99 }, label: 'mg/dm³' },
+    'mg/dm³_Mg': { factor: 1, perElement: { K: 1/39.10, Ca: 1/20.04, Mg: 1/12.15, Al: 1/8.99 }, label: 'mg/dm³' },
+    'ppm_K':     { factor: 1, perElement: { K: 1/39.10, Ca: 1/20.04, Mg: 1/12.15, Al: 1/8.99 }, label: 'ppm' }
   },
   // MO units
   mo: {

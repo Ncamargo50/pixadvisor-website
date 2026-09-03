@@ -20,6 +20,9 @@ const LOGIN_LOCKOUT_BASE = _CFG.LOGIN_LOCKOUT_BASE_MS || 60000;
 const REALTIME_RECONNECT_MAX_S = _CFG.REALTIME_RECONNECT_MAX_S || 300;
 
 // ── CRYPTO HELPERS (unified — replaces _sha256 + sha256 duplicates) ──
+// NOTA: desde v2.1 las contraseñas NO se hashean en el navegador: viajan por
+// HTTPS a la Edge Function pix-auth, que las hashea con PBKDF2 (servidor).
+// pixHashSalted/pixVerify quedan solo por compatibilidad de utilidades.
 async function pixHash(str) {
   if (typeof crypto !== 'undefined' && crypto.subtle) {
     try {
@@ -57,6 +60,8 @@ async function pixVerify(plain, storedHash) {
 
 // ── ADMIN AUTH STATE ──
 let _adminUser = null;          // { id, username, full_name, role }
+let _sessionToken = null;       // token HMAC firmado por pix-auth (header x-pix-session)
+let _sessionExp = 0;            // epoch (segundos) de expiración del token
 let _authAttempts = 0;
 let _authLockUntil = 0;
 let _pendingTotpUser = null;    // user pending TOTP verification
@@ -169,24 +174,56 @@ async function dashAuthLogin() {
       return;
     }
     if (!res || !res.ok || !res.user) {
-      _failedLogin(username);
+      _failedLogin(username, res);
       return;
     }
-    await _completeLogin(res.user);
+    await _completeLogin(res);
   } catch (e) {
     document.getElementById('dashAuthError').textContent = 'Error de conexión: ' + e.message;
     document.getElementById('dashAuthError').style.display = 'block';
   }
 }
 
-// Llama a la Edge Function de login. status 401 => credenciales inválidas (res.ok=false).
+// Llama a la Edge Function pix-auth. status 401 => credenciales inválidas (res.ok=false).
+// Si hay sesión, envía el token en x-pix-session. Devuelve el JSON con `status` agregado.
 async function _pixAuthCall(action, payload) {
+  const headers = { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json' };
+  if (_sessionToken) headers['x-pix-session'] = _sessionToken;
   const resp = await fetch(SUPA_URL + '/functions/v1/pix-auth', {
     method: 'POST',
-    headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify(Object.assign({ action }, payload))
+    headers,
+    body: JSON.stringify(Object.assign({ action }, payload || {}))
   });
-  try { return await resp.json(); } catch (_) { return { ok: false }; }
+  let data;
+  try { data = await resp.json(); } catch (_) { data = { ok: false }; }
+  if (data && typeof data === 'object') data.status = resp.status;
+  return data;
+}
+
+// Operación autenticada contra pix-auth (admins, contraseñas, bitácora).
+// Lanza Error con mensaje legible si la función responde error; si la sesión
+// expiró o fue revocada (401) cierra la sesión del Panel.
+async function authFetch(action, payload) {
+  if (!_sessionToken) throw new Error('Sesión no iniciada');
+  if (_sessionExp && Date.now() / 1000 > _sessionExp) {
+    pixToast('Sesión expirada', 'warn');
+    setTimeout(dashLogout, 800);
+    throw new Error('Sesión expirada');
+  }
+  const res = await _pixAuthCall(action, payload);
+  if (res && res.status === 401) {
+    pixToast('Sesión expirada o revocada', 'warn');
+    setTimeout(dashLogout, 800);
+    throw new Error('Sesión expirada');
+  }
+  if (!res || !res.ok) throw new Error((res && res.error) || ('HTTP ' + (res && res.status)));
+  return res;
+}
+
+function _saveSession() {
+  sessionStorage.setItem('pix_dash_admin', JSON.stringify({
+    user: _adminUser, token: _sessionToken, exp: _sessionExp
+  }));
 }
 
 async function dashAuthVerifyTotp() {
@@ -204,17 +241,26 @@ async function dashAuthVerifyTotp() {
     code: code
   });
   if (!res || !res.ok || !res.user) {
-    _failedLogin(_pendingTotpUser.username);
+    _failedLogin(_pendingTotpUser.username, res);
     document.getElementById('dashAuthTotp').value = '';
     return;
   }
-  await _completeLogin(res.user);
+  await _completeLogin(res);
   _pendingTotpUser = null;
 }
 
-function _failedLogin(username) {
+function _failedLogin(username, res) {
   _authAttempts++;
   document.getElementById('dashAuthPass').value = '';
+  // Bloqueo del lado SERVIDOR (pix-auth + tabla login_attempts): 429 + retry_after_s
+  if (res && res.status === 429) {
+    const secs = Math.max(1, parseInt(res.retry_after_s, 10) || 60);
+    _authLockUntil = Date.now() + secs * 1000;
+    document.getElementById('dashAuthError').textContent =
+      `Demasiados intentos. Cuenta bloqueada por ${secs >= 120 ? Math.ceil(secs / 60) + ' min' : secs + 's'}`;
+    document.getElementById('dashAuthError').style.display = 'block';
+    return;
+  }
   if (_authAttempts >= MAX_LOGIN_ATTEMPTS) {
     const factor = Math.pow(2, Math.floor(_authAttempts / MAX_LOGIN_ATTEMPTS) - 1);
     const lockSecs = Math.round(LOGIN_LOCKOUT_BASE * factor / 1000);
@@ -228,14 +274,17 @@ function _failedLogin(username) {
   document.getElementById('dashAuthError').style.display = 'block';
 }
 
-async function _completeLogin(user) {
+async function _completeLogin(res) {
+  const user = res.user;
   _authAttempts = 0;
   _adminUser = { id: user.id, username: user.username, full_name: user.full_name, role: user.role };
-  // Persist minimal session data — never store password hash client-side beyond memory
-  sessionStorage.setItem('pix_dash_admin', JSON.stringify(_adminUser));
+  _sessionToken = res.token || null;
+  _sessionExp = Number(res.exp) || 0;
+  // Persist minimal session data — never store password hash client-side beyond memory.
+  // El token está firmado por pix-auth: el rol real se valida en servidor en cada acción.
+  _saveSession();
   document.getElementById('dashAuthOverlay').style.display = 'none';
-  // Audit log (fire-and-forget). last_login_at ya lo registra la Edge Function.
-  _logAudit({ action: 'login', target_type: 'admin_user', target_id: user.id, target_name: user.username });
+  // login / last_login_at los registra la Edge Function con service_role.
   _resetInactivityTimer();
   initDashboard();
   _renderAdminBadge();
@@ -253,6 +302,7 @@ function dashLogout() {
     _logAudit({ action: 'logout', target_type: 'admin_user', target_id: _adminUser.id, target_name: _adminUser.username });
   }
   sessionStorage.removeItem('pix_dash_admin');
+  _adminUser = null; _sessionToken = null; _sessionExp = 0;
   if (_inactivityTimer) clearTimeout(_inactivityTimer);
   location.reload();
 }
@@ -350,19 +400,43 @@ function pixTotpRandomSecret() {
       navigator.serviceWorker.register('dashboard-sw.js').catch(e =>
         console.warn('[SW] register failed:', e.message));
     }
-    // Restore persisted admin session
-    try {
-      const persisted = sessionStorage.getItem('pix_dash_admin');
-      if (persisted) {
-        _adminUser = JSON.parse(persisted);
+    // Restore persisted admin session: el token firmado se valida en servidor
+    // (session-check). Un JSON editado a mano en sessionStorage no sirve.
+    const showLogin = () => {
+      sessionStorage.removeItem('pix_dash_admin');
+      _adminUser = null; _sessionToken = null; _sessionExp = 0;
+      document.getElementById('dashAuthOverlay').style.display = 'flex';
+      setTimeout(() => document.getElementById('dashAuthUser').focus(), 100);
+    };
+    let persisted = null;
+    try { persisted = JSON.parse(sessionStorage.getItem('pix_dash_admin') || 'null'); } catch (_) { persisted = null; }
+    if (!persisted || !persisted.token || !persisted.exp || Date.now() / 1000 > Number(persisted.exp)) {
+      showLogin();
+      return;
+    }
+    _sessionToken = persisted.token;
+    _sessionExp = Number(persisted.exp) || 0;
+    _pixAuthCall('session-check', {}).then(res => {
+      if (!res || !res.ok || !res.user) { showLogin(); return; }
+      _adminUser = { id: res.user.id, username: res.user.username, full_name: res.user.full_name, role: res.user.role };
+      _saveSession();
+      _renderAdminBadge();
+      _resetInactivityTimer();
+      initDashboard();
+    }).catch(() => {
+      // Sin red (fetch falla) pero con token vigente: mantener la sesión con
+      // los datos persistidos; el servidor volverá a validar en la próxima
+      // acción autenticada (authFetch cierra la sesión ante un 401).
+      if (persisted.user && Date.now() / 1000 < _sessionExp) {
+        _adminUser = persisted.user;
         _renderAdminBadge();
         _resetInactivityTimer();
         initDashboard();
-        return;
+        pixToast('Sin conexión: sesión restaurada localmente', 'warn');
+      } else {
+        showLogin();
       }
-    } catch (_) {}
-    document.getElementById('dashAuthOverlay').style.display = 'flex';
-    setTimeout(() => document.getElementById('dashAuthUser').focus(), 100);
+    });
   });
 })();
 
@@ -562,7 +636,8 @@ async function loadData() {
       supaFetch('/field_syncs?select=*&client=neq._ELIMINADO_&order=synced_at.desc'),
       supaFetch('/activity_log?select=*&order=created_at.desc&limit=30'),
       supaFetch('/devices?select=*&order=last_seen.desc'),
-      showAdmin ? supaFetch('/audit_log?select=*&order=created_at.desc&limit=20').catch(() => []) : Promise.resolve([])
+      // audit_log ya no es legible con anon: se pide a pix-auth con la sesión firmada
+      showAdmin ? authFetch('audit-list', { limit: 20 }).then(r => r.rows || []).catch(() => []) : Promise.resolve([])
     ]);
 
     _devicesCache = devices || [];
@@ -955,7 +1030,7 @@ function renderActivity(activities, auditEntries) {
   for (const a of (activities || [])) {
     const d = a.details || {};
     const text = a.action === 'sync'
-      ? `<strong>${esc(a.technician)}</strong> sincronizó <strong>${esc(d.field || '?')}</strong> (${d.samples || 0} muestras)`
+      ? `<strong>${esc(a.technician)}</strong> sincronizó <strong>${esc(d.field || '?')}</strong> (${esc(d.samples || 0)} muestras)`
       : `<strong>${esc(a.technician)}</strong>: ${esc(a.action)}`;
     normalized.push({ ts: new Date(a.created_at), who: a.technician || '?', text, isAdmin: false });
   }
@@ -1855,7 +1930,7 @@ function renderOrders(orders) {
     const deadline = o.deadline ? new Date(o.deadline).toLocaleDateString('es') : '—';
     const hasGeo = o.field_data && (o.field_data.fields || o.field_data.features) ? ' 🗺️' : '';
 
-    const statusSelect = `<select class="status-select" onchange="updateOrderStatus('${o.id}', this.value)">`
+    const statusSelect = `<select class="status-select" onchange="updateOrderStatus('${escJS(o.id)}', this.value)">`
       + statusOptions.map(s => `<option value="${s}"${s === o.status ? ' selected' : ''}>${s}</option>`).join('')
       + '</select>';
 
@@ -1865,22 +1940,22 @@ function renderOrders(orders) {
     const geoFields = o.field_data?.fields || o.field_data?.features || [];
     const geoInfo = geoFields.length ? `${geoFields.length} campos cargados` : 'Sin datos GeoJSON';
 
-    return `<tr style="cursor:pointer" onclick="toggleOrderDetail('${o.id}')">
+    return `<tr style="cursor:pointer" onclick="toggleOrderDetail('${escJS(o.id)}')">
       <td><strong>${esc(o.title)}</strong>${hasGeo}</td>
       <td>${esc(o.project || '—')}</td>
       <td>${esc(o.client || '—')}</td>
       <td>${esc(o.assigned_to_name || o.assigned_to || '—')}</td>
-      <td><span class="badge ${sBadge}">${o.status}</span></td>
-      <td><span class="badge ${pBadge}">${o.priority || 'normal'}</span></td>
+      <td><span class="badge ${sBadge}">${esc(o.status)}</span></td>
+      <td><span class="badge ${pBadge}">${esc(o.priority || 'normal')}</span></td>
       <td>${deadline}</td>
       <td>${created}</td>
       <td onclick="event.stopPropagation()">
         ${statusSelect}
         <button class="btn btn-sm btn-secondary" style="margin-left:4px" onclick="editOrder(_ordersCache[${idx}])">Editar</button>
-        <button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="deleteOrder('${o.id}', '${escJS(o.title)}')">Eliminar</button>
+        <button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="deleteOrder('${escJS(o.id)}', '${escJS(o.title)}')">Eliminar</button>
       </td>
     </tr>
-    <tr class="order-detail" id="detail-${o.id}">
+    <tr class="order-detail" id="detail-${esc(o.id)}">
       <td colspan="9">
         <div class="detail-grid">
           <div><span class="label">Descripcion:</span><br>${desc}</div>
@@ -1922,12 +1997,12 @@ function clearTechForm() {
   document.getElementById('techPassword').required = true;
 }
 
-// (sha256 helper removed — use pixHash / pixHashSalted from top of file)
+// (las contraseñas de técnicos se fijan vía pix-auth tech-set-password; sin hash en cliente)
 
 async function submitTechnician() {
   if (!_requireRole('admin','supervisor')) return;
   const fullName = document.getElementById('techFullName').value.trim();
-  const username = document.getElementById('techUsername').value.trim();
+  const username = document.getElementById('techUsername').value.trim().toLowerCase();
   const password = document.getElementById('techPassword').value;
   const editId = document.getElementById('techEditId').value;
 
@@ -1939,8 +2014,8 @@ async function submitTechnician() {
     toast('El password es obligatorio para nuevos tecnicos', 'err');
     return;
   }
-  if (password && password.length < 6) {
-    toast('Clave mínima 6 caracteres', 'err');
+  if (password && password.length < 8) {
+    toast('Contraseña mínima 8 caracteres', 'err');
     return;
   }
 
@@ -1951,11 +2026,9 @@ async function submitTechnician() {
     email: document.getElementById('techEmail').value.trim() || null,
     role: document.getElementById('techRole').value
   };
-
-  if (password) {
-    // P0-1: salted SHA-256 — auth.js verifyPassword supports salt:hash format
-    body.password_hash = await pixHashSalted(password);
-  }
+  // La contraseña NUNCA se hashea ni se envía a PostgREST desde el navegador:
+  // se fija con pix-auth (tech-set-password), que hashea con PBKDF2 en servidor.
+  // anon no tiene privilegio sobre technicians.password_hash (migración 011).
 
   const btn = document.getElementById('techSubmitBtn');
   btn.disabled = true;
@@ -1964,9 +2037,11 @@ async function submitTechnician() {
   try {
     if (editId) {
       body.updated_at = new Date().toISOString();
-      await supaPost('/technicians?id=eq.' + editId, body, 'PATCH');
+      // select=id: con privilegios por columna, return=representation sin select equivale a select=*
+      await supaPost('/technicians?id=eq.' + encodeURIComponent(editId) + '&select=id', body, 'PATCH');
+      if (password) await authFetch('tech-set-password', { id: editId, password });
       _logAudit({ action: 'update_tech', target_type: 'technician', target_id: editId, target_name: fullName, details: { fields: Object.keys(body), pw_changed: !!password } });
-      toast('Tecnico actualizado');
+      toast('Técnico actualizado');
     } else {
       // Check if username already exists (active or inactive)
       const existingInactive = await supaFetch('/technicians?username=eq.' + encodeURIComponent(username) + '&active=eq.false&select=id');
@@ -1985,10 +2060,18 @@ async function submitTechnician() {
       }
       body.active = true;
       body.created_at = new Date().toISOString();
-      const created = await supaPost('/technicians', body);
+      const created = await supaPost('/technicians?select=id', body);
       const newId = (created && created[0] && created[0].id) || null;
+      if (!newId) throw new Error('No se obtuvo el id del técnico creado');
+      // Contraseña por pix-auth (PBKDF2 en servidor). Si falla, el técnico queda
+      // sin contraseña (no puede iniciar sesión) y se avisa para usar "Reset PW".
+      try {
+        await authFetch('tech-set-password', { id: newId, password });
+      } catch (e) {
+        toast('Técnico creado pero sin contraseña: ' + e.message + '. Usá "Reset PW".', 'warn');
+      }
       _logAudit({ action: 'create_tech', target_type: 'technician', target_id: newId, target_name: fullName, details: { username, role: body.role } });
-      toast('Tecnico creado');
+      toast('Técnico creado');
     }
     toggleTechForm(false);
     loadTechnicians();
@@ -2024,7 +2107,9 @@ async function loadTechnicians() {
     // Load active + inactive when toggle on
     const filter = _techsShowInactive ? '' : '&active=eq.true';
     const [techs, devices] = await Promise.all([
-      supaFetch('/technicians?select=*' + filter + '&order=created_at.desc'),
+      // Columnas explícitas: anon NO puede leer password_hash (migración 011) y con
+      // privilegios por columna PostgREST rechaza select=*.
+      supaFetch('/technicians?select=id,username,full_name,email,phone,role,active,deleted_at,created_at,updated_at' + filter + '&order=created_at.desc'),
       supaFetch('/devices?select=*&order=last_seen.desc')
     ]);
     _devicesCache = devices || [];
@@ -2079,11 +2164,11 @@ async function toggleTechnicianActive(id, currentActive) {
   const t = (_techsCache || []).find(x => x.id === id);
   const techName = t ? t.full_name : id;
   try {
-    await supaPost('/technicians?id=eq.' + id, { active: next, updated_at: new Date().toISOString() }, 'PATCH');
+    await supaPost('/technicians?id=eq.' + id + '&select=id', { active: next, updated_at: new Date().toISOString() }, 'PATCH');
     _logAudit({ action: 'toggle_active', target_type: 'technician', target_id: id, target_name: techName, details: { from: prev, to: next } });
     toast(next ? 'Técnico activado' : 'Técnico desactivado', 'ok', async () => {
       try {
-        await supaPost('/technicians?id=eq.' + id, { active: prev, updated_at: new Date().toISOString() }, 'PATCH');
+        await supaPost('/technicians?id=eq.' + id + '&select=id', { active: prev, updated_at: new Date().toISOString() }, 'PATCH');
         _logAudit({ action: 'toggle_active', target_type: 'technician', target_id: id, target_name: techName, details: { from: next, to: prev, undo: true } });
         loadTechnicians();
       } catch(_){}
@@ -2113,16 +2198,14 @@ function editTechnician(tech) {
 
 async function resetTechPassword(id, name) {
   if (!_requireRole('admin','supervisor')) return;
-  const newPw = await pixPrompt('Nueva contraseña para ' + name + ' (mín 6):', 'password');
+  const newPw = await pixPrompt('Nueva contraseña para ' + name + ' (mín 8):', 'password');
   if (newPw == null) return;                     // cancelled
   const trimmed = newPw.trim();
-  if (trimmed.length < 6) { toast('Mínimo 6 caracteres', 'warn'); return; }
+  if (trimmed.length < 8) { toast('Mínimo 8 caracteres', 'warn'); return; }
 
   try {
-    // P0-1 salted hash
-    const hash = await pixHashSalted(trimmed);
-    await supaPost('/technicians?id=eq.' + id, { password_hash: hash, updated_at: new Date().toISOString() }, 'PATCH');
-    _logAudit({ action: 'reset_pw', target_type: 'technician', target_id: id, target_name: name });
+    // Hash PBKDF2 en servidor; pix-auth registra 'reset_pw' en audit_log.
+    await authFetch('tech-set-password', { id, password: trimmed });
     toast('Contraseña actualizada para ' + name);
   } catch (e) {
     toast('Error: ' + e.message, 'err');
@@ -2135,11 +2218,11 @@ async function deleteTechnician(id, name) {
   if (!await pixConfirm('Desactivar técnico "' + name + '"?\n\nEl técnico ya no aparecerá ni podrá iniciar sesión. Sus datos históricos se conservan. Para eliminar definitivamente usá "Borrar permanente".')) return;
   try {
     const now = new Date().toISOString();
-    await supaPost('/technicians?id=eq.' + id, { active: false, deleted_at: now, updated_at: now }, 'PATCH');
+    await supaPost('/technicians?id=eq.' + id + '&select=id', { active: false, deleted_at: now, updated_at: now }, 'PATCH');
     _logAudit({ action: 'delete_tech', target_type: 'technician', target_id: id, target_name: name, details: { soft: true } });
     toast('Técnico "' + name + '" desactivado', 'ok', async () => {
       try {
-        await supaPost('/technicians?id=eq.' + id, { active: true, deleted_at: null, updated_at: new Date().toISOString() }, 'PATCH');
+        await supaPost('/technicians?id=eq.' + id + '&select=id', { active: true, deleted_at: null, updated_at: new Date().toISOString() }, 'PATCH');
         _logAudit({ action: 'restore_tech', target_type: 'technician', target_id: id, target_name: name });
         loadTechnicians();
       } catch(_){}
@@ -2226,7 +2309,7 @@ function renderTechnicians(techs, devices) {
       <td onclick="event.stopPropagation()"><input type="checkbox" ${checked} onchange="toggleTechSelected('${t.id}',this.checked)" aria-label="Seleccionar ${esc(t.full_name)}"></td>
       <td><strong>${esc(t.full_name)}</strong></td>
       <td>${esc(t.username)}</td>
-      <td><span class="badge ${rBadge}">${t.role || 'tecnico'}</span></td>
+      <td><span class="badge ${rBadge}">${esc(t.role || 'tecnico')}</span></td>
       <td>${esc(t.phone || '—')}</td>
       <td>${esc(t.email || '—')}</td>
       <td onclick="event.stopPropagation()">
@@ -2267,7 +2350,7 @@ async function bulkDeactivateTechs() {
   let ok = 0, fail = 0;
   for (const id of ids) {
     try {
-      await supaPost('/technicians?id=eq.' + id, { active: false, deleted_at: now, updated_at: now }, 'PATCH');
+      await supaPost('/technicians?id=eq.' + id + '&select=id', { active: false, deleted_at: now, updated_at: now }, 'PATCH');
       ok++;
     } catch (_) { fail++; }
   }
@@ -2395,7 +2478,7 @@ function renderDevices(devices) {
       <td>${esc(d.app_version || '—')}</td>
       <td>${esc(d.sw_cache_version || '—')}</td>
       <td><span class="online-dot ${dotClass}"></span><span class="badge ${statusBadge}">${statusText}</span> <small style="color:var(--muted)">${ago}</small></td>
-      <td><small>${loc}</small></td>
+      <td><small>${esc(loc)}</small></td>
       <td>${lastSeen ? lastSeen.toLocaleString('es') : '—'}</td>
       <td><button class="btn btn-sm btn-danger" onclick="deleteDevice('${d.id}', '${escJS(techLabel)}')">Eliminar</button></td>
     </tr>`;
@@ -2432,10 +2515,11 @@ async function loadAdmins() {
     return;
   }
   try {
-    // Columnas explícitas: NUNCA pedir password_hash/totp_secret (anon ya no los lee).
-    const admins = await supaFetch('/admin_users?select=id,username,full_name,role,active,totp_enabled,created_at,last_login_at&order=created_at.desc');
-    _adminsCache = admins || [];
-    renderAdmins(admins);
+    // admin_users NO es accesible con anon (migración 011): todo pasa por pix-auth
+    // con la sesión firmada; la función nunca devuelve password_hash/totp_secret.
+    const res = await authFetch('admin-list', {});
+    _adminsCache = res.rows || [];
+    renderAdmins(_adminsCache);
   } catch (e) {
     console.error('[Admins] Load error:', e);
     document.getElementById('adminsTableBody').innerHTML =
@@ -2459,7 +2543,7 @@ function renderAdmins(admins) {
       <td><strong>${esc(a.username)}</strong>${isSelf ? ' <small style="color:var(--green)">(vos)</small>' : ''}</td>
       <td>${esc(a.full_name || '—')}</td>
       <td>${esc(a.email || '—')}</td>
-      <td><span class="badge ${roleMap[a.role] || 'badge-teal'}">${a.role}</span></td>
+      <td><span class="badge ${roleMap[a.role] || 'badge-teal'}">${esc(a.role)}</span></td>
       <td>${tfa} ${a.totp_enabled ? '' : `<button class="btn btn-sm btn-outline" onclick="setupTotp('${a.id}','${escJS(a.username)}')">Activar 2FA</button>`}</td>
       <td><span class="badge ${activeBadge}">${a.active ? 'Activo' : 'Inactivo'}</span></td>
       <td><small>${last}</small></td>
@@ -2517,18 +2601,15 @@ async function submitAdmin() {
   if (!editId && (!password || password.length < 8)) { toast('Clave mínima 8 caracteres', 'err'); return; }
   if (password && password.length < 8) { toast('Clave mínima 8 caracteres', 'err'); return; }
 
-  const body = { username, full_name: fullName, email, role, updated_at: new Date().toISOString() };
-  if (password) body.password_hash = await pixHashSalted(password);
+  // Todo pasa por pix-auth: la contraseña viaja en claro por HTTPS y se hashea
+  // (PBKDF2) en servidor; la función registra create_admin/update_admin/reset_admin_pw.
   try {
     if (editId) {
-      await supaPost('/admin_users?id=eq.' + editId, body, 'PATCH');
-      _logAudit({ action: 'update_admin', target_type: 'admin_user', target_id: editId, target_name: username });
+      await authFetch('admin-update', { id: editId, username, full_name: fullName, email, role });
+      if (password) await authFetch('admin-set-password', { id: editId, password });
       toast('Admin actualizado');
     } else {
-      body.active = true;
-      const created = await supaPost('/admin_users', body);
-      const newId = created && created[0] && created[0].id;
-      _logAudit({ action: 'create_admin', target_type: 'admin_user', target_id: newId, target_name: username });
+      await authFetch('admin-create', { username, full_name: fullName, email, role, password });
       toast('Admin creado');
     }
     toggleAdminForm();
@@ -2542,8 +2623,8 @@ async function deleteAdmin(id, username) {
   if (!_requireRole('admin')) return;
   if (!await pixConfirm('Desactivar admin "' + username + '"?')) return;
   try {
-    await supaPost('/admin_users?id=eq.' + id, { active: false, updated_at: new Date().toISOString() }, 'PATCH');
-    _logAudit({ action: 'delete_admin', target_type: 'admin_user', target_id: id, target_name: username });
+    // pix-auth impide que un admin se desactive a sí mismo y registra delete_admin
+    await authFetch('admin-update', { id, active: false });
     toast('Admin desactivado');
     loadAdmins();
   } catch (e) {
@@ -2557,10 +2638,8 @@ async function resetAdminPw(id, username) {
   if (pw == null) return;
   if (pw.length < 8) { toast('Mínimo 8 caracteres', 'err'); return; }
   try {
-    const hash = await pixHashSalted(pw);
-    await supaPost('/admin_users?id=eq.' + id, { password_hash: hash, updated_at: new Date().toISOString() }, 'PATCH');
-    _logAudit({ action: 'reset_admin_pw', target_type: 'admin_user', target_id: id, target_name: username });
-    toast('Clave actualizada');
+    await authFetch('admin-set-password', { id, password: pw });
+    toast('Contraseña actualizada');
   } catch (e) {
     toast('Error: ' + e.message, 'err');
   }
@@ -2584,8 +2663,8 @@ async function setupTotp(id, username) {
     return;
   }
   try {
-    await supaPost('/admin_users?id=eq.' + id, { totp_secret: secret, totp_enabled: true, updated_at: new Date().toISOString() }, 'PATCH');
-    _logAudit({ action: 'enable_2fa', target_type: 'admin_user', target_id: id, target_name: username });
+    // El secreto viaja SOLO a pix-auth (nunca a PostgREST con anon); la función registra enable_2fa
+    await authFetch('admin-set-totp', { id, secret, enabled: true });
     toast('2FA activado para ' + username);
     loadAdmins();
   } catch (e) {
@@ -2629,8 +2708,9 @@ const AUDIT_PER_PAGE = 30;
 async function loadAudit() {
   try {
     const filter = document.getElementById('auditFilterAction')?.value || '';
-    const path = '/audit_log?select=*&order=created_at.desc&limit=500' + (filter ? '&action=eq.' + filter : '');
-    _auditAll = await supaFetch(path);
+    // Lectura vía pix-auth (audit_log no es legible con la clave anónima)
+    const res = await authFetch('audit-list', { limit: 500, action_filter: filter || undefined });
+    _auditAll = res.rows || [];
     _auditPage = 1;
     renderAuditPage();
   } catch (e) {

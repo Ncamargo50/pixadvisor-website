@@ -39,7 +39,7 @@
 //       the OS continues acquiring in background. + DATA-LOSS GUARD in
 //       cloud.js: if local samples=[] but cloud has samples, abort the
 //       upsert (prevents fresh-install / DB hiccup from wiping cloud data).
-const CACHE_NAME = 'pix-muestreo-v69';
+const CACHE_NAME = 'pix-muestreo-v70';
 const TILE_CACHE = 'pix-tiles-v1';
 // LRU cap: ~4096 tiles ≈ 250-400 MB depending on zoom mix. Trim runs on
 // every cache write — drops to TRIM_TARGET so we don't churn on each write.
@@ -134,14 +134,21 @@ self.addEventListener('install', event => {
   self.skipWaiting();
 });
 
-// Activate - second-pass cleanup (covers anything install missed) + claim clients
+// Activate - second-pass cleanup (covers anything install missed) + claim clients.
+// Solo caches `pix-muestreo-*` ajenas a la versión actual, preservando
+// `pix-tiles-*`. Antes borraba TODO lo que no fuera CACHE_NAME/TILE_CACHE:
+// pix-dash-* (dashboard), pix-admin-* y pixadvisor-* (sitio) comparten origen
+// y quedaban destruidas en cada bump de versión.
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME && k !== TILE_CACHE).map(k => caches.delete(k)))
-    )
+      Promise.all(
+        keys
+          .filter(k => k.startsWith('pix-muestreo-') && k !== CACHE_NAME && !k.startsWith('pix-tiles-'))
+          .map(k => caches.delete(k).catch(() => false))
+      )
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
 // LRU trim for the tile cache (v3.18.0).

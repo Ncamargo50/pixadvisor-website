@@ -75,7 +75,13 @@ class InterpretationEngine {
     if (!selectedUnit) return value;
 
     const unitDef = UNIT_SYSTEMS[group]?.[selectedUnit];
-    if (!unitDef || unitDef.factor === 1) return value;
+    if (!unitDef) return value;
+    // Per-element factor (mg/dm³ → mmolc/dm³ depends on equivalent mass of each ion)
+    if (unitDef.perElement) {
+      const f = unitDef.perElement[param];
+      return f !== undefined ? value * f : value;
+    }
+    if (unitDef.factor === 1) return value;
 
     return value * unitDef.factor;
   }
@@ -90,7 +96,12 @@ class InterpretationEngine {
     if (!selectedUnit) return value;
 
     const unitDef = UNIT_SYSTEMS[group]?.[selectedUnit];
-    if (!unitDef || unitDef.factor === 1) return value;
+    if (!unitDef) return value;
+    if (unitDef.perElement) {
+      const f = unitDef.perElement[param];
+      return f !== undefined ? value / f : value;
+    }
+    if (unitDef.factor === 1) return value;
 
     return value / unitDef.factor;
   }
@@ -110,13 +121,56 @@ class InterpretationEngine {
 
   // Normalize full labData from user units to internal units
   static normalizeLabData(labData, unitSystem) {
-    if (!unitSystem) return { ...labData };
+    if (!labData) return {};
+    // Idempotent: data already in canonical units is returned as-is (no double conversion)
+    if (!unitSystem || labData._units === 'canonical') return { ...labData };
     const normalized = {};
     for (const [key, val] of Object.entries(labData)) {
       if (val === undefined || val === null || val === '') continue;
+      if (key.startsWith('_')) { normalized[key] = val; continue; }
       normalized[key] = this.convertToInternal(key, parseFloat(val), unitSystem);
     }
+    normalized._units = 'canonical';
     return normalized;
+  }
+
+  // Texture group for P interpretation by clay content (%), aligned with CQFS-RS/SC (2016)
+  // clay classes: 1 = ≤20 %, 2 = 21-40 %, 3 = 41-60 %, 4 = >60 % (more clay → lower P thresholds)
+  static textureGroupFromClay(clay) {
+    const c = parseFloat(clay);
+    if (!Number.isFinite(c)) return null;
+    if (c > 60) return 4;
+    if (c > 40) return 3;
+    if (c > 20) return 2;
+    return 1;
+  }
+
+  // Derive CTC and V% from whatever the lab reported (canonical units: mmolc/dm³).
+  // Priority: direct values > SB + H+Al > (Ca+Mg+K) + H+Al.
+  // CTC(pH7) = SB + (H+Al); V% = 100·SB/CTC  (Raij et al. 1997, Boletim 100 IAC)
+  // Returns { CTC, V, SB, H_Al, source } — CTC/V are null when they cannot be computed.
+  static deriveCtcV(labData) {
+    const num = v => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };
+    const Ca = num(labData.Ca), Mg = num(labData.Mg), K = num(labData.K);
+    const H_Al = num(labData.H_Al);
+    let SB = num(labData.SB);
+    if (SB === null && (Ca !== null || Mg !== null || K !== null)) {
+      SB = (Ca || 0) + (Mg || 0) + (K || 0);
+    }
+    let CTC = num(labData.CTC);
+    let source = 'direct';
+    if ((CTC === null || CTC <= 0) && SB !== null && H_Al !== null) {
+      CTC = SB + H_Al;
+      source = 'SB+H_Al';
+    }
+    if (CTC !== null && CTC <= 0) CTC = null;
+    let V = num(labData.V);
+    if ((V === null || V <= 0) && CTC !== null && SB !== null) {
+      V = (SB / CTC) * 100;
+      source = source === 'direct' ? 'SB/CTC' : source;
+    }
+    if (V !== null && V < 0) V = null;
+    return { CTC, V, SB, H_Al, source };
   }
 
   // ==================== METHOD-AWARE CLASSIFICATION ====================
@@ -255,14 +309,7 @@ class InterpretationEngine {
     const results = { nutrients: {}, calculated: {}, diagnostics: [], alerts: [], pMethod: options?.pMethod || 'default' };
 
     // Determine texture group early (needed for P classification)
-    let textureGroup = 2; // default Franco
-    if (data.clay !== undefined) {
-      const clay = parseFloat(data.clay) || 0;
-      if (clay > 60) textureGroup = 4;
-      else if (clay > 35) textureGroup = 3;
-      else if (clay > 15) textureGroup = 2;
-      else textureGroup = 1;
-    }
+    const textureGroup = this.textureGroupFromClay(data.clay) || 2; // default Franco (21-40 % arcilla)
 
     const classOpts = { pMethod: options?.pMethod, phMethod: options?.phMethod, textureGroup };
 
@@ -307,26 +354,19 @@ class InterpretationEngine {
     const Al = parseFloat(data.Al) || 0;
     const H_Al = parseFloat(data.H_Al) || 0;
 
-    // Sum of bases (SB)
-    const SB = Ca + Mg + K;
+    // Sum of bases (SB), CTC and V% — shared derivation helper (also used by calculateLiming)
+    const derived = this.deriveCtcV(data);
+    const SB = derived.SB !== null ? derived.SB : (Ca + Mg + K);
     results.calculated.SB = { value: SB, label: 'Suma de bases (SB)', unit: 'mmolc/dm³' };
 
-    // CTC (if not provided directly) — use normalized data, not raw labData
-    let CTC = parseFloat(data.CTC) || 0;
-    if (!CTC && H_Al > 0) {
-      CTC = SB + H_Al;
-    }
+    const CTC = derived.CTC || 0;
     if (CTC > 0) {
       results.calculated.CTC = { value: CTC, label: 'CTC', unit: 'mmolc/dm³' };
       const ctcClass = this.classifySoil('CTC', CTC, cropId);
       results.nutrients.CTC = { value: CTC, ...ctcClass, ...NUTRIENT_INFO.CTC };
     }
 
-    // V% (base saturation) — use normalized data, not raw labData
-    let V = parseFloat(data.V) || 0;
-    if (!V && CTC > 0) {
-      V = (SB / CTC) * 100;
-    }
+    const V = derived.V || 0;
     if (V > 0) {
       results.calculated.V = { value: V, label: 'Saturación bases (V%)', unit: '%' };
       const vClass = this.classifySoil('V', V, cropId);
@@ -535,22 +575,38 @@ class InterpretationEngine {
     if (!crop) return null;
 
     const targetV = crop.targetV || 60;
-    const currentV = parseFloat(labData.V) || 0;
-    const CTC = parseFloat(labData.CTC) || 0;
 
-    if (currentV >= targetV || CTC <= 0) {
-      return { needed: false, dose_t_ha: 0, msg: 'V% actual es suficiente. No requiere encalado.' };
+    // Derive V% and CTC when the lab did not report them directly
+    // (V = SB/CTC·100; CTC = SB + H+Al; SB = Ca+Mg+K). Same helper as interpretSoil.
+    const { CTC, V: currentV, source: derivedFrom } = this.deriveCtcV(labData);
+
+    if (CTC === null || currentV === null) {
+      return {
+        needed: null, dose_t_ha: 0, targetV,
+        msg: 'Faltan CTC/H+Al (o Ca, Mg, K) para calcular encalado. Cargá CTC y V%, o SB/Ca+Mg+K y H+Al.'
+      };
+    }
+
+    if (currentV >= targetV) {
+      return {
+        needed: false, dose_t_ha: 0, targetV, currentV, CTC,
+        msg: `V% actual (${currentV.toFixed(0)}%) ≥ meta (${targetV}%). No requiere encalado.`
+      };
     }
 
     const source = FERTILIZER_SOURCES[limingSource] || FERTILIZER_SOURCES.calDolomita;
     const PRNT = source.PRNT || 80;
 
-    // NC (t/ha) = (V2 - V1) x CTC / (10 x PRNT)
-    // CTC in mmolc/dm³, V in %, PRNT in %
+    // Método de saturación por bases (Raij et al. 1997, Boletim Técnico 100 IAC):
+    //   NC (t/ha) = (V2 − V1) · CTC / (100 · PRNT/100)   con CTC en cmolc/dm³
+    // El motor trabaja en mmolc/dm³ (1 cmolc = 10 mmolc), por lo tanto:
+    //   NC (t/ha) = (V2 − V1) · CTC_mmolc / (10 · PRNT)
+    // (equivale a NC = (V2−V1)·T/100 · 100/PRNT con T en cmolc/dm³, 0-20 cm)
     const NC = ((targetV - currentV) * CTC) / (10 * PRNT);
 
     return {
       needed: true,
+      derivedFrom,
       dose_t_ha: Math.round(NC * 100) / 100,
       source: source.name,
       PRNT: PRNT,
@@ -565,24 +621,53 @@ class InterpretationEngine {
 
   // Gypsum calculation
   static calculateGypsum(labData, cropId) {
-    const Ca_sub = parseFloat(labData.Ca_sub) || 0; // Ca subsuperficial (20-40cm)
-    const Al_sub = parseFloat(labData.Al_sub) || 0;
-    const clay = parseFloat(labData.clay) || 30;
+    const num = v => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };
+    // Subsoil (20-40 cm) values — distinguish "absent" from 0
+    const Ca_sub = num(labData.Ca_sub);
+    const Al_sub = num(labData.Al_sub);
+    const clay = num(labData.clay);
 
-    // Gypsum needed if Ca < 4 mmolc/dm³ or Al > 5 mmolc/dm³ in 20-40cm
-    const needsGypsum = Ca_sub < 4 || Al_sub > 5;
-
-    if (!needsGypsum && Ca_sub > 0) {
-      return { needed: false, dose_t_ha: 0, msg: 'Subsuelo sin restricción química. No requiere yeso.' };
+    if (Ca_sub === null && Al_sub === null) {
+      return {
+        needed: null, dose_t_ha: 0,
+        msg: 'Sin datos de subsuelo (20-40 cm): no se puede evaluar necesidad de yeso. Cargá Ca y Al de 20-40 cm.'
+      };
     }
 
-    // NG (t/ha) = 6 x clay(%) / 100
+    // Criterio Embrapa Cerrado (Sousa & Lobato 2004) / Boletim 100 IAC (Raij 1997) para 20-40 cm:
+    //   Ca²⁺ < 4 mmolc/dm³ (0,4 cmolc)  ó  Al³⁺ > 5 mmolc/dm³ (0,5 cmolc) / m% > 20-30 %
+    // Con un solo valor presente se evalúa solo ese criterio.
+    const lowCa = Ca_sub !== null && Ca_sub < 4;
+    const highAl = Al_sub !== null && Al_sub > 5;
+    let mSub = null;
+    if (Ca_sub !== null && Al_sub !== null) {
+      const Mg_sub = num(labData.Mg_sub) || 0, K_sub = num(labData.K_sub) || 0;
+      const sbSub = Ca_sub + Mg_sub + K_sub;
+      if (sbSub + Al_sub > 0) mSub = (Al_sub / (sbSub + Al_sub)) * 100;
+    }
+    const needsGypsum = lowCa || highAl || (mSub !== null && mSub > 20);
+
+    if (!needsGypsum) {
+      return { needed: false, dose_t_ha: 0, Ca_sub, Al_sub, m_sub: mSub, msg: 'Subsuelo (20-40 cm) sin restricción química. No requiere yeso.' };
+    }
+
+    if (clay === null) {
+      return {
+        needed: true, dose_t_ha: 0, Ca_sub, Al_sub, m_sub: mSub,
+        msg: 'Subsuelo con restricción química (Ca bajo y/o Al alto en 20-40 cm): se recomienda yeso, pero falta textura (arcilla %) para calcular la dosis.'
+      };
+    }
+
+    // NG (t/ha) = 6 × arcilla(%) / 100  — Sousa & Lobato (2004), Embrapa Cerrado,
+    // "Cerrado: correção do solo e adubação", cultivos anuales, arcilla en % (0-20 cm).
+    // (Para perennes Embrapa usa 7,5 × arcilla/100; Boletim 100 usa NG = 6 × arcilla(%)/100 t/ha
+    //  equivalente a 60 × arcilla(g/kg)/1000.)
     const NG = 6 * clay / 100;
 
     return {
       needed: true,
       dose_t_ha: Math.round(NG * 100) / 100,
-      Ca_sub, Al_sub,
+      Ca_sub, Al_sub, m_sub: mSub, clay,
       msg: `Aplicar ${NG.toFixed(2)} t/ha de yeso agrícola para mejorar subsuelo (arcilla: ${clay}%).`
     };
   }
@@ -618,11 +703,19 @@ class InterpretationEngine {
     return baseDoses[soilClass]?.[micro] || 0;
   }
 
-  static calculateFertilization(labData, cropId, yieldTarget) {
+  // options: { pMethod, phMethod, textureGroup } — labData must be in canonical units (mmolc/dm³, g/dm³, mg/dm³, %)
+  static calculateFertilization(labData, cropId, yieldTarget, options = {}) {
     const crop = CROPS_DB[cropId];
     if (!crop) return { error: 'Cultivo no encontrado' };
 
     yieldTarget = yieldTarget || crop.defaultYield;
+
+    // Classification options: method-aware (P by extractant + texture, K/Ca/Mg by method)
+    const classOpts = {
+      pMethod: options.pMethod,
+      phMethod: options.phMethod,
+      textureGroup: options.textureGroup || this.textureGroupFromClay(labData.clay) || 2
+    };
 
     // Get yield profile: adjusts extraction and efficiency based on yield tier
     const yieldProfile = this.getYieldProfile(crop, yieldTarget);
@@ -662,7 +755,7 @@ class InterpretationEngine {
       let soilSupply = 0;
       const soilKey = this._nutrientToSoilKey(nutrient);
       const soilValue = parseFloat(labData[soilKey]) || 0;
-      const cls = this.classifySoil(soilKey, soilValue, cropId);
+      const cls = this.classifySoil(soilKey, soilValue, cropId, classOpts);
 
       // Supply factor based on soil fertility class
       const supplyFactors = { mb: 0.0, b: 0.15, m: 0.40, a: 0.70, ma: 1.0 };
@@ -724,7 +817,7 @@ class InterpretationEngine {
 
     for (const micro of micros) {
       const soilValue = parseFloat(labData[micro]) || 0;
-      const cls = this.classifySoil(micro, soilValue, cropId);
+      const cls = this.classifySoil(micro, soilValue, cropId, classOpts);
 
       const baseDose = this._baseMicroDose(micro, cls.class);
       if (baseDose <= 0) continue; // Alto/Muy alto: no application needed

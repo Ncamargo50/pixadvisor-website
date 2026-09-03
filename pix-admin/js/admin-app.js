@@ -348,14 +348,14 @@ class PixAdmin {
   buildCropSelector() {
     const sel = document.getElementById('globalCrop');
     const list = InterpretationEngine.getCropList();
-    sel.innerHTML = list.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    sel.innerHTML = list.map(c => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.name)}</option>`).join('');
 
     // Dashboard crop list
     const dash = document.getElementById('cropListDashboard');
     if (dash) {
       dash.innerHTML = list.map(c =>
         `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">
-          <span>${c.name}</span><span style="color:var(--text-dim);font-style:italic;font-size:11px">${c.scientific}</span>
+          <span>${escapeHtml(c.name)}</span><span style="color:var(--text-dim);font-style:italic;font-size:11px">${escapeHtml(c.scientific)}</span>
         </div>`
       ).join('');
     }
@@ -692,7 +692,7 @@ class PixAdmin {
     const relationships = InterpretationEngine.analyzeRelationships(normalizedData, this.cropId);
     const liming = InterpretationEngine.calculateLiming(normalizedData, this.cropId);
     const gypsum = InterpretationEngine.calculateGypsum(normalizedData, this.cropId);
-    const fert = InterpretationEngine.calculateFertilization(normalizedData, this.cropId, this.yieldTarget);
+    const fert = InterpretationEngine.calculateFertilization(normalizedData, this.cropId, this.yieldTarget, this._classifyOptions(normalizedData));
     const products = InterpretationEngine.calculateProducts(fert);
 
     this.lastReport = { soilInterpretation: result, relationships, liming, gypsum, fertilization: fert, products };
@@ -757,12 +757,12 @@ class PixAdmin {
 
     // Liming
     if (liming) {
-      const limingClass = liming.needed ? 'warning' : 'success';
+      const limingClass = liming.needed === null ? 'info' : liming.needed ? 'warning' : 'success';
       html += `<div class="card"><div class="card-title" style="margin-bottom:12px">Encalado</div>
-        <div class="alert alert-${limingClass}">${liming.msg}</div>`;
+        <div class="alert alert-${limingClass}">${escapeHtml(liming.msg)}</div>`;
       if (liming.needed) {
         html += `<div class="grid-3" style="margin-top:12px">
-          <div class="stat-card"><div class="stat-value">${liming.dose_t_ha}</div><div class="stat-label">t/ha ${liming.source}</div></div>
+          <div class="stat-card"><div class="stat-value">${liming.dose_t_ha}</div><div class="stat-label">t/ha ${escapeHtml(liming.source)}</div></div>
           <div class="stat-card"><div class="stat-value">${liming.currentV.toFixed(0)}% → ${liming.targetV}%</div><div class="stat-label">V% actual → meta</div></div>
           <div class="stat-card"><div class="stat-value">${liming.CTC.toFixed(0)}</div><div class="stat-label">CTC (mmolc/dm³)</div></div>
         </div>`;
@@ -1183,22 +1183,67 @@ class PixAdmin {
     return rows.slice(headerIdx).map(r => r.map(c => String(c).trim()));
   }
 
+  // Token-anchored regex patterns (checked before the synonym map) — avoids e.g.
+  // "Ca (mmolc/dm³)" → MO (contains "mo"), "S (mg/dm³)" → Mg, "Mg" matching inside "mg/dm³".
+  // The unit part in parentheses/brackets is stripped BEFORE matching.
+  static LAB_COLUMN_PATTERNS = [
+    [/^ph\s*(em\s*|en\s*)?(cacl2|cacl)$/, 'pH_CaCl2'],
+    [/^ph(\s*(em\s*|en\s*)?(h2o|agua|água|water))?$/, 'pH_H2O'],
+    [/^(m\.?\s?o\.?|mo|mat(e|é)ria\s+org(a|â)nica|materia\s+organica|m\.?\s?org\.?)$/, 'MO'],
+    [/^(c\.?\s?o\.?|carbono\s+org(a|â)nico)$/, 'CO'],
+    [/^p[\s-]*(rem|remanescente)$/, 'P_rem'],
+    [/^(p|f(o|ó)sforo)(\s+(mehlich|mehlich[\s-]?1|mehlich[\s-]?3|resina|res|m1|m3))?$/, 'P'],
+    [/^(k|k\+|pot(a|á)ssio|potasio)$/, 'K'],
+    [/^(ca|ca2\+|ca\+\+|c(a|á)lcio|calcio)$/, 'Ca'],
+    [/^(mg|mg2\+|mg\+\+|magn(e|é)sio|magnesio)$/, 'Mg'],
+    [/^(al|al3\+|al\+\+\+|alum(i|í)nio|aluminio)$/, 'Al'],
+    [/^(s|s[\s-]?so4|so4|enxofre|azufre)$/, 'S'],
+    [/^(h\s*\+\s*al|h_al|acidez\s+potencial|ac\.?\s+potencial)$/, 'H_Al'],
+    [/^(sb|s\.?b\.?|soma\s+(de\s+)?bases|sum\s+bases)$/, 'SB'],
+    [/^ctc\s*(ef|efe|efetiva|efectiva)$/, 'CTC_ef'],
+    [/^(ctc|t|ctc\s*ph\s*7)$/, 'CTC'],
+    [/^(v|v%|satura(c|ç)(a|ã)o\s+(de\s+)?bases|sat\.?\s+bases)$/, 'V'],
+    [/^(m|m%|sat\.?\s+al|satura(c|ç)(a|ã)o\s+(de\s+)?al)$/, 'm_Al'],
+    [/^(b|boro)$/, 'B'], [/^(cu|cobre)$/, 'Cu'], [/^(fe|ferro|hierro)$/, 'Fe'],
+    [/^(mn|mangan(e|ê)s|manganeso)$/, 'Mn'], [/^(zn|zinco|zinc)$/, 'Zn'], [/^(na|s(o|ó)dio)$/, 'Na'],
+    [/^(argila|arcilla|clay)$/, 'clay'], [/^(areia|arena|sand)$/, 'sand'], [/^(silte|limo|silt)$/, 'silt'],
+    [/^areia\s+grossa$/, 'sand_coarse'], [/^areia\s+fina$/, 'sand_fine'],
+    [/^(ce|c\.?e\.?|condutividade|conductividad)$/, 'CE']
+  ];
+
   _matchLabColumn(headerText) {
-    const h = headerText.toLowerCase().trim()
-      .replace(/[()]/g, m => m) // keep parens
+    if (headerText === undefined || headerText === null) return null;
+    const h = String(headerText).toLowerCase().trim()
       .replace(/\s+/g, ' ')
       .replace(/[²³]/g, '');
+    if (!h) return null;
+    const stripAccents = str => str.normalize('NFD').replace(/[̀-ͯ]/g, '');
 
-    // Direct match
+    // 1) Direct match on the full header (keeps the IBRA synonym map with units, e.g. 'v (%)')
     if (PixAdmin.LAB_COLUMN_MAP[h]) return PixAdmin.LAB_COLUMN_MAP[h];
-
-    // Try without accents
-    const noAccent = h.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const noAccent = stripAccents(h);
     if (PixAdmin.LAB_COLUMN_MAP[noAccent]) return PixAdmin.LAB_COLUMN_MAP[noAccent];
 
-    // Try partial match for common patterns
-    for (const [pattern, field] of Object.entries(PixAdmin.LAB_COLUMN_MAP)) {
-      if (h.includes(pattern) && pattern.length >= 2) return field;
+    // 2) Strip unit part "(...)" / "[...]" and match on the bare column name
+    const bare = h.replace(/\s*[\(\[][^\)\]]*[\)\]]\s*/g, ' ').replace(/\s+/g, ' ').trim();
+    const bareNoAccent = stripAccents(bare);
+    if (PixAdmin.LAB_COLUMN_MAP[bare]) return PixAdmin.LAB_COLUMN_MAP[bare];
+    if (PixAdmin.LAB_COLUMN_MAP[bareNoAccent]) return PixAdmin.LAB_COLUMN_MAP[bareNoAccent];
+
+    // 3) Anchored token patterns on the whole bare name — most specific first
+    for (const [re, field] of PixAdmin.LAB_COLUMN_PATTERNS) {
+      if (re.test(bare) || re.test(bareNoAccent)) return field;
+    }
+
+    // 4) Long synonyms only (metadata etc.): whole-word match, longest pattern first,
+    //    never 1-2 letter keys (no more "mo" inside "mmolc", "mg" inside "mg/dm³")
+    const entries = Object.entries(PixAdmin.LAB_COLUMN_MAP)
+      .filter(([pattern]) => pattern.length >= 3)
+      .sort((a, b) => b[0].length - a[0].length);
+    for (const [pattern, field] of entries) {
+      const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const wordRe = new RegExp(`(^|[^a-z0-9])${escaped}($|[^a-z0-9])`);
+      if (wordRe.test(bare) || wordRe.test(bareNoAccent)) return field;
     }
 
     return null;
@@ -1294,7 +1339,7 @@ class PixAdmin {
             <h3 style="margin:0;font-size:18px;color:var(--text)">Importar Resultados de Laboratorio</h3>
             <p style="margin:6px 0 0;font-size:13px;color:var(--text-muted)">
               ${count} muestras detectadas — ${mappedFields.length} parámetros mapeados
-              ${unmapped.length > 0 ? `<br><small style="color:var(--text-dim)">Columnas no reconocidas: ${unmapped.slice(0, 5).join(', ')}${unmapped.length > 5 ? '...' : ''}</small>` : ''}
+              ${unmapped.length > 0 ? `<br><small style="color:var(--text-dim)">Columnas no reconocidas: ${escapeHtml(unmapped.slice(0, 5).join(', '))}${unmapped.length > 5 ? '...' : ''}</small>` : ''}
             </p>
           </div>
           <div style="overflow-y:auto;flex:1;padding:16px 24px">
@@ -1309,9 +1354,9 @@ class PixAdmin {
                 ${sampleList.map(s => `
                   <tr onclick="document.querySelectorAll('#labImportModal tr').forEach(r=>r.style.background='');this.style.background='rgba(127,214,51,0.1)';admin._selectedLabIdx=${s.idx}" style="cursor:pointer">
                     <td><input type="radio" name="labSample" value="${s.idx}" ${s.idx === 0 ? 'checked' : ''}></td>
-                    <td><strong>${s.name}</strong>${s.meta._lote ? `<br><small style="color:var(--text-dim)">${s.meta._lote}</small>` : ''}</td>
+                    <td><strong>${escapeHtml(s.name)}</strong>${s.meta._lote ? `<br><small style="color:var(--text-dim)">${escapeHtml(s.meta._lote)}</small>` : ''}</td>
                     <td><span class="badge badge-a">${s.params}</span></td>
-                    <td style="font-size:11px;color:var(--text-muted)">${s.preview}</td>
+                    <td style="font-size:11px;color:var(--text-muted)">${escapeHtml(s.preview)}</td>
                   </tr>
                 `).join('')}
               </tbody>
@@ -1577,9 +1622,7 @@ class PixAdmin {
     const showLabels = document.getElementById('mapShowLabels')?.checked !== false;
     const info = NUTRIENT_INFO[nutrient] || { label: nutrient, unit: '' };
 
-    const points = this.samples
-      .filter(s => s.lat && s.lng && s.soilData && s.soilData[nutrient] !== undefined)
-      .map(s => ({ lat: s.lat, lng: s.lng, value: s.soilData[nutrient], name: s.name }));
+    const points = this._samplePoints(nutrient);
 
     if (points.length < 2) {
       this.toast('Se necesitan al menos 2 puntos con coordenadas y datos de ' + nutrient, 'warning');
@@ -1658,9 +1701,7 @@ class PixAdmin {
     const yieldTarget = parseFloat(document.getElementById('prescYield').value) || CROPS_DB[this.cropId]?.defaultYield;
     const source = document.getElementById('prescSource').value;
 
-    const points = this.samples
-      .filter(s => s.lat && s.lng && s.soilData && s.soilData[nutrient] !== undefined)
-      .map(s => ({ lat: s.lat, lng: s.lng, value: s.soilData[nutrient], name: s.name }));
+    const points = this._samplePoints(nutrient);
 
     if (points.length < 2) {
       this.toast('Se necesitan al menos 2 puntos con coordenadas y datos', 'warning');
@@ -1669,7 +1710,10 @@ class PixAdmin {
 
     const bounds = InterpolationEngine.getBounds(points);
     const gridResult = InterpolationEngine.interpolateIDW(points, bounds, { resolution: 80, power: 2, smooth: 2 });
-    const prescResult = InterpolationEngine.generatePrescription(gridResult, nutrient, this.cropId, yieldTarget, source);
+    const prescResult = InterpolationEngine.generatePrescription(gridResult, nutrient, this.cropId, yieldTarget, source, {
+      polygon: this.fieldPolygon,
+      classifyOptions: this._classifyOptions()
+    });
 
     // Clear old layers
     this._clearMapLayers('prescription');
@@ -1846,7 +1890,7 @@ class PixAdmin {
 
     // Update UI
     const infoEl = document.getElementById('gisFieldInfo');
-    if (infoEl) infoEl.innerHTML = `<strong>${fName}</strong> — ${this._fieldAreaHa} ha`;
+    if (infoEl) infoEl.innerHTML = `<strong>${escapeHtml(fName)}</strong> — ${this._fieldAreaHa} ha`;
     const badge = document.getElementById('gisBoundaryBadge');
     if (badge) { badge.style.display = 'inline-flex'; badge.textContent = `${this._fieldAreaHa} ha`; }
     const statusEl = document.getElementById('boundaryStatus');
@@ -1899,9 +1943,43 @@ class PixAdmin {
   }
 
   _getGISPoints(nutrient) {
+    return this._samplePoints(nutrient);
+  }
+
+  // ---- Unit/method propagation for map consumers ----
+  // Sample soilData is stored in the USER's units (this.unitSystem), exactly like this.soilData
+  // (the form, IBRA import and demo all write in the units selected in the methodology panel).
+  // Every interpolation/prescription consumer must therefore receive values converted ONCE to the
+  // engine's canonical units (mmolc/dm³ cations, g/dm³ MO, mg/dm³ P/S/micros, % texture) so that
+  // classifySoil() thresholds apply correctly. Values already flagged `_units:'canonical'` pass through.
+  _samplePoints(nutrient) {
     return this.samples
-      .filter(s => s.lat && s.lng && s.soilData && s.soilData[nutrient] !== undefined)
-      .map(s => ({ lat: s.lat, lng: s.lng, value: s.soilData[nutrient], name: s.name }));
+      .filter(s => s.lat && s.lng && s.soilData && s.soilData[nutrient] !== undefined && s.soilData[nutrient] !== null && s.soilData[nutrient] !== '')
+      .map(s => {
+        const raw = parseFloat(s.soilData[nutrient]);
+        const value = s.soilData._units === 'canonical'
+          ? raw
+          : InterpretationEngine.convertToInternal(nutrient, raw, this.unitSystem);
+        return { lat: s.lat, lng: s.lng, value, name: s.name };
+      })
+      .filter(p => Number.isFinite(p.value));
+  }
+
+  // Classification options (lab method + texture group) for engine calls outside interpretSoil
+  // labData (optional) may be canonical (`_units:'canonical'`) or in user units.
+  _classifyOptions(labData) {
+    const src = labData || this.soilData || {};
+    let clayPct;
+    if (src.clay !== undefined && src.clay !== null && src.clay !== '') {
+      clayPct = src._units === 'canonical'
+        ? parseFloat(src.clay)
+        : InterpretationEngine.convertToInternal('clay', parseFloat(src.clay), this.unitSystem);
+    }
+    return {
+      pMethod: this.pMethod,
+      phMethod: this.phMethod,
+      textureGroup: InterpretationEngine.textureGroupFromClay(clayPct) || 2
+    };
   }
 
   // FERTILITY MAP
@@ -2354,30 +2432,32 @@ class PixAdmin {
     const normalizedData = InterpretationEngine.normalizeLabData(this.soilData, this.unitSystem);
     const liming = InterpretationEngine.calculateLiming(normalizedData, this.cropId);
     const gypsum = InterpretationEngine.calculateGypsum(normalizedData, this.cropId);
-    const fert = InterpretationEngine.calculateFertilization(normalizedData, this.cropId, this.yieldTarget);
+    const fert = InterpretationEngine.calculateFertilization(normalizedData, this.cropId, this.yieldTarget, this._classifyOptions(normalizedData));
     const products = InterpretationEngine.calculateProducts(fert);
 
     let html = '';
 
     // Liming
     if (liming) {
-      const limingClass = liming.needed ? 'warning' : 'success';
+      // needed === null → datos insuficientes: mensaje informativo (no es una recomendación)
+      const limingClass = liming.needed === null ? 'info' : liming.needed ? 'warning' : 'success';
       html += `<div class="card"><div class="card-title" style="margin-bottom:12px">Encalado</div>
-        <div class="alert alert-${limingClass}">${liming.msg}</div>`;
+        <div class="alert alert-${limingClass}">${liming.needed === null ? 'ℹ️ ' : ''}${escapeHtml(liming.msg)}</div>`;
       if (liming.needed) {
         html += `<div class="grid-3" style="margin-top:12px">
-          <div class="stat-card"><div class="stat-value">${liming.dose_t_ha}</div><div class="stat-label">t/ha ${liming.source}</div></div>
-          <div class="stat-card"><div class="stat-value">${liming.currentV.toFixed(0)}% → ${liming.targetV}%</div><div class="stat-label">V% actual → meta</div></div>
-          <div class="stat-card"><div class="stat-value">${liming.CTC.toFixed(0)}</div><div class="stat-label">CTC</div></div>
+          <div class="stat-card"><div class="stat-value">${liming.dose_t_ha}</div><div class="stat-label">t/ha ${escapeHtml(liming.source)}</div></div>
+          <div class="stat-card"><div class="stat-value">${liming.currentV.toFixed(0)}% → ${liming.targetV}%</div><div class="stat-label">V% actual → meta${liming.derivedFrom && liming.derivedFrom !== 'direct' ? ' (derivado de ' + escapeHtml(liming.derivedFrom) + ')' : ''}</div></div>
+          <div class="stat-card"><div class="stat-value">${liming.CTC.toFixed(0)}</div><div class="stat-label">CTC (mmolc/dm³)</div></div>
         </div>`;
       }
       html += '</div>';
     }
 
-    // Gypsum
+    // Gypsum — needed === null: sin datos de subsuelo → informativo, no recomendación
     if (gypsum) {
+      const gypsumClass = gypsum.needed === null ? 'info' : gypsum.needed ? 'warning' : 'success';
       html += `<div class="card"><div class="card-title" style="margin-bottom:12px">Yeso Agrícola</div>
-        <div class="alert alert-${gypsum.needed ? 'warning' : 'success'}">${gypsum.msg}</div></div>`;
+        <div class="alert alert-${gypsumClass}">${gypsum.needed === null ? 'ℹ️ ' : ''}${escapeHtml(gypsum.msg)}</div></div>`;
     }
 
     // Fertilization
@@ -2423,7 +2503,7 @@ class PixAdmin {
 
     const dris = InterpretationEngine.calculateDRIS(this.leafData, this.cropId);
     if (dris.error || dris.order.length === 0) {
-      container.innerHTML = `<div class="alert alert-warning">${dris.error || 'Datos insuficientes para DRIS'}</div>`;
+      container.innerHTML = `<div class="alert alert-warning">${escapeHtml(dris.error || 'Datos insuficientes para DRIS')}</div>`;
       return;
     }
 
@@ -2713,7 +2793,7 @@ class PixAdmin {
     // Model info
     const infoEl = document.getElementById('krigingModelInfo');
     if (infoEl) {
-      infoEl.innerHTML = `<strong>${best.model}</strong> — Nugget: ${bp.nugget.toFixed(1)}, Sill: ${bp.sill.toFixed(0)}, Range: ${bp.range.toFixed(0)}m, RMSE: ${best.rmse.toFixed(3)}`;
+      infoEl.innerHTML = `<strong>${escapeHtml(best.model)}</strong> — Nugget: ${bp.nugget.toFixed(1)}, Sill: ${bp.sill.toFixed(0)}, Range: ${bp.range.toFixed(0)}m, RMSE: ${best.rmse.toFixed(3)}`;
     }
 
     this._currentVariogramParams = { model: best.model, ...bp };
@@ -2838,7 +2918,7 @@ class PixAdmin {
     }
 
     const normalizedData = InterpretationEngine.normalizeLabData(this.soilData, this.unitSystem);
-    const fert = InterpretationEngine.calculateFertilization(normalizedData, this.cropId, this.yieldTarget);
+    const fert = InterpretationEngine.calculateFertilization(normalizedData, this.cropId, this.yieldTarget, this._classifyOptions(normalizedData));
     const products = InterpretationEngine.calculateProducts(fert);
     const liming = InterpretationEngine.calculateLiming(normalizedData, this.cropId);
     const crop = CROPS_DB[this.cropId];
@@ -2908,7 +2988,7 @@ class PixAdmin {
     }
 
     const normalizedData = InterpretationEngine.normalizeLabData(this.soilData, this.unitSystem);
-    const fert = InterpretationEngine.calculateFertilization(normalizedData, this.cropId, this.yieldTarget);
+    const fert = InterpretationEngine.calculateFertilization(normalizedData, this.cropId, this.yieldTarget, this._classifyOptions(normalizedData));
     const products = InterpretationEngine.calculateProducts(fert);
     const crop = CROPS_DB[this.cropId];
 
@@ -3140,23 +3220,81 @@ class PixAdmin {
     this.toast('3 campañas demo cargadas (2024-2026)');
   }
 
+  // Import a DEM as ASCII grid (.asc, ESRI) or JSON { grid: number[][], cellSize?: number }.
+  // GeoTIFF is not parsed in-browser (no decoder bundled): user is told to export .asc.
   importDEM() {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.tif,.tiff,.asc,.json';
-    input.onchange = () => this.toast('MDE importado (demo)');
+    input.accept = '.asc,.json,.tif,.tiff';
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const ext = file.name.split('.').pop().toLowerCase();
+      try {
+        let grid = null, cellSize = 30;
+        if (ext === 'asc') {
+          const text = await file.text();
+          const lines = text.split(/\r?\n/);
+          const header = {};
+          let i = 0;
+          for (; i < lines.length; i++) {
+            const m = lines[i].trim().match(/^([a-z_]+)\s+(-?[\d.eE+-]+)$/i);
+            if (!m) break;
+            header[m[1].toLowerCase()] = parseFloat(m[2]);
+          }
+          const nodata = header.nodata_value !== undefined ? header.nodata_value : -9999;
+          cellSize = header.cellsize || 30;
+          grid = [];
+          for (; i < lines.length; i++) {
+            const row = lines[i].trim();
+            if (!row) continue;
+            grid.push(row.split(/\s+/).map(v => { const n = parseFloat(v); return (n === nodata || !Number.isFinite(n)) ? NaN : n; }));
+          }
+          // Fill NoData with row mean so TWI does not blow up
+          for (const row of grid) {
+            const valid = row.filter(Number.isFinite);
+            const mean = valid.length ? valid.reduce((a, b) => a + b, 0) / valid.length : 0;
+            for (let j = 0; j < row.length; j++) if (!Number.isFinite(row[j])) row[j] = mean;
+          }
+        } else if (ext === 'json') {
+          const json = JSON.parse(await file.text());
+          grid = Array.isArray(json) ? json : json.grid;
+          cellSize = json.cellSize || json.cellsize || 30;
+        } else {
+          this.toast('GeoTIFF no soportado en el navegador: exportá el MDE como ASCII grid (.asc) desde QGIS.', 'warning');
+          return;
+        }
+        if (!grid || !grid.length || !grid[0].length) throw new Error('MDE vacío');
+        this._demData = grid;
+        this._demCellSize = cellSize;
+        this._demLoaded = true;
+        let mn = Infinity, mx = -Infinity;
+        for (const row of grid) for (const v of row) { if (v < mn) mn = v; if (v > mx) mx = v; }
+        const panel = document.getElementById('mzDEMPanel');
+        if (panel) panel.style.display = '';
+        const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+        set('demMinElev', mn.toFixed(0)); set('demMaxElev', mx.toFixed(0)); set('demDelta', `${(mx - mn).toFixed(0)}m`);
+        this.toast(`MDE importado: ${grid.length}×${grid[0].length} celdas (${cellSize} m)`);
+      } catch (err) {
+        console.error('importDEM:', err);
+        this._demData = null; this._demLoaded = false;
+        this.toast('No se pudo leer el MDE: ' + err.message, 'danger');
+      }
+    };
     input.click();
   }
 
   loadDemoDEM() {
-    // Simulate DEM loaded with elevation data
-    this._demLoaded = true;
+    // Visual demo only: shows the panel but does NOT provide elevation data to the engine
+    // (this._demData stays null → TWI layer is disabled with a clear message in the summary)
+    this._demLoaded = false;
+    this._demData = null;
     const panel = document.getElementById('mzDEMPanel');
     if (panel) panel.style.display = '';
     document.getElementById('demMinElev').textContent = '185';
     document.getElementById('demMaxElev').textContent = '212';
     document.getElementById('demDelta').textContent = '27m';
-    this.toast('MDE demo cargado (ALOS 30m)');
+    this.toast('Panel MDE demo (solo visual). Importá un .asc real para usar TWI.', 'warning');
   }
 
   generateManagementZonesV3() {
@@ -3193,43 +3331,76 @@ class PixAdmin {
     }
 
     const map = this.maps.mz;
-    const bounds = map.getBounds();
+    // Bounding box of the LOADED FIELD PERIMETER (not the map viewport): fieldPolygon is [[lng,lat],...]
+    const bounds = this._bboxFromPolygon(this.fieldPolygon);
+    if (!bounds) { this.toast('Perímetro inválido', 'warning'); return; }
+
+    // Samples for the engine: values converted ONCE to canonical units (see _samplePoints)
+    const engineSamples = this.samples
+      .filter(s => s.lat && s.lng && s.soilData)
+      .map(s => {
+        const sd = {};
+        for (const [k, v] of Object.entries(s.soilData)) {
+          if (k.startsWith('_') || v === undefined || v === null || v === '') continue;
+          const n = parseFloat(v);
+          if (!Number.isFinite(n)) continue;
+          sd[k] = s.soilData._units === 'canonical' ? n : InterpretationEngine.convertToInternal(k, n, this.unitSystem);
+        }
+        sd._units = 'canonical';
+        return { lat: s.lat, lng: s.lng, soilData: sd, name: s.name };
+      });
 
     const config = {
-      samples: this.samples,
-      boundary: this.fieldPolygon,
+      samples: engineSamples,
+      boundary: this.fieldPolygon,   // [[lng,lat],...] → engine masks clustering to the field
       bounds: bounds,
       variables: layers,
       cropId: effectiveCrop,
       numZones: numZones,
       method: method,
       resolution: resolution,
-      weights: weights
+      weights: weights,
+      nInit: 5
     };
 
-    // Add temporal stability if enabled
-    if (document.getElementById('mzUseTemporalLayer')?.checked && this._demoCampaignsLoaded) {
-      config.campaignData = 'demo'; // ZonesEngine will generate demo data
-      config.temporalWeight = parseInt(document.getElementById('mzTemporalWeight')?.value || '60') / 100;
+    const disabledLayers = [];
+
+    // Temporal stability: only with REAL campaign grids (≥3). No 'demo' stubs.
+    if (document.getElementById('mzUseTemporalLayer')?.checked) {
+      if (Array.isArray(this._campaignGrids) && this._campaignGrids.length >= 3) {
+        config.campaignData = this._campaignGrids;
+        config.temporalWeight = parseInt(document.getElementById('mzTemporalWeight')?.value || '60') / 100;
+      } else {
+        disabledLayers.push('Estabilidad temporal desactivada: se requieren ≥3 campañas reales (no hay rasters de campaña cargados).');
+      }
     }
 
-    // Add DEM/TWI if enabled
-    if (document.getElementById('mzUseTWI')?.checked && this._demLoaded) {
-      config.demData = 'demo'; // ZonesEngine will generate demo DEM
-      config.twiWeight = parseInt(document.getElementById('mzTWIWeight')?.value || '40') / 100;
+    // DEM/TWI: only with a real DEM grid loaded via importDEM()
+    if (document.getElementById('mzUseTWI')?.checked) {
+      if (Array.isArray(this._demData) && this._demData.length > 0) {
+        config.demData = this._demData;
+        config.demCellSize = this._demCellSize || 30;
+        config.twiWeight = parseInt(document.getElementById('mzTWIWeight')?.value || '40') / 100;
+      } else {
+        disabledLayers.push('Capa TWI desactivada: no hay MDE cargado (importá un .asc real).');
+      }
     }
 
     try {
       const result = ZonesEngine.generateManagementZones(config);
       this._lastMZResult = result;
+      result.disabledLayers = disabledLayers;
+      result.bounds = result.bounds || bounds; // bbox del lote (para exportar)
 
-      // Render zones on map
+      // Render zones on map (engine accepts plain bbox; converts to Leaflet bounds internally)
       this._clearMZOverlays();
-      ZonesEngine.renderZonesToMap(map, result.zoneGrid, bounds, numZones, {
+      this._mzOverlay = ZonesEngine.renderZonesToMap(map, result.zoneGrid, bounds, numZones, {
         opacity: 0.7,
         showLabels: true,
-        clipPolygon: this.fieldPolygon
+        clipPolygon: this.fieldPolygon,
+        stats: result.stats
       });
+      map.fitBounds([[bounds.minLat, bounds.minLng], [bounds.maxLat, bounds.maxLng]], { padding: [20, 20] });
 
       // Show flow lines if DEM is present
       if (result.flowLines && document.getElementById('mzShowFlowLines')?.checked) {
@@ -3238,46 +3409,77 @@ class PixAdmin {
 
       // Update results panel
       this._renderMZStats(result.stats, numZones);
-      document.getElementById('mzResults').style.display = '';
-      this.toast(`${numZones} zonas de manejo generadas (${layers.length} variables)`);
+      const resultsEl = document.getElementById('mzResults');
+      if (resultsEl) {
+        resultsEl.style.display = '';
+        if (disabledLayers.length) {
+          let note = document.getElementById('mzDisabledLayersNote');
+          if (!note) {
+            note = document.createElement('div');
+            note.id = 'mzDisabledLayersNote';
+            note.className = 'alert alert-warning';
+            note.style.marginTop = '10px';
+            resultsEl.appendChild(note);
+          }
+          note.innerHTML = disabledLayers.map(m => `<div>⚠ ${escapeHtml(m)}</div>`).join('');
+        } else {
+          document.getElementById('mzDisabledLayersNote')?.remove();
+        }
+      }
+      this.toast(`${numZones} zonas de manejo generadas (${result.metadata?.variables?.length || layers.length} variables)`);
     } catch (e) {
       console.error('MZ v3 error:', e);
-      // Fallback to basic
+      this.toast('Error en Zonas v3: ' + e.message + ' — usando método básico', 'warning');
       this._generateBasicZones(layers[0], numZones, method, resolution);
     }
   }
 
+  // Plain {minLat,maxLat,minLng,maxLng} bbox from a [[lng,lat],...] ring (with small padding)
+  _bboxFromPolygon(polygon) {
+    if (!polygon || polygon.length < 3) return null;
+    if (typeof SamplingEngine !== 'undefined' && SamplingEngine._normalizeBounds && polygon.getSouthWest) {
+      return SamplingEngine._normalizeBounds(polygon);
+    }
+    let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
+    for (const c of polygon) {
+      const lng = Array.isArray(c) ? c[0] : c.lng, lat = Array.isArray(c) ? c[1] : c.lat;
+      if (lat < minLat) minLat = lat; if (lat > maxLat) maxLat = lat;
+      if (lng < minLng) minLng = lng; if (lng > maxLng) maxLng = lng;
+    }
+    if (!Number.isFinite(minLat) || !Number.isFinite(minLng)) return null;
+    const padLat = (maxLat - minLat) * 0.02 || 0.0005, padLng = (maxLng - minLng) * 0.02 || 0.0005;
+    return { minLat: minLat - padLat, maxLat: maxLat + padLat, minLng: minLng - padLng, maxLng: maxLng + padLng };
+  }
+
   _generateBasicZones(variable, numZones, method, resolution) {
-    // Fallback using existing InterpolationEngine
+    // Fallback using InterpolationEngine (single variable, IDW + quantile/k-means zones)
     const map = this.maps.mz;
     if (!map) return;
-    const bounds = map.getBounds();
-    const points = this.samples.filter(s => s.soilData[variable] !== undefined).map(s => ({
-      lat: s.lat, lng: s.lng, value: parseFloat(s.soilData[variable])
-    }));
+    const bounds = this._bboxFromPolygon(this.fieldPolygon) || InterpolationEngine.getBounds(this._samplePoints(variable));
+    const points = this._samplePoints(variable);
     if (points.length < 2) { this.toast('Datos insuficientes', 'warning'); return; }
 
-    const interpResult = InterpolationEngine.interpolateIDW(points, bounds, { resolution });
-    const zoneResult = InterpolationEngine.kMeansZones(interpResult.grid, numZones);
+    const interpResult = InterpolationEngine.interpolateIDW(points, bounds, { resolution, power: 2, smooth: 2 });
+    const zoneResult = InterpolationEngine.generateManagementZones(interpResult, numZones);
 
     this._clearMZOverlays();
-    const overlay = InterpolationEngine.renderZonesToCanvas(map, zoneResult.zones, interpResult.grid, bounds, numZones, {
-      polygon: this.fieldPolygon,
-      showLabels: true
+    const overlay = InterpolationEngine.addToLeafletMap(map, zoneResult, {
+      isZones: true, opacity: 0.7, layerOpacity: 0.85, polygon: this.fieldPolygon
     });
-    this._mzOverlay = overlay;
+    this._mzOverlay = { overlay };
+    map.fitBounds([[bounds.minLat, bounds.minLng], [bounds.maxLat, bounds.maxLng]], { padding: [20, 20] });
 
     // Basic stats
-    const statsHtml = zoneResult.stats.map((s, i) => `
+    const statsHtml = (zoneResult.zones || []).map((z, i) => `
       <div class="zone-stat-card" style="border-left-color:${InterpolationEngine.PALETTES.zones[i] ? `rgb(${InterpolationEngine.PALETTES.zones[i].join(',')})` : 'var(--teal)'}">
         <div class="zone-label">Zona ${i + 1}</div>
-        <div class="zone-area">${s.count} px</div>
-        <div class="zone-mean">${s.mean?.toFixed(1) || '—'}</div>
-        <div class="zone-cv">CV: ${s.cv?.toFixed(0) || '—'}%</div>
+        <div class="zone-area">${z.areaPct !== undefined ? z.areaPct + '%' : (z.cellCount || 0) + ' px'}</div>
+        <div class="zone-mean">${Number.isFinite(z.mean) ? z.mean.toFixed(1) : '—'}</div>
+        <div class="zone-cv">${z.min !== undefined ? `${z.min} – ${z.max}` : ''}</div>
       </div>`).join('');
     document.getElementById('mzZoneStats').innerHTML = statsHtml;
     document.getElementById('mzResults').style.display = '';
-    this.toast(`${numZones} zonas generadas (variable: ${variable})`);
+    this.toast(`${numZones} zonas generadas (variable: ${escapeHtml(variable)})`);
   }
 
   _clearMZOverlays() {
@@ -3286,6 +3488,8 @@ class PixAdmin {
     if (this._mzOverlay) {
       if (this._mzOverlay.overlay) map.removeLayer(this._mzOverlay.overlay);
       if (this._mzOverlay.labels) map.removeLayer(this._mzOverlay.labels);
+      if (this._mzOverlay.legend) map.removeControl(this._mzOverlay.legend);
+      this._mzOverlay = null;
     }
     if (this._mzFlowLayer) map.removeLayer(this._mzFlowLayer);
   }
@@ -3333,7 +3537,7 @@ class PixAdmin {
   exportMZGeoJSON() {
     if (!this._lastMZResult) { this.toast('Generá zonas primero', 'warning'); return; }
     const gj = typeof ZonesEngine !== 'undefined'
-      ? ZonesEngine.zonesToGeoJSON(this._lastMZResult.zoneGrid, this.maps.mz.getBounds(), this._lastMZResult.numZones, this._lastMZResult.stats)
+      ? ZonesEngine.zonesToGeoJSON(this._lastMZResult.zoneGrid, this._lastMZResult.bounds || this._bboxFromPolygon(this.fieldPolygon), this._lastMZResult.numZones, this._lastMZResult.stats)
       : { type: 'FeatureCollection', features: [] };
     const blob = new Blob([JSON.stringify(gj, null, 2)], { type: 'application/json' });
     this._downloadBlob(blob, 'zonas_manejo.geojson');

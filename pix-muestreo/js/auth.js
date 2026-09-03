@@ -137,43 +137,146 @@ class PixAuth {
       }
     }
 
-    // Try by email index first
-    let user = await pixDB.getByIndex('users', 'email', emailLower);
+    // ── (a) ONLINE FIRST: server-side verification via Edge Function ──────
+    // The password hash never reaches the device. On success we store a LOCAL
+    // PBKDF2 hash (fresh salt) so this device can re-login offline later.
+    let onlineResult = null; // null → network unavailable, fall back to local
+    const cloudReady = (typeof navigator === 'undefined' || navigator.onLine !== false) &&
+      typeof pixCloud !== 'undefined' && pixCloud.isEnabled?.() && typeof pixCloud.techLogin === 'function';
+    if (cloudReady) {
+      try {
+        onlineResult = await pixCloud.techLogin(emailLower, password, 8000);
+      } catch (netErr) {
+        console.warn('[Auth] Login online no disponible, usando modo offline:', netErr.message);
+        onlineResult = null;
+      }
+    }
 
-    // Fallback: search by username, then by name (case-insensitive)
-    if (!user) {
-      const allUsers = await pixDB.getAll('users');
-      user = allUsers.find(u => (u.username || '').toLowerCase() === emailLower)
-          || allUsers.find(u => (u.name || '').toLowerCase() === emailLower || (u.email || '').toLowerCase() === emailLower);
+    if (onlineResult) {
+      if (onlineResult.ok) {
+        const user = await this._applyOnlineLogin(onlineResult.user, emailLower, password);
+        return this._completeLogin(user, emailLower);
+      }
+      if (onlineResult.status === 429) {
+        const secs = Math.max(1, Math.ceil(Number(onlineResult.retry_after_s) || 60));
+        throw new Error(`Demasiados intentos. Intentá en ${secs}s`);
+      }
+      // 401 → the server is authoritative for CLOUD technicians: do NOT fall
+      // back to a (possibly stale) local hash — an admin may have changed or
+      // revoked the password. Users created only on this device (no
+      // cloudTechId, e.g. via the local admin panel) are not known to the
+      // server, so for them we continue with the local verification below.
+      const localOnly = await this._findLocalUser(emailLower);
+      if (!localOnly || localOnly.cloudTechId || localOnly._syncedFrom === 'cloud') {
+        await this._registerAuthFailure(emailLower);
+        return null;
+      }
+      console.warn('[Auth] Usuario solo local (sin registro en la nube): verificación offline');
+    }
+
+    // ── (b) OFFLINE / no cloud: verify against the local hash ────────────
+    const user = await this._findLocalUser(emailLower);
+
+    if (user && user.active && !user.passwordHash) {
+      // Technician bridged from the cloud directory but never logged in
+      // online on this device → no local hash to verify against.
+      await this._registerAuthFailure(emailLower);
+      throw new Error('Primer inicio de sesión requiere conexión a internet');
     }
 
     const authFailed = !user || !user.active ||
       !(await this.verifyPassword(password, user.passwordHash));
 
     if (authFailed) {
-      // Track both per-user and master-key failures (attacker doesn't know which bucket)
-      this._recordFailure(emailLower);
-      if (this._masterHash) {
-        this._masterFailCount++;
-        if (this._masterFailCount >= 5) {
-          this._masterLockUntil = Date.now() + 15 * 60 * 1000;
-          console.warn('[Auth] Master key locked for 15 min after 5 failures');
-        }
-        try {
-          await pixDB.setSetting('master_rate_limit', {
-            count: this._masterFailCount,
-            lockUntil: this._masterLockUntil
-          });
-        } catch (_) {}
-      }
+      await this._registerAuthFailure(emailLower);
       return null;
     }
 
+    return this._completeLogin(user, emailLower);
+  }
+
+  // Locate a local user by email, username or display name (case-insensitive)
+  async _findLocalUser(identifierLower) {
+    let user = null;
+    try { user = await pixDB.getByIndex('users', 'email', identifierLower); } catch (_) {}
+    if (!user) {
+      const allUsers = await pixDB.getAll('users');
+      user = allUsers.find(u => (u.username || '').toLowerCase() === identifierLower)
+          || allUsers.find(u => (u.name || '').toLowerCase() === identifierLower || (u.email || '').toLowerCase() === identifierLower);
+    }
+    return user || null;
+  }
+
+  // Create/update the local user record from the server's authoritative
+  // answer and store a device-local PBKDF2 hash for later offline logins.
+  async _applyOnlineLogin(srv, identifierLower, password) {
+    const username = String(srv.username || '').toLowerCase().trim();
+    const email = String(srv.email || '').toLowerCase().trim();
+    const allUsers = await pixDB.getAll('users');
+    let user = null;
+    if (srv.id) user = allUsers.find(u => u.cloudTechId && String(u.cloudTechId) === String(srv.id));
+    if (!user && username) user = allUsers.find(u => (u.username || '').toLowerCase() === username);
+    if (!user && email) user = allUsers.find(u => (u.email || '').toLowerCase() === email);
+    if (!user) user = allUsers.find(u => (u.email || '').toLowerCase() === identifierLower || (u.username || '').toLowerCase() === identifierLower) || null;
+
+    const now = new Date().toISOString();
+    if (!user) {
+      user = {
+        id: 'cloud-' + (srv.id || Date.now() + '-' + Math.random().toString(36).substr(2, 6)),
+        email: email || username || identifierLower,
+        createdAt: now,
+        _syncedFrom: 'cloud'
+      };
+    }
+    // Server is the trusted source for identity/role.
+    if (srv.id) user.cloudTechId = srv.id;
+    if (username) user.username = username;
+    if (email && email !== (user.email || '')) {
+      // Avoid violating the unique email index if another local record owns it
+      const clash = allUsers.find(u => u.id !== user.id && (u.email || '').toLowerCase() === email);
+      if (!clash) user.email = email;
+    }
+    if (!user.email) user.email = username || identifierLower;
+    if (srv.full_name) user.name = srv.full_name;
+    if (!user.name) user.name = username || user.email;
+    if (srv.role) user.role = srv.role;
+    if (!user.role) user.role = 'tecnico';
+    if (srv.phone !== undefined && srv.phone !== null) user.phone = srv.phone;
+    user.active = true;
+    // LOCAL hash only (fresh salt) — enables offline re-login on THIS device.
+    user.passwordHash = await this.hashPasswordSalted(password);
+    user.lastOnlineLoginAt = now;
+    user.updatedAt = now;
+    user._syncedFrom = 'cloud';
+    await pixDB.putUser(user);
+    return user;
+  }
+
+  // Shared session bootstrap for local + online logins
+  _completeLogin(user, identifierLower) {
     this.currentUser = user;
     localStorage.setItem('pix_user_id', user.id);
     // Reset failure counters on success
-    this._userFails.delete(emailLower);
+    this._userFails.delete(identifierLower);
     return user;
+  }
+
+  // Track both per-user and master-key failures (attacker doesn't know which bucket)
+  async _registerAuthFailure(identifierLower) {
+    this._recordFailure(identifierLower);
+    if (this._masterHash) {
+      this._masterFailCount++;
+      if (this._masterFailCount >= 5) {
+        this._masterLockUntil = Date.now() + 15 * 60 * 1000;
+        console.warn('[Auth] Master key locked for 15 min after 5 failures');
+      }
+      try {
+        await pixDB.setSetting('master_rate_limit', {
+          count: this._masterFailCount,
+          lockUntil: this._masterLockUntil
+        });
+      } catch (_) {}
+    }
   }
 
   // Record a failed login attempt for the given email (in-memory only)
@@ -318,14 +421,80 @@ class PixAuth {
     return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
   }
 
-  // Create a salted hash for new passwords (registration/password change)
+  // ── PBKDF2-SHA256 (Web Crypto) ──────────────────────────────────────────
+  // Format: 'pbkdf2$<iterations>$<saltB64>$<hashB64>'
+  get PBKDF2_ITERATIONS() { return 100000; }
+
+  _b64(bytes) {
+    let s = '';
+    for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+    return btoa(s);
+  }
+
+  _unb64(str) {
+    const bin = atob(str);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+
+  _pbkdf2Available() {
+    return typeof crypto !== 'undefined' && !!crypto.subtle && typeof crypto.subtle.importKey === 'function';
+  }
+
+  async _pbkdf2(plain, saltBytes, iterations) {
+    const keyMaterial = await crypto.subtle.importKey(
+      'raw', new TextEncoder().encode(plain), { name: 'PBKDF2' }, false, ['deriveBits']
+    );
+    const bits = await crypto.subtle.deriveBits(
+      { name: 'PBKDF2', hash: 'SHA-256', salt: saltBytes, iterations },
+      keyMaterial, 256
+    );
+    return new Uint8Array(bits);
+  }
+
+  // Create a salted hash for new passwords (registration/password change).
+  // Uses PBKDF2-SHA256 (100 000 iter.) when Web Crypto is available; falls
+  // back to the legacy 'salt:sha256' format on WebViews without crypto.subtle.
   async hashPasswordSalted(plain) {
+    if (this._pbkdf2Available()) {
+      try {
+        const salt = new Uint8Array(16);
+        crypto.getRandomValues(salt);
+        const iterations = this.PBKDF2_ITERATIONS;
+        const hash = await this._pbkdf2(plain, salt, iterations);
+        return `pbkdf2$${iterations}$${this._b64(salt)}$${this._b64(hash)}`;
+      } catch (e) {
+        console.warn('[Auth] PBKDF2 no disponible, usando SHA-256 con sal:', e.message);
+      }
+    }
     const salt = this._generateSalt();
     return this.hashPassword(plain, salt);
   }
 
-  // Verify a password against a stored hash (supports both salted and legacy unsalted)
+  // Verify a password against a stored hash. Accepts:
+  //   - 'pbkdf2$iter$saltB64$hashB64'  (current)
+  //   - 'salt:sha256hex'               (legacy salted)
+  //   - 'sha256hex'                    (legacy unsalted)
   async verifyPassword(plain, storedHash) {
+    if (typeof storedHash !== 'string' || !storedHash) return false;
+    if (storedHash.startsWith('pbkdf2$')) {
+      const parts = storedHash.split('$');
+      if (parts.length !== 4) return false;
+      const iterations = parseInt(parts[1], 10);
+      if (!iterations || !this._pbkdf2Available()) return false;
+      try {
+        const computed = await this._pbkdf2(plain, this._unb64(parts[2]), iterations);
+        const expected = this._unb64(parts[3]);
+        if (computed.length !== expected.length) return false;
+        let diff = 0;
+        for (let i = 0; i < computed.length; i++) diff |= computed[i] ^ expected[i];
+        return diff === 0;
+      } catch (e) {
+        console.warn('[Auth] PBKDF2 verify failed:', e.message);
+        return false;
+      }
+    }
     if (storedHash.includes(':')) {
       // Salted format: 'salt:hash'
       const salt = storedHash.split(':')[0];

@@ -548,6 +548,15 @@ ${buildPhotoGallery(photoSamples)}
 
   // ─── Generate PDF from HTML ────────────────────────────────
   async function generatePDF(htmlContent, fileName) {
+    // html2pdf (~900 KB) ya no se carga en el arranque: se inyecta bajo demanda
+    // la primera vez que se genera un reporte (helper loadScriptOnce en app.js).
+    if (typeof html2pdf === 'undefined' && typeof loadScriptOnce === 'function') {
+      try {
+        await loadScriptOnce('lib/html2pdf.bundle.min.js');
+      } catch (e) {
+        console.error('[ReportPro] html2pdf load failed:', e.message);
+      }
+    }
     if (typeof html2pdf === 'undefined') {
       console.error('[ReportPro] html2pdf not loaded');
       return null;
